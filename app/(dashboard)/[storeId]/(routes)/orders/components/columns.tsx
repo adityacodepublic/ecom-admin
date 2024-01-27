@@ -18,6 +18,14 @@ export const columns: ColumnDef<OrderColumn>[] = [
     header: "Products",
   },
   {
+    accessorKey: "totalPrice",
+    header: "Total price",
+  },
+  {
+    accessorKey: "createdAt",
+    header: "Date",
+  },
+  {
     accessorKey: "phone",
     header: "Phone",
   },
@@ -26,11 +34,8 @@ export const columns: ColumnDef<OrderColumn>[] = [
     header: "Address",
   },
   {
-    accessorKey: "totalPrice",
-    header: "Total price",
-  },
-  {
     accessorKey: "isPaid",
     header: "Paid",
+    cell: ({ row }) => row.original.isPaid ? <span style={{ backgroundColor: '#94FF9470', color: 'white', borderRadius: '8.5px', padding: '4px 6px', marginLeft:"-4px" }}>true</span> : 'false',
   },
 ];
