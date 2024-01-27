@@ -29,6 +29,7 @@ const OrdersPage = async ({
   });
 
   const formattedOrders: OrderColumn[] = orders.map((item) => ({
+    email: item.email,
     id: item.id,
     phone: item.phone,
     address: item.address,
