@@ -41,6 +41,6 @@ export const columns: ColumnDef<OrderColumn>[] = [
   {
     accessorKey: "isPaid",
     header: "Paid",
-    cell: ({ row }) => row.original.isPaid ? <span style={{ backgroundColor: '#94FF9470', color: 'white', borderRadius: '8.5px', padding: '4px 6px', marginLeft:"-4px" }}>true</span> : 'false',
+    cell: ({ row }) => row.original.isPaid ? <span style={{ backgroundColor: '#94FF9470', borderRadius: '8.5px', padding: '4px 6px', marginLeft:"-4px" }}>true</span> : 'false',
   },
 ];
