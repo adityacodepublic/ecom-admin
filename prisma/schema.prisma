@@ -18,6 +18,7 @@ model Store {
   sizes           Size[]     @relation("StoreToSize")
   colors          Color[]     @relation("StoreToColor")
   orders          Order[]     @relation("StoreToOrder")
+  users           Users[]      @relation("StoreToUsers")
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 }
@@ -75,19 +76,36 @@ model Product {
   @@index([colorId])
 }
 
-model Order {
-  id          String    @id @default(uuid())
+model Users {
+  id          String    @id @unique
   storeId     String    // Foreign Key to Store
-  store       Store     @relation("StoreToOrder", fields: [storeId], references: [id])
-  orderItems  OrderItem[] // Relation to OrderItem model
-  isPaid      Boolean   @default(false)
-  phone       String    @default("")
-  address     String    @default("")
-  email       String    @default("")
+  store       Store     @relation("StoreToUsers", fields: [storeId], references: [id])
+  orders      Order[]   @relation("UsersToOrder")// relation to Order model
+  email       String    @default("") 
+  phone       String    @default("") 
+  fname       String    @default("")
+  imgurl      String?   @default("")
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
   @@index([storeId])
+}
+
+model Order {
+  id          String      @id @default(uuid())
+  storeId     String      // Foreign Key to Store
+  store       Store       @relation("StoreToOrder", fields: [storeId], references: [id])
+  usersId     String      // Foreign Key to User
+  users       Users       @relation("UsersToOrder", fields: [usersId], references: [id])
+  orderItems  OrderItem[] // Relation to OrderItem model
+  address     String      @default("")
+  isPaid      Boolean     @default(false)
+  status      String      @default ("Order Recieved")
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([storeId])
+  @@index([usersId])
 }
 
 // Intermediary for a many-to-many relationship

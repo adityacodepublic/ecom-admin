@@ -26,6 +26,7 @@ export async function POST(req: Request) {
   
   const addressComponents = [
     address?.line1,
+    address?.line2,
     address?.city,
     address?.state,
     address?.postal_code,
@@ -43,18 +44,27 @@ export async function POST(req: Request) {
       data: {
         isPaid: true,
         address: addressString,
-        phone: session?.customer_details?.phone || '',
-        email: session?.customer_details?.email || '',
-
       },
       include: {
+        users: true,
         orderItems: true,
       }
     });
-
+  
+    // Update the user details
+    await prismadb.users.update({
+      where: {
+        id: order.usersId,
+      },
+      data: {
+        phone: session?.customer_details?.phone || '',
+        //email: session?.customer_details?.email || '',
+      },
+    });
+  
     const productIds = order.orderItems.map((orderItem) => orderItem.productId);
-
-    await prismadb.product.updateMany({
+  
+      await prismadb.product.updateMany({
       where: {
         id: {
           in: [...productIds],

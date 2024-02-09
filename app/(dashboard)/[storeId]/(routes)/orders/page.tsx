@@ -17,6 +17,7 @@ const OrdersPage = async ({
       storeId: params.storeId
     },
     include: {
+      users: true,
       orderItems: {
         include: {
           product: true
@@ -29,9 +30,9 @@ const OrdersPage = async ({
   });
 
   const formattedOrders: OrderColumn[] = orders.map((item) => ({
-    email: item.email,
+    email: item.users.email,
     id: item.id,
-    phone: item.phone,
+    phone: item.users.phone,
     address: item.address,
     products: item.orderItems.map((orderItem) => orderItem.product.name).join(', '),
     totalPrice: formatter.format(item.orderItems.reduce((total, item) => {
