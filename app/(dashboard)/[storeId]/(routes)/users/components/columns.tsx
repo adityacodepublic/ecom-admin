@@ -41,6 +41,11 @@ export const columns: ColumnDef<UserColumn>[] = [
   {
     accessorKey: "totalPrice",
     header: "Purchase",
+    cell: ({ row }) => (
+      <div className="flex items-center">
+        <p>&#8377;</p>{row.original.totalPrice}
+      </div>
+    ),
   },
   {
     accessorKey: "products",
