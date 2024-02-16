@@ -18,9 +18,9 @@ export async function POST(
   req: Request,
   { params }: { params: { storeId: string} }
 ) {
-  const { productIds, usersId, fname, email, imgurl } = await req.json();
+  const { cartItems, usersId, fname, email, imgurl } = await req.json();
 
-  if (!productIds || productIds.length === 0) {
+  if (!cartItems || cartItems.length === 0) {
     return new NextResponse("Product ids are required", { status: 400 });
   };
 
@@ -28,7 +28,7 @@ export async function POST(
   const products = await prismadb.product.findMany({
     where: {
       id: {
-        in: productIds
+        in: cartItems.map((product:any)=>product.id),
       }
     }
   });
@@ -36,8 +36,9 @@ export async function POST(
   const line_items: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
   // Product List
   products.forEach((product) => {
+    const orderItem = cartItems.find((item:any)=> item.id === product.id);
     line_items.push({
-      quantity: 1,
+      quantity: orderItem.orderQuantity,
       price_data: {
         currency: 'INR',
         product_data: {
@@ -54,7 +55,7 @@ export async function POST(
         id:usersId,
     },
   });
-  //else create
+  //else create user
   if (user==null){ 
       const user = await prismadb.users.create({
           data:{
@@ -67,7 +68,7 @@ export async function POST(
       })
   }
   else{
-  // compare data
+  // compare/update data
       if (user?.email!=email){
           await prismadb.users.update({
               where:{
@@ -107,15 +108,20 @@ export async function POST(
       usersId: usersId,
       isPaid: false,
       orderItems: {
-        create: productIds.map((productId: string) => ({
-          product: {
-            connect: {
-              id: productId
-            }
-          }
-        }))
-      }
-    }
+        create: products.map((item: any) => {
+          const cartItem = cartItems.find((orderItem: any)=> item.id === orderItem.id);
+          return {
+            product: {
+              connect: {
+                id: item.id,
+              },
+            },
+            orderQuantity: cartItem.orderQuantity
+          };
+
+        }),
+      },
+    },
   });
 
   const session = await stripe.checkout.sessions.create({

@@ -12,7 +12,7 @@ export async function POST(
 
     const body = await req.json();
 
-    const { name, price, categoryId, colorId, sizeId, images, isFeatured, isArchived } = body;
+    const { name, price, quantity, maxQuantity, categoryId, colorId, sizeId, images, isFeatured, isArchived } = body;
 
     if (!userId) {
       return new NextResponse("Unauthenticated", { status: 403 });
@@ -30,6 +30,14 @@ export async function POST(
       return new NextResponse("Price is required", { status: 400 });
     }
 
+    if (!quantity) {
+      return new NextResponse("Quantity is required", { status: 400 });
+    }
+
+    if (!maxQuantity) {
+      return new NextResponse("Max Quantity is required", { status: 400 });
+    }
+
     if (!categoryId) {
       return new NextResponse("Category id is required", { status: 400 });
     }
@@ -41,6 +49,7 @@ export async function POST(
     if (!sizeId) {
       return new NextResponse("Size id is required", { status: 400 });
     }
+
 
     if (!params.storeId) {
       return new NextResponse("Store id is required", { status: 400 });
@@ -67,6 +76,8 @@ export async function POST(
         colorId,
         sizeId,
         storeId: params.storeId,
+        quantity,
+        maxQuantity,
         images: {
           createMany: {
             data: [
@@ -96,6 +107,8 @@ export async function GET(
     const sizeId = searchParams.get("sizeId") || undefined;
     const searchValue = decodeURIComponent(searchParams.get('searchValue') || "") || undefined;
     const isFeatured = searchParams.get("isFeatured");
+    const isArchived = searchParams.get("isArchived");
+
     
     if (!params.storeId) {
         return new NextResponse("StoreId is required", { status: 400 });
@@ -110,7 +123,9 @@ export async function GET(
         name: {
           contains: searchValue
         },
-        isFeatured: isFeatured ? true : undefined // we dont pass false so it ignores this clause
+        isFeatured: isFeatured ? true : undefined, // we dont pass false so it ignores this clause
+        isArchived: isArchived ? false : undefined, // we dont pass false so it ignores this clause
+
       },
       include: {
         images: true,

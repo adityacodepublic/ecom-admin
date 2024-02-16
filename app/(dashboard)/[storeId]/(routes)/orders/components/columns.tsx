@@ -17,6 +17,11 @@ export const columns: ColumnDef<OrderColumn>[] = [
   {
     accessorKey: "products",
     header: "Products",
+    // cell: ({ row }) => (
+    //   <div className="flex items-center gap-x-2">
+    //     {row.original.products. name.slice(0, 20)}{data.name.length > 20 ? `…` : ``}
+    //   </div>
+    // )
   },
   {
     accessorKey: "totalPrice",

@@ -64,17 +64,46 @@ export async function POST(req: Request) {
   
     const productIds = order.orderItems.map((orderItem) => orderItem.productId);
   
-      await prismadb.product.updateMany({
-      where: {
-        id: {
-          in: [...productIds],
+      // await prismadb.product.updateMany({
+      //   where: {
+      //     id: {
+      //       in: [...productIds],
+      //     },
+      //   },
+      //   data: {
+          
+      //     isArchived: true
+      //   }
+      // });
+
+      // Fetch the products from the database
+      const products = await prismadb.product.findMany({
+        where: {
+          id: {
+            in: productIds,
+          },
         },
-      },
-      data: {
-        isArchived: true
+      });
+
+      // Update the quantities
+      for (const orderItem of order.orderItems) {
+        const product = products.find((p) => p.id === orderItem.productId);
+        if (product) {
+          // Subtract orderItem.orderQuantity from the existing quantity
+          const newQuantity = Math.max(product.quantity - orderItem.orderQuantity, 0);
+
+          // Update the product's quantity
+          await prismadb.product.update({
+            where: { id: product.id },
+            data: { 
+              quantity: newQuantity, 
+              isArchived: newQuantity === 0 },
+          });
+        }
       }
-    });
+
   }
 
   return new NextResponse(null, { status: 200 });
+
 };

@@ -37,11 +37,11 @@ const UsersPage = async ({
 
   function getProductString(item: any): string {
     let productCount: { [key: string]: number } = {};
-  
-    item.orders.forEach((order: any) => 
+    item.orders.filter((items:any)=>(items.isPaid===true))
+    .forEach((order: any) => 
       order.orderItems.forEach((orderItem: any) => {
-        let product = orderItem.product.name;
-        productCount[product] = (productCount[product] || 0) + 1;
+        let product = orderItem.product.name.slice(0,30);
+        productCount[product] = (productCount[product] || 0) + 1 * orderItem.orderQuantity;
       })
     );
     let productEntries = Object.entries(productCount);
@@ -54,7 +54,7 @@ const UsersPage = async ({
     const totalPrice = item.orders
       .filter((order: any) => order.isPaid)
       .flatMap((order: any) =>
-        order.orderItems.map((orderItem: any) => orderItem.product.price)
+        order.orderItems.map((orderItem: any) => orderItem.product.price * orderItem.orderQuantity)
       )
       .reduce((total: number, price: number) => total + price, 0);
   
@@ -63,7 +63,7 @@ const UsersPage = async ({
     return finalPrice;
   };
 
- const price = data.map((order)=>(order.orders.map((orderitem)=>(orderitem.orderItems.map((item)=>(item.product.price))))))
+ //const price = data.map((order)=>(order.orders.map((orderitem)=>(orderitem.orderItems.map((item)=>(item.product.price))))))
   
   
   const formattedOrders: UserColumn[] = data.map((item) => ({
@@ -71,7 +71,7 @@ const UsersPage = async ({
     id: item.id,
     email: item.email,
     phone:item.phone,
-    address:item.orders[0].address,
+    address:item.orders[2]?.address||item.orders[0]?.address,
     products: getProductString(item),  
     totalPrice: PaidTotalPrice(item),
     imgurl:item.imgurl||"https://static.vecteezy.com/system/resources/thumbnails/021/911/748/small/white-circle-free-png.png",
