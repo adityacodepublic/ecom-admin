@@ -46,6 +46,7 @@ const OrdersPage = async ({
     }, 0)),
     isPaid: item.isPaid,
     createdAt: format(item.createdAt, 'do MMM'),
+    status:item.payment.slice(0,5)
   }));
 
   return (

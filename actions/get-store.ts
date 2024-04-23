@@ -2,7 +2,7 @@ import prismadb from "@/lib/prismadb";
 import { cache } from "react";
 
 export const getStoreURL = cache(async (storeId: string) => {
-  const storeURL = await prismadb.store.findMany({
+  const storeURL = await prismadb.store.findUnique({
     where: {
       id:storeId
     },
@@ -10,5 +10,5 @@ export const getStoreURL = cache(async (storeId: string) => {
         url:true
     }
   });
-  return storeURL[0].url;
+  return storeURL?.url;
 });

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs";
 
 import prismadb from "@/lib/prismadb";
+import axios from "axios";
 
 export async function GET(
   req: Request,
@@ -23,6 +24,9 @@ export async function GET(
         quantity:true,
         maxQuantity:true,
         images:{
+          orderBy:{
+            updatedAt:'desc'
+          },
           select:{
             url:true
           }
@@ -47,7 +51,6 @@ export async function GET(
         },
       }
     });
-  
     return NextResponse.json(product);
   } catch (error) {
     console.log('[PRODUCT_GET]', error);
@@ -86,7 +89,14 @@ export async function DELETE(
         id: params.productId
       },
     });
-  
+    
+    try { 
+      const response = await axios.post(`${process.env.FRONTEND_STORE_URL}/api/revalidate`, { path:`/product/${params.productId}`, tag:['categories','products'] });
+      console.log(response.status);    
+    } catch (error) {
+      console.error('Error processing revalidation:', error);    
+    }
+    
     return NextResponse.json(product);
   } catch (error) {
     console.log('[PRODUCT_DELETE]', error);
@@ -192,6 +202,13 @@ export async function PATCH(
       },
     })
   
+    try { 
+      const response = await axios.post(`${process.env.FRONTEND_STORE_URL}/api/revalidate`, { path:`/product/${params.productId}`, tag:['categories','products'] });
+      console.log(response.status);    
+    } catch (error) {
+      console.error('Error processing revalidation:', error);    
+    }
+    
     return NextResponse.json(product);
   } catch (error) {
     console.log('[PRODUCT_PATCH]', error);

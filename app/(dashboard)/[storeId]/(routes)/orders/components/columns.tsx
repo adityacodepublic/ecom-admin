@@ -11,17 +11,13 @@ export type OrderColumn = {
   products: string;
   createdAt: string;
   email: string;
+  status:string;
 }
 
 export const columns: ColumnDef<OrderColumn>[] = [
   {
     accessorKey: "products",
     header: "Products",
-    // cell: ({ row }) => (
-    //   <div className="flex items-center gap-x-2">
-    //     {row.original.products. name.slice(0, 20)}{data.name.length > 20 ? `…` : ``}
-    //   </div>
-    // )
   },
   {
     accessorKey: "totalPrice",
@@ -47,5 +43,9 @@ export const columns: ColumnDef<OrderColumn>[] = [
     accessorKey: "isPaid",
     header: "Paid",
     cell: ({ row }) => row.original.isPaid ? <span style={{ backgroundColor: '#94FF9470', borderRadius: '8.5px', padding: '4px 6px', marginLeft:"-4px" }}>true</span> : 'false',
+  },
+  {
+    accessorKey: "status",
+    header: "Status",
   },
 ];

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs';
 
 import prismadb from '@/lib/prismadb';
+import axios from 'axios';
  
 export async function POST(
   req: Request,
@@ -49,6 +50,13 @@ export async function POST(
       }
     });
   
+    try { 
+      const response = await axios.post(`${process.env.FRONTEND_STORE_URL}/api/revalidate`, { tag:['categories'] });
+      console.log(response.status);    
+    } catch (error) {
+      console.error('Error processing revalidation:', error);    
+    }
+    
     return NextResponse.json(category);
   } catch (error) {
     console.log('[CATEGORIES_POST]', error);

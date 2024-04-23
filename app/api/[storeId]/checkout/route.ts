@@ -6,7 +6,6 @@ import { stripe } from "@/lib/stripe";
 import axios from "axios";
 import { getStoreURL } from "@/actions/get-store";
 
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",

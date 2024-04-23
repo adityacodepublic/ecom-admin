@@ -71,7 +71,7 @@ const UsersPage = async ({
     address:item.orders[2]?.address.value||item.orders[0]?.address.value,
     products: getProductString(item),  
     totalPrice: PaidTotalPrice(item),
-    imgurl:item.imgurl||"https://static.vecteezy.com/system/resources/thumbnails/021/911/748/small/white-circle-free-png.png",
+    imgurl:item.imgurl||"/public/white.png",
   }));
 
   return (

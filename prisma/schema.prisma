@@ -12,12 +12,12 @@ model Store {
   id         String      @id @default(uuid())
   name       String
   userId     String
-  url        String      @default("")
+  url        String      @default("http://localhost:3001")
   billboards Billboard[] @relation("StoreToBillboard")
   categories Category[]  @relation("StoreToCategory")
-  products   Product[]   @relation("StoreToProduct")
   sizes      Size[]      @relation("StoreToSize")
   colors     Color[]     @relation("StoreToColor")
+  products   Product[]   @relation("StoreToProduct")
   orders     Order[]     @relation("StoreToOrder")
   users      Users[]     @relation("StoreToUsers")
   createdAt  DateTime    @default(now())
@@ -47,7 +47,7 @@ model billboardImage {
   updatedAt   DateTime   @updatedAt
 
   @@index([billboardId])
-}
+}//G
 
 model Category {
   id          String    @id @default(uuid())
@@ -100,7 +100,7 @@ model Image {
   updatedAt DateTime @updatedAt
 
   @@index([productId])
-}
+}//R
 
 model Users {
   id        String    @id @unique
@@ -128,7 +128,7 @@ model Address {
   users        Users   @relation("Users-address", fields: [usersId], references: [id], onDelete: Cascade)
 
   @@index([usersId])
-}
+}//R
 
 model Order {
   id         String      @id @default(uuid())
@@ -161,7 +161,7 @@ model OrderItem {
 
   @@index([orderId])
   @@index([productId])
-}
+}//R
 
 model Size {
   id        String    @id @default(uuid())

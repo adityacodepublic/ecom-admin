@@ -11,6 +11,7 @@ import { ApiList } from "@/components/ui/api-list";
 
 import { ProductColumn, columns } from "./columns";
 import  Loader  from "./loader"
+import { useState } from "react";
 
 interface ProductsClientProps {
   data: ProductColumn[];
@@ -21,7 +22,8 @@ export const ProductsClient: React.FC<ProductsClientProps> = ({
 }) => {
   const params = useParams();
   const router = useRouter();
-
+  const [open, setOpen] = useState(false);
+  
   return (
     <> 
       <div className="flex items-center justify-between">
@@ -30,11 +32,18 @@ export const ProductsClient: React.FC<ProductsClientProps> = ({
           <Button onClick={() => router.push(`/${params.storeId}/products/new`)}>
             <Plus className="mr-2 h-4 w-4" /> Add New
           </Button>
-          <Loader/>
+          <Button className='mx-5 mb-5' onClick={() => setOpen(!open)}>
+            Load Data
+          </Button>
         </div>
-
       </div>
       <Separator />
+      {open &&(
+        <div>
+          <Loader/>  
+          <Separator />
+        </div>
+      )}  
       <DataTable searchKey="name" columns={columns} data={data} />
       <Heading title="API" description="API Calls for Products" />
       <Separator />

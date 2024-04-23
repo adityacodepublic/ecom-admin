@@ -10,9 +10,9 @@ export function MainNav({
   className,
   ...props
 }: React.HTMLAttributes<HTMLElement>) {
+  const [isMounted, setIsMounted] = useState(false);
   const pathname = usePathname();
   const params = useParams();
-  const [isMounted, setIsMounted] = useState(false);
   
   const routes = [
     {

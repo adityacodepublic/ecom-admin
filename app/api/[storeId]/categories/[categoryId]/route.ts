@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs";
 
 import prismadb from "@/lib/prismadb";
+import axios from "axios";
 
 export async function GET(
   req: Request,
@@ -19,7 +20,7 @@ export async function GET(
       select:{
         billboard:{
           select:{
-            images:true
+            id:true
           }
         },
         id:true,
@@ -66,6 +67,13 @@ export async function DELETE(
       }
     });
   
+    try { 
+      const response = await axios.post(`${process.env.FRONTEND_STORE_URL}/api/revalidate`, { tag:['categories'] });
+      console.log(response.status);    
+    } catch (error) {
+      console.error('Error processing revalidation:', error);    
+    }
+    
     return NextResponse.json(category);
   } catch (error) {
     console.log('[CATEGORY_DELETE]', error);
@@ -122,6 +130,13 @@ export async function PATCH(
       }
     });
   
+    try { 
+      const response = await axios.post(`${process.env.FRONTEND_STORE_URL}/api/revalidate`, { tag:['categories'] });
+      console.log(response.status);    
+    } catch (error) {
+      console.error('Error processing revalidation:', error);    
+    }
+    
     return NextResponse.json(category);
   } catch (error) {
     console.log('[CATEGORY_PATCH]', error);

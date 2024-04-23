@@ -58,9 +58,9 @@ const paddingX = {
     },
     button: {
         border: "1px solid #929292",
-        fontSize: "16px",
+        fontSize: "14px",
         textDecoration: "none",
-        padding: "10px 10px",
+        padding: "10px 12px",
         display: "block",
         textAlign: "center",
         fontWeight: 500,
@@ -101,7 +101,7 @@ const paddingX = {
     };
     
     const message = {
-    padding: "40px 60px",
+    padding: "40px 40px",
     textAlign: "center",
     } as React.CSSProperties;
     
@@ -139,15 +139,15 @@ const paddingX = {
     
     const menu = {
     container: {
-        paddingLeft: "15px",
-        paddingRight: "15px",
+        paddingLeft: "20px",
+        paddingRight: "20px",
         paddingTop: "20px",
         backgroundColor: "#F7F7F7",
     },
     content: {
         ...paddingY,
-        paddingLeft: "20px",
-        paddingRight: "20px",
+        paddingLeft: "2px",
+        paddingRight: "2px",
     },
     title: {
         paddingLeft: "20px",
@@ -161,8 +161,8 @@ const paddingX = {
         color: "#000",
     },
     tel: {
-        paddingLeft: "20px",
-        paddingRight: "20px",
+        paddingLeft: "12px",
+        paddingRight: "12px",
         paddingTop: "32px",
         paddingBottom: "22px",
     },
@@ -178,7 +178,7 @@ const paddingX = {
     text: {
         fontWeight: "500",
         color: "#000",
-        paddingX:"5px"
+        paddingX:"10px"
     },
     };
     
@@ -190,9 +190,9 @@ const paddingX = {
     text: {
         margin: "0",
         color: "#AFAFAF",
-        fontSize: "11px",
+        fontSize: "10px",
         textAlign: "center",
-        lineHeight:"1"
+        lineHeight:"1.2"
     } as React.CSSProperties,
     };
 
@@ -214,7 +214,7 @@ const paddingX = {
     return (
     <Html style={{ scrollbarWidth:"none"}}>
       <Head />
-      <Preview>Get your order summary, estimated delivery date and more</Preview>
+      <Preview>Your order summary, estimated delivery date and more</Preview>
       <Body style={main}>
         <Container style={container}>
           <Section style={track.container}>
@@ -255,7 +255,7 @@ const paddingX = {
           </Section>
           <Hr style={global.hr} />
           {product.map((item)=>(
-            <div className="flex justify-center items-center">
+            <div key={"id"+item.name} className="flex justify-center items-center">
               <Section
                 className="flex justify-center items-center"
                 style={{ ...paddingX, paddingTop: "40px", paddingBottom: "40px"}}
@@ -272,10 +272,10 @@ const paddingX = {
                 </Row>
               </Section>          
               <Section
-                style={{ ...paddingX, paddingTop: "40px", paddingBottom: "40px" }}
+                style={{ ...paddingX, paddingTop: "20px", paddingBottom: "40px" }}
               >
                 <Row style={{display:"inline-flex"}}>
-                    <Column style={{ verticalAlign: "top", paddingLeft: "12px", minWidth:"200px"}}>
+                    <Column style={{ verticalAlign: "top", paddingLeft: "15px", minWidth:"200px"}}>
                         <Text style={{ ...paragraph, fontWeight: "500" }}>
                             {item.name}
                         </Text>
@@ -314,12 +314,12 @@ const paddingX = {
                 </Link>
               </Column>
               <Column style={{ width: "33%" }} colSpan={1}>
-                <Link href={`${baseUrl}/returns`} style={menu.text}>
+                <Link href={"https://www.flipkart.com/pages/returnpolicy"} style={menu.text}>
                 Returns Policy
                 </Link>
               </Column>
               <Column style={{ width: "33%" }} colSpan={1}>
-                <Link href={`${baseUrl}/contact_us`} style={menu.text}>
+                <Link href={"https://resend.com/contact"} style={menu.text}>
                   Contact-us
                 </Link>
               </Column>
@@ -366,7 +366,7 @@ const paddingX = {
                   Laptops
                 </Link>
               </Column>
-              <Column align="center">
+              <Column align="center" style={{paddingLeft:"5px", paddingRight:"5px"}}>
                 <Link href={`${baseUrl}/categories/smartphones`} style={categories.text}>
                   Smartphones
                 </Link>
@@ -379,7 +379,7 @@ const paddingX = {
             </Row>
           </Section>
           <Hr style={{ ...global.hr, marginTop: "12px" }} />
-          <Section style={{padding:"22px 10px"}}>
+          <Section style={{padding:"22px 20px"}}>
             <Row style={footer.policy}>
               <Column>
                 <Text style={footer.text}>Web Version</Text>

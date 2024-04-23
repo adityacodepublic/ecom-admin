@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs";
 
 import prismadb from "@/lib/prismadb";
+import axios from "axios";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": `${process.env.ACCESS_CONTROL_ALLOW_ORIGIN}`,
@@ -80,7 +81,14 @@ export async function DELETE(
         id: params.billboardId,
       }
     });
-  
+    
+    try { 
+      const response = await axios.post(`${process.env.FRONTEND_STORE_URL}/api/revalidate`, { tag:['billboards'] });
+      console.log(response.status);    
+    } catch (error) {
+      console.error('Error processing revalidation:', error);    
+    }
+
     return NextResponse.json(billboard, {
       headers: corsHeaders
     });
@@ -155,7 +163,14 @@ export async function PATCH(
         },
       },
     });
-  
+
+    try { 
+      const response = await axios.post(`${process.env.FRONTEND_STORE_URL}/api/revalidate`, { tag:['billboards'] });
+      console.log(response.status);    
+    } catch (error) {
+      console.error('Error processing revalidation:', error);    
+    }
+
     return NextResponse.json(billboard, {
       headers: corsHeaders
     });

@@ -1,5 +1,4 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
-import { ConfirmationEmail } from '@/emails/confirmation';
+import { ConfirmationEmail } from '@/components/emails/confirmation';
 import { Resend } from 'resend';
 import { render } from '@react-email/components';
 
@@ -10,7 +9,7 @@ export async function POST(req:Request, res:Response) {
     // add store details
     const {data,error} = await resend.emails.send({
         from: "Acme <onboarding@resend.dev>",
-        to:[email],
+        to:'website0wordpress@gmail.com',
         subject:"Thankyou",
         html: render(ConfirmationEmail({name,address,product,orderId,orderDate,contactPhone})),
     })

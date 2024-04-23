@@ -1,6 +1,5 @@
 "use client"
 
-import { Decimal } from "@prisma/client/runtime";
 import { ColumnDef, Cell } from "@tanstack/react-table"
 
 

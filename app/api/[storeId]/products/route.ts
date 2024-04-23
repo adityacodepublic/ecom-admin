@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs';
 
 import prismadb from '@/lib/prismadb';
+import axios from 'axios';
 
 export async function POST(
   req: Request,
@@ -81,14 +82,40 @@ export async function POST(
         images: {
           createMany: {
             data: [
-              ...images.slice(0,8).map((image: { url: string }) => image),
+              ...images.slice(1,6).map((image: { url: string }) => image),
+              //images[0]
             ],
           },
         },
       },
+      include:{
+        images:{
+          select:{
+            url:true
+          }
+        }
+      }
+    })
+    // const imageData = images.slice(1, 6).map((image: { url: string }) => ({
+    //   productId: product.id,
+    //   url: image.url,
+    // }));
+    
+    const image = await prismadb.image.create({
+      data:{
+        productId:product.id,
+        url:images[0].url
+      }
     });
-  
-    return NextResponse.json(product);
+
+    try { 
+      const response = await axios.post(`${process.env.FRONTEND_STORE_URL}/api/revalidate`, { path:`/product/${product.id}`, tag:['categories','products'] });
+      console.log(response.status);    
+    } catch (error) {
+      console.error('Error processing revalidation:', error);    
+    }
+    
+    return NextResponse.json(product)
   } catch (error) {
     console.log('[PRODUCTS_POST]', error);
     return new NextResponse("Internal error", { status: 500 });
@@ -105,7 +132,7 @@ export async function GET(
     const categoryId = searchParams.get("categoryId") || undefined;
     const colorId = searchParams.get("colorId") || undefined;
     const sizeId = searchParams.get("sizeId") || undefined;
-    let   searchValue = searchParams.get('searchValue') || undefined;
+    const searchValue = searchParams.get('searchValue') || undefined;
     const isFeatured = searchParams.get("isFeatured")|| undefined;
     const isArchived = searchParams.get("isArchived")|| undefined;
     const price = Number(searchParams.get("price")) || undefined;
@@ -117,10 +144,10 @@ export async function GET(
         priceFilter.lt = -1*price;
     }
     
-    if (searchValue) {
-      const words = searchValue.split(' ');
-      words.push(searchValue);
-      searchValue = words.join(' || ');
+    let searchWords;
+    if (searchValue){
+      const searchWords = searchValue.split(' ');
+      searchWords.push(searchValue);
     }
     
     if (!params.storeId) {
@@ -147,10 +174,13 @@ export async function GET(
         quantity:true,
         maxQuantity:true,
         images:{
+          orderBy:{
+            updatedAt:'desc'
+          },
           select:{
             url:true
           },
-          take: 2
+          take: 1
         },
         category:{
           select:{
@@ -172,7 +202,6 @@ export async function GET(
         },
       }
     });
-  
     return NextResponse.json(products);
   } catch (error) {
     console.log('[PRODUCTS_GET]', error);
