@@ -15,6 +15,11 @@ export async function GET(
     const size = await prismadb.size.findUnique({
       where: {
         id: params.sizeId
+      },
+      select:{
+        id:true,
+        name:true,
+        value:true
       }
     });
   

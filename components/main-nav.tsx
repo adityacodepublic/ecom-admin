@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useParams, usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils"
+import { useEffect, useState } from "react";
 
 export function MainNav({
   className,
@@ -11,7 +12,8 @@ export function MainNav({
 }: React.HTMLAttributes<HTMLElement>) {
   const pathname = usePathname();
   const params = useParams();
-
+  const [isMounted, setIsMounted] = useState(false);
+  
   const routes = [
     {
       href: `/${params.storeId}`,
@@ -60,6 +62,16 @@ export function MainNav({
     },
   ]
 
+
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  if (!isMounted) {
+    return null;
+  }
+  
   return (
     <nav
       className={cn("flex items-center space-x-4 lg:space-x-6", className)}

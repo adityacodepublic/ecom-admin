@@ -28,6 +28,7 @@ import { useOrigin } from "@/hooks/use-origin"
 
 const formSchema = z.object({
   name: z.string().min(2),
+  url: z.string().min(2)
 });
 
 type SettingsFormValues = z.infer<typeof formSchema>
@@ -110,6 +111,19 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
                   <FormLabel>Name</FormLabel>
                   <FormControl>
                     <Input disabled={loading} placeholder="Store name" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="url"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Submit Store URL</FormLabel>
+                  <FormControl>
+                    <Input disabled={loading} placeholder="Store URL" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

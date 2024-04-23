@@ -75,6 +75,9 @@ export async function GET(
     const sizes = await prismadb.users.findMany({
       where: {
         storeId: params.storeId
+      },
+      select:{
+        id:true
       }
     });
   

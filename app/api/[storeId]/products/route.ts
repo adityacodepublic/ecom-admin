@@ -81,7 +81,7 @@ export async function POST(
         images: {
           createMany: {
             data: [
-              ...images.map((image: { url: string }) => image),
+              ...images.slice(0,8).map((image: { url: string }) => image),
             ],
           },
         },
@@ -105,10 +105,23 @@ export async function GET(
     const categoryId = searchParams.get("categoryId") || undefined;
     const colorId = searchParams.get("colorId") || undefined;
     const sizeId = searchParams.get("sizeId") || undefined;
-    const searchValue = decodeURIComponent(searchParams.get('searchValue') || "") || undefined;
-    const isFeatured = searchParams.get("isFeatured");
-    const isArchived = searchParams.get("isArchived");
+    let   searchValue = searchParams.get('searchValue') || undefined;
+    const isFeatured = searchParams.get("isFeatured")|| undefined;
+    const isArchived = searchParams.get("isArchived")|| undefined;
+    const price = Number(searchParams.get("price")) || undefined;
 
+    const priceFilter: { gt?: number; lt?: number } = {};
+    if (price && price > 0) {
+        priceFilter.gt = price;
+    } else if (price && price < 0) {
+        priceFilter.lt = -1*price;
+    }
+    
+    if (searchValue) {
+      const words = searchValue.split(' ');
+      words.push(searchValue);
+      searchValue = words.join(' || ');
+    }
     
     if (!params.storeId) {
         return new NextResponse("StoreId is required", { status: 400 });
@@ -125,13 +138,38 @@ export async function GET(
         },
         isFeatured: isFeatured ? true : undefined, // we dont pass false so it ignores this clause
         isArchived: isArchived ? false : undefined, // we dont pass false so it ignores this clause
-
+        price:priceFilter,
       },
-      include: {
-        images: true,
-        category: true,
-        color: true,
-        size: true,
+      select: {
+        id:true,
+        name:true,
+        price:true,
+        quantity:true,
+        maxQuantity:true,
+        images:{
+          select:{
+            url:true
+          },
+          take: 2
+        },
+        category:{
+          select:{
+            id:true,
+            name:true
+          },
+        },
+        color:{
+          select:{
+            name:true,
+            value:true
+          }
+        },
+        size:{
+          select:{
+            name:true,
+            value:true
+          }
+        },
       }
     });
   

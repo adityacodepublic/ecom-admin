@@ -1,0 +1,954 @@
+[
+  {
+    "name": "Apple Watch Series 8 [GPS 45 mm] Smart Watch w/Silver Aluminium Case with White Sport Band. Fitness Tracker, Blood Oxygen & ECG Apps, Always-On Retina Display, Water Resistant",
+    "price": 0,
+    "isFeatured": false,
+    "isArchived": false,
+    "categoryId": "b106eafa-e27f-4ba5-9d31-5c5516d210b1",
+    "colorId": "0d2ae7fc-4eec-4638-8090-811a6c2a9096",
+    "sizeId": "2f3f5eab-fb23-4c79-b4ff-81d4611e3a0c",
+    "quantity": 1,
+    "images": [
+      {
+        "url": "https://m.media-amazon.com/images/I/71xSYnvg7OL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61K5Ikc4HTL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/81YEhcygs-L._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71R+y38q-SL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71JKTm03BhL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61wmja-3N9L._SL1500_.jpg"
+      }
+    ]
+  },
+  {
+    "name": "Apple Watch SE (2nd Gen)[GPS + Cellular 40 mm] Smart Watch w/Black Aluminium Case & Black Sport Band Fitness & Sleep Tracker, Crash Detection, Heart Rate Monitor, Retina Display,Water Resistant",
+    "price": 30900,
+    "isFeatured": false,
+    "isArchived": false,
+    "categoryId": "b106eafa-e27f-4ba5-9d31-5c5516d210b1",
+    "colorId": "5ec4c839-52bf-4841-8988-3eff327cf8a6",
+    "sizeId": "b2128f47-bc80-4742-ae93-2e8c68657d2f",
+    "quantity": 1,
+    "maxQuantity": 2,
+    "images": [
+      {
+        "url": "https://m.media-amazon.com/images/I/71LfnkRgZ4L._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61ripYHNMfL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/91GkjaDhHoL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71NI6qcRSgL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71RnczHDmrL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/613TuZAUEhL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61Ow2Bu+maL._SL1500_.jpg"
+      }
+    ]
+  },
+  {
+    "name": "Apple Watch SE (2nd Gen) [GPS 44 mm] Smart Watch w/Silver Aluminium Case & Starllight Sport Band. Fitness & Sleep Tracker, Crash Detection, Heart Rate Monitor, Retina Display, Water Resistant",
+    "price": 30900,
+    "isFeatured": false,
+    "isArchived": false,
+    "categoryId": "b106eafa-e27f-4ba5-9d31-5c5516d210b1",
+    "colorId": "0d2ae7fc-4eec-4638-8090-811a6c2a9096",
+    "sizeId": "2f3f5eab-fb23-4c79-b4ff-81d4611e3a0c",
+    "quantity": 1,
+    "maxQuantity": 2,
+    "images": [
+      {
+        "url": "https://m.media-amazon.com/images/I/71XBcl6bNjL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71fkqcNBppL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/91GkjaDhHoL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/713Fc9snm-L._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71KUMgeTtrL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61VRjeVNV9L._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61njLX4GD9L._SL1500_.jpg"
+      }
+    ]
+  },
+  {
+    "name": "Apple Watch SE (2nd Gen) [GPS 40 mm] Smart Watch w/Black Aluminium Case & Black Sport Band. Fitness & Sleep Tracker, Crash Detection, Heart Rate Monitor, Retina Display, Water Resistant",
+    "price": 28900,
+    "isFeatured": false,
+    "isArchived": false,
+    "categoryId": "b106eafa-e27f-4ba5-9d31-5c5516d210b1",
+    "colorId": "5ec4c839-52bf-4841-8988-3eff327cf8a6",
+    "sizeId": "cf3af4e2-3b27-43c6-a4dc-439af39afb4b",
+    "quantity": 1,
+    "maxQuantity": 2,
+    "images": [
+      {
+        "url": "https://m.media-amazon.com/images/I/71LfnkRgZ4L._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61ripYHNMfL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/91GkjaDhHoL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71snAIawQbL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71+MHQpPw2L._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/618-v7C84VL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61Ow2Bu+maL._SL1500_.jpg"
+      }
+    ]
+  },
+  {
+    "name": "Apple Watch SE (2nd Gen) [GPS 44 mm] Smart Watch w/Silver Aluminium Case & Starllight Sport Band. Fitness & Sleep Tracker, Crash Detection, Heart Rate Monitor, Retina Display, Water Resistant",
+    "price": 30900,
+    "isFeatured": false,
+    "isArchived": false,
+    "categoryId": "b106eafa-e27f-4ba5-9d31-5c5516d210b1",
+    "colorId": "0d2ae7fc-4eec-4638-8090-811a6c2a9096",
+    "sizeId": "b2128f47-bc80-4742-ae93-2e8c68657d2f",
+    "quantity": 1,
+    "maxQuantity": 2,
+    "images": [
+      {
+        "url": "https://m.media-amazon.com/images/I/71XBcl6bNjL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71fkqcNBppL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/91GkjaDhHoL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/713Fc9snm-L._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71KUMgeTtrL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61VRjeVNV9L._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61njLX4GD9L._SL1500_.jpg"
+      }
+    ]
+  },
+  {
+    "name": "Apple Watch Series 8 [GPS 45 mm] Smart Watch w/Black Aluminium Case with Black Sport Band. Fitness Tracker, Blood Oxygen & ECG Apps, Always-On Retina Display, Water Resistant",
+    "price": 38999,
+    "isFeatured": false,
+    "isArchived": false,
+    "categoryId": "b106eafa-e27f-4ba5-9d31-5c5516d210b1",
+    "colorId": "5ec4c839-52bf-4841-8988-3eff327cf8a6",
+    "sizeId": "b2128f47-bc80-4742-ae93-2e8c68657d2f",
+    "quantity": 1,
+    "maxQuantity": 2,
+    "images": [
+      {
+        "url": "https://m.media-amazon.com/images/I/71XMTLtZd5L._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71-P6fRDDjL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/81NNLgQNc4L._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71G8L0en--L._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71yq1ZSovzL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61imk7r5p5L._SL1500_.jpg"
+      }
+    ]
+  },
+  {
+    "name": "Apple Watch Series 8 [GPS 41 mm] Smart Watch w/Silver Aluminium Case with Silver Sport Band. Fitness Tracker, Blood Oxygen & ECG Apps, Always-On Retina Display, Water Resistant",
+    "price": 36999,
+    "isFeatured": false,
+    "isArchived": false,
+    "categoryId": "b106eafa-e27f-4ba5-9d31-5c5516d210b1",
+    "colorId": "0d2ae7fc-4eec-4638-8090-811a6c2a9096",
+    "sizeId": "2f3f5eab-fb23-4c79-b4ff-81d4611e3a0c",
+    "quantity": 1,
+    "maxQuantity": 2,
+    "images": [
+      {
+        "url": "https://m.media-amazon.com/images/I/71uOgDy40BL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71njzukG-ZL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/81AnSSSznHL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71G8L0en--L._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71yq1ZSovzL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61+sbakMeJL._SL1500_.jpg"
+      }
+    ]
+  },
+  {
+    "name": "Apple Watch SE (2nd Gen)[GPS + Cellular 40 mm] Smart Watch w/Black Aluminium Case & Black Sport Band Fitness & Sleep Tracker, Crash Detection, Heart Rate Monitor, Retina Display,Water Resistant",
+    "price": 30900,
+    "isFeatured": false,
+    "isArchived": false,
+    "categoryId": "b106eafa-e27f-4ba5-9d31-5c5516d210b1",
+    "colorId": "5ec4c839-52bf-4841-8988-3eff327cf8a6",
+    "sizeId": "1f0b9259-3534-4ed7-b7f5-e512e1bc979b",
+    "quantity": 1,
+    "maxQuantity": 2,
+    "images": [
+      {
+        "url": "https://m.media-amazon.com/images/I/71LfnkRgZ4L._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61ripYHNMfL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/91GkjaDhHoL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71NI6qcRSgL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71RnczHDmrL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/613TuZAUEhL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61Ow2Bu+maL._SL1500_.jpg"
+      }
+    ]
+  },
+  {
+    "name": "Apple Watch Series 8 [GPS + Cellular 45 mm] Smart Watch w/Black Stainless Steel Case & Black Milanese Loop. Fitness Tracker, Blood Oxygen & ECG Apps, Always- On Retina Display, Water Resistant",
+    "price": 80999,
+    "isFeatured": false,
+    "isArchived": false,
+    "categoryId": "b106eafa-e27f-4ba5-9d31-5c5516d210b1",
+    "colorId": "5ec4c839-52bf-4841-8988-3eff327cf8a6",
+    "sizeId": "2f3f5eab-fb23-4c79-b4ff-81d4611e3a0c",
+    "quantity": 1,
+    "images": [
+      {
+        "url": "https://m.media-amazon.com/images/I/91PuQjKjIeL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/7107xDmfZsL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/716PN402uxL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71+KQXiwi5L._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/714uCQ4J4dL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71EypAV2JxL._SL1500_.jpg"
+      }
+    ]
+  },
+  {
+    "name": "Noise Quad Call 1.81 Display, Bluetooth Calling Smart Watch, AI Voice Assistance, 160+Hrs Battery Life, Metallic Build, in-Built Games, 100 Sports Modes, 100+ Watch Faces (Elite Black)",
+    "price": 1499,
+    "isFeatured": false,
+    "isArchived": false,
+    "categoryId": "b106eafa-e27f-4ba5-9d31-5c5516d210b1",
+    "colorId": "5ec4c839-52bf-4841-8988-3eff327cf8a6",
+    "sizeId": "b2128f47-bc80-4742-ae93-2e8c68657d2f",
+    "quantity": 1,
+    "maxQuantity": 30,
+    "images": [
+      {
+        "url": "https://m.media-amazon.com/images/I/51qvmUtvsQL._SL1000_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/51X4RySEAfL._SL1000_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/615rIu-t34L._SL1000_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/51TKqdL2R0L._SL1000_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61uDNm0WkTL._SL1000_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61o9FLybjFL._SL1000_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71PRF+tqJ3L._SL1500_.jpg"
+      }
+    ]
+  },
+  {
+    "name": "Noise Pulse 2 Max 1.85 Display, Bluetooth Calling Smart Watch, 10 Days Battery, 550 NITS Brightness, Smart DND, 100 Sports Modes, Smartwatch for Men and Women (Jet Black)",
+    "price": 1199,
+    "isFeatured": false,
+    "isArchived": false,
+    "categoryId": "b106eafa-e27f-4ba5-9d31-5c5516d210b1",
+    "colorId": "5ec4c839-52bf-4841-8988-3eff327cf8a6",
+    "sizeId": "1f0b9259-3534-4ed7-b7f5-e512e1bc979b",
+    "quantity": 1,
+    "maxQuantity": 26,
+    "images": [
+      {
+        "url": "https://m.media-amazon.com/images/I/71Q8czKqSIL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61nAoz3GpRL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/619g-acf-GL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71qWlW4oUiL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/710zlLQY0iL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71QGrEqdLeL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61SWUhb54gL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61SxsqcpJWL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/718lv5fJV8L._SL1500_.jpg"
+      }
+    ]
+  },
+  {
+    "name": "Noise Pulse Go Buzz Smart Watch with Advanced Bluetooth Calling, 1.69 TFT Display, SpO2, 100 Sports Mode with Auto Detection, Upto 7 Days Battery (2 Days with Heavy Calling) - Jet Black",
+    "price": 1099,
+    "isFeatured": false,
+    "isArchived": false,
+    "categoryId": "b106eafa-e27f-4ba5-9d31-5c5516d210b1",
+    "colorId": "5ec4c839-52bf-4841-8988-3eff327cf8a6",
+    "sizeId": "b2128f47-bc80-4742-ae93-2e8c68657d2f",
+    "quantity": 1,
+    "maxQuantity": 26,
+    "images": [
+      {
+        "url": "https://m.media-amazon.com/images/I/61akt30bJsL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61SvazFMS5L._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61C7QxrH7NL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61T4r-idjnL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71xJDte4RJL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61R9qRjYSvL._SL1500_.jpg"
+      }
+    ]
+  },
+  {
+    "name": "Titan Smart 3 Premium Smart Watch|1.96 Super AMOLED Display with 410x502 Pixel Resolution|SingleSync BT Calling|NitroFast Charging|110+ Sports Modes|200+ Watchfaces|Upto 7 Days Battery (Black)",
+    "price": 4994,
+    "isFeatured": false,
+    "isArchived": false,
+    "categoryId": "b106eafa-e27f-4ba5-9d31-5c5516d210b1",
+    "colorId": "5ec4c839-52bf-4841-8988-3eff327cf8a6",
+    "sizeId": "1f0b9259-3534-4ed7-b7f5-e512e1bc979b",
+    "quantity": 1,
+    "maxQuantity": 3,
+    "images": [
+      {
+        "url": "https://m.media-amazon.com/images/I/71EvFZURNZL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/81vJslnvPhL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71mgtqPGbiL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/81W1ate-G7L._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/81Kdwd4Y5jL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/7144UAm2GeL._SL1500_.jpg"
+      }
+    ]
+  },
+  {
+    "name": "Noise Newly Launched Mettalix: 1.4 HD Display with Metallic Straps and Stainless Steel Finish, BT Calling, Functional Crown, 7 Day Battery, Smart Watch for Men and Women (Elite Silver)",
+    "price": 1899,
+    "isFeatured": false,
+    "isArchived": false,
+    "categoryId": "b106eafa-e27f-4ba5-9d31-5c5516d210b1",
+    "colorId": "0d2ae7fc-4eec-4638-8090-811a6c2a9096",
+    "sizeId": "1f0b9259-3534-4ed7-b7f5-e512e1bc979b",
+    "quantity": 1,
+    "maxQuantity": 30,
+    "images": [
+      {
+        "url": "https://m.media-amazon.com/images/I/71T2rjhI9sL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/718AmrFZSPL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71R1kEpEmAL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71ikurBTzNL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71LBpEicgbL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61WXnjL5yAL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71Rw2eifTML._SL1500_.jpg"
+      }
+    ]
+  },
+  {
+    "name": "Noise Pulse Go Buzz Smart Watch with Advanced Bluetooth Calling, 1.69 TFT Display, SpO2, 100 Sports Mode with Auto Detection, Upto 7 Days Battery (2 Days with Heavy Calling) - Jet Black",
+    "price": 1099,
+    "isFeatured": false,
+    "isArchived": false,
+    "categoryId": "b106eafa-e27f-4ba5-9d31-5c5516d210b1",
+    "colorId": "5ec4c839-52bf-4841-8988-3eff327cf8a6",
+    "sizeId": "cf3af4e2-3b27-43c6-a4dc-439af39afb4b",
+    "quantity": 1,
+    "maxQuantity": 26,
+    "images": [
+      {
+        "url": "https://m.media-amazon.com/images/I/61akt30bJsL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61SvazFMS5L._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61C7QxrH7NL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61T4r-idjnL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71xJDte4RJL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61R9qRjYSvL._SL1500_.jpg"
+      }
+    ]
+  },
+  {
+    "name": "Noise Pulse 2 Max 1.85 Display, Bluetooth Calling Smart Watch, 10 Days Battery, 550 NITS Brightness, Smart DND, 100 Sports Modes, Smartwatch for Men and Women (Jet Black)",
+    "price": 1199,
+    "isFeatured": false,
+    "isArchived": false,
+    "categoryId": "b106eafa-e27f-4ba5-9d31-5c5516d210b1",
+    "colorId": "5ec4c839-52bf-4841-8988-3eff327cf8a6",
+    "sizeId": "2f3f5eab-fb23-4c79-b4ff-81d4611e3a0c",
+    "quantity": 1,
+    "maxQuantity": 26,
+    "images": [
+      {
+        "url": "https://m.media-amazon.com/images/I/71Q8czKqSIL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61nAoz3GpRL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/619g-acf-GL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71qWlW4oUiL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/710zlLQY0iL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71QGrEqdLeL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61SWUhb54gL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61SxsqcpJWL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/718lv5fJV8L._SL1500_.jpg"
+      }
+    ]
+  },
+  {
+    "name": "mi Smart Watch for Kids Men Boys Girls Women ID116 Plus 2024 Latest for Android and iOS Phones IP68 Waterproof Activity Tracker with Touch Color Screen Sleep & Heart Rate Monitor Pedometer Black",
+    "price": 399,
+    "isFeatured": false,
+    "isArchived": false,
+    "categoryId": "b106eafa-e27f-4ba5-9d31-5c5516d210b1",
+    "colorId": "5ec4c839-52bf-4841-8988-3eff327cf8a6",
+    "sizeId": "b2128f47-bc80-4742-ae93-2e8c68657d2f",
+    "quantity": 1,
+    "maxQuantity": 30,
+    "images": [
+      {
+        "url": "https://m.media-amazon.com/images/I/61GRy-zyB-L._SL1000_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/41SN-5knu8L.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/41D1JjxLFZL.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/419YnatW85L.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/51T9tvw0uPL.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/51STGbEdAyL.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/51wyFvdfyLL.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/51raWgJiClL.jpg"
+      }
+    ]
+  },
+  {
+    "name": "Fire-Boltt Talk 2 Pro Ultra 1.39 Round Display Stainless Steel Luxury Smart Watch, Bluetooth Calling & 360 Health Monitoring, 123 Sports Modes, Inbuilt Voice Assistant (Black)",
+    "price": 1699,
+    "isFeatured": false,
+    "isArchived": false,
+    "categoryId": "b106eafa-e27f-4ba5-9d31-5c5516d210b1",
+    "colorId": "5ec4c839-52bf-4841-8988-3eff327cf8a6",
+    "sizeId": "2f3f5eab-fb23-4c79-b4ff-81d4611e3a0c",
+    "quantity": 1,
+    "maxQuantity": 30,
+    "images": [
+      {
+        "url": "https://m.media-amazon.com/images/I/61Szdu3CaoL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61UFubeQAML._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71XqN1GKFYL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61zs6HZ5kTL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/712yMs+nY4L._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71vtEivJJjL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/51PocVclKKL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61ZHAC2X8fL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71qFWQELqqL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61OOWsRM9aL._SL1500_.jpg"
+      }
+    ]
+  },
+  {
+    "name": "Fire-Boltt Lumos Stainless Steel Luxury Smart Watch with 1.91” Large Display, Bluetooth Calling, Voice Assistant, 100+ Sports Modes",
+    "price": 1499,
+    "isFeatured": false,
+    "isArchived": false,
+    "categoryId": "b106eafa-e27f-4ba5-9d31-5c5516d210b1",
+    "colorId": "b0232161-f7ed-4d17-9aa6-09571da6f9cf",
+    "sizeId": "2f3f5eab-fb23-4c79-b4ff-81d4611e3a0c",
+    "quantity": 1,
+    "maxQuantity": 30,
+    "images": [
+      {
+        "url": "https://m.media-amazon.com/images/I/61D4+UEs1tL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/51i33cga2jL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71WKWjgnczL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61mirTmvOmL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71P+JPjJw9L._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71QwsGd1ijL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61qnP32lFBL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71geRVYwMPL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71NX0QE83bL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/7194B8hz1FL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61W+ILdc0bL._SL1500_.jpg"
+      }
+    ]
+  },
+  {
+    "name": "PunnkFunnk M5 Smart Band, Activity Tracker Fitness Band, Sleep Monitor, Step Tracking, Heart Rate Sensor, Kids Smartwatch for Men, Women - Black",
+    "price": 599,
+    "isFeatured": false,
+    "isArchived": false,
+    "categoryId": "b106eafa-e27f-4ba5-9d31-5c5516d210b1",
+    "colorId": "5ec4c839-52bf-4841-8988-3eff327cf8a6",
+    "sizeId": "b2128f47-bc80-4742-ae93-2e8c68657d2f",
+    "quantity": 1,
+    "maxQuantity": 26,
+    "images": [
+      {
+        "url": "https://m.media-amazon.com/images/I/41B5b5n1O+L._SL1000_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61NnZJ3UfGL._SL1242_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61y-ziDfvpL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61Bq5xo6EjL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/41SrIa8es3L.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/613pVwsbqfL._SL1000_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/51JeXdQJzmL._SL1000_.jpg"
+      }
+    ]
+  },
+  {
+    "name": "Fire-Boltt Ninja Call Pro Plus 1.83 Smart Watch with Bluetooth Calling, AI Voice Assistance, 100 Sports Modes IP67 Rating, 240 * 280 Pixel High Resolution",
+    "price": 1099,
+    "isFeatured": false,
+    "isArchived": false,
+    "categoryId": "b106eafa-e27f-4ba5-9d31-5c5516d210b1",
+    "colorId": "5ec4c839-52bf-4841-8988-3eff327cf8a6",
+    "sizeId": "cf3af4e2-3b27-43c6-a4dc-439af39afb4b",
+    "quantity": 1,
+    "maxQuantity": 26,
+    "images": [
+      {
+        "url": "https://m.media-amazon.com/images/I/61AHiYyu3ZL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/81DEzbJ9ERL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71tOBelnDYL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71U-rEX7y5L._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61nWKX1mD0L._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71caV57crpL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71yx987ughL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71+m3e0Tj5L._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71gTCOTDvML._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71VfIOnwyGL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61W+ILdc0bL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61CPcSiCc-L._SL1500_.jpg"
+      }
+    ]
+  },
+  {
+    "name": "Noise Pulse 2 Max 1.85 Display, Bluetooth Calling Smart Watch, 10 Days Battery, 550 NITS Brightness, Smart DND, 100 Sports Modes, Smartwatch for Men and Women (Deep Purple)",
+    "price": 1199,
+    "isFeatured": false,
+    "isArchived": false,
+    "categoryId": "b106eafa-e27f-4ba5-9d31-5c5516d210b1",
+    "colorId": "7b7cd125-24c3-4ee1-afe7-121fdf0c1b61",
+    "sizeId": "1f0b9259-3534-4ed7-b7f5-e512e1bc979b",
+    "quantity": 1,
+    "maxQuantity": 26,
+    "images": [
+      {
+        "url": "https://m.media-amazon.com/images/I/61V-uzan3wL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61nAoz3GpRL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/619g-acf-GL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71qWlW4oUiL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/710zlLQY0iL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71QGrEqdLeL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61SWUhb54gL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61SxsqcpJWL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/718lv5fJV8L._SL1500_.jpg"
+      }
+    ]
+  },
+  {
+    "name": "M4 Smart Band & Fitness Band & Activity Tracker & Heart Rate Sensor & Step Tracking All Android Device & iOS Device (Black)",
+    "price": 250,
+    "isFeatured": false,
+    "isArchived": false,
+    "categoryId": "b106eafa-e27f-4ba5-9d31-5c5516d210b1",
+    "colorId": "5ec4c839-52bf-4841-8988-3eff327cf8a6",
+    "sizeId": "1f0b9259-3534-4ed7-b7f5-e512e1bc979b",
+    "quantity": 1,
+    "maxQuantity": 13,
+    "images": [
+      {
+        "url": "https://m.media-amazon.com/images/I/41GTuDApq9L.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/41ugCFp7X-L.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/41pBbHr1v-S.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/417cJtzENcL.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/418DWQHbypL.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/3136WCeiM1L.jpg"
+      }
+    ]
+  },
+  {
+    "name": "MELBON M6 Smart Band, Activity Tracker Fitness Band, Sleep Monitor, Step Tracking, Heart Rate Sensor, Kids Smart Watch for Men, Women, Black, (M-M6)",
+    "price": 531,
+    "isFeatured": false,
+    "isArchived": false,
+    "categoryId": "b106eafa-e27f-4ba5-9d31-5c5516d210b1",
+    "colorId": "5ec4c839-52bf-4841-8988-3eff327cf8a6",
+    "sizeId": "b2128f47-bc80-4742-ae93-2e8c68657d2f",
+    "quantity": 1,
+    "maxQuantity": 26,
+    "images": [
+      {
+        "url": "https://m.media-amazon.com/images/I/31uCWdfAOuL.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/51KFtVphOWL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61E-bP8V+kL._SL1000_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/51kvZkJwBRL.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/4196EzNQDtL.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/31qsF-6ONkL.jpg"
+      }
+    ]
+  },
+  {
+    "name": "Fastrack Reflex Vox Smartwatch|Alexa Built-in|Bright HD Display|Upto 10 Days Battery|5 ATM Water Resistance|Multiple Sports Modes|100+ Watchfaces|24x7 HRM|Sp02|Stress Monitor|Camera & Music Control",
+    "price": 1499,
+    "isFeatured": false,
+    "isArchived": false,
+    "categoryId": "b106eafa-e27f-4ba5-9d31-5c5516d210b1",
+    "colorId": "7b7cd125-24c3-4ee1-afe7-121fdf0c1b61",
+    "sizeId": "b2128f47-bc80-4742-ae93-2e8c68657d2f",
+    "quantity": 1,
+    "maxQuantity": 3,
+    "images": [
+      {
+        "url": "https://m.media-amazon.com/images/I/51S0UNv1rHL._SL1080_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/51cXzibIa9L._SL1080_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/51CxaIobG9L._SL1080_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/51iggC49apL._SL1080_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/51CBu3aKCXL._SL1080_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61JMSDBaZFL._SL1080_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61h4SfkOuUL._SL1000_.jpg"
+      }
+    ]
+  },
+  {
+    "name": "Noise Quad Call 1.81 Display, Bluetooth Calling Smart Watch, AI Voice Assistance, 160+Hrs Battery Life, Metallic Build, in-Built Games, 100 Sports Modes, 100+ Watch Faces (Elite Black)",
+    "price": 1499,
+    "isFeatured": false,
+    "isArchived": false,
+    "categoryId": "b106eafa-e27f-4ba5-9d31-5c5516d210b1",
+    "colorId": "5ec4c839-52bf-4841-8988-3eff327cf8a6",
+    "sizeId": "cf3af4e2-3b27-43c6-a4dc-439af39afb4b",
+    "quantity": 1,
+    "maxQuantity": 30,
+    "images": [
+      {
+        "url": "https://m.media-amazon.com/images/I/51qvmUtvsQL._SL1000_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/51X4RySEAfL._SL1000_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/615rIu-t34L._SL1000_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/51TKqdL2R0L._SL1000_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61uDNm0WkTL._SL1000_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61o9FLybjFL._SL1000_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71PRF+tqJ3L._SL1500_.jpg"
+      }
+    ]
+  },
+  {
+    "name": "Noise Pulse 2 Max 1.85 Display, Bluetooth Calling Smart Watch, 10 Days Battery, 550 NITS Brightness, Smart DND, 100 Sports Modes, Smartwatch for Men and Women (Jet Black)",
+    "price": 1199,
+    "isFeatured": false,
+    "isArchived": false,
+    "categoryId": "b106eafa-e27f-4ba5-9d31-5c5516d210b1",
+    "colorId": "5ec4c839-52bf-4841-8988-3eff327cf8a6",
+    "sizeId": "b2128f47-bc80-4742-ae93-2e8c68657d2f",
+    "quantity": 1,
+    "maxQuantity": 26,
+    "images": [
+      {
+        "url": "https://m.media-amazon.com/images/I/71Q8czKqSIL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61nAoz3GpRL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/619g-acf-GL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71qWlW4oUiL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/710zlLQY0iL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/71QGrEqdLeL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61SWUhb54gL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/61SxsqcpJWL._SL1500_.jpg"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/718lv5fJV8L._SL1500_.jpg"
+      }
+    ]
+  }
+]

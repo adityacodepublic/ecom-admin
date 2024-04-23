@@ -3,7 +3,7 @@ import { auth } from "@clerk/nextjs";
 
 import prismadb from "@/lib/prismadb";
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": `${process.env.ACCESS_CONTROL_ALLOW_ORIGIN}`,
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
@@ -11,6 +11,7 @@ const corsHeaders = {
 export async function OPTIONS() {
   return NextResponse.json({}, { headers: corsHeaders });
 }
+
 export async function GET(
   req: Request,
   { params }: { params: { usersId: string } }
@@ -24,16 +25,45 @@ export async function GET(
       where: {
         id: params.usersId
       },
-      include: {
+      select: {
+        fname:true,
+        phone:true,
+        address:{
+          select:{
+            id:true,
+            value:true,
+            pincode:true,
+          }
+        },
         orders:{
-          include:{
+          select:{
+            isPaid:true,
+            status:true,
+            addressId:true,
             orderItems:{
-              include:{
+              select:{
+                orderQuantity:true,
                 product:{
-                  include:{
-                    images:true,
-                    color:true,
-                    size:true,
+                  select:{
+                    id:true,
+                    name:true,
+                    price:true,
+                    size:{
+                      select:{
+                        name:true
+                      }
+                    },
+                    color:{
+                      select:{
+                        name:true,
+                        value:true
+                      }
+                    },
+                    images:{
+                      select:{
+                        url:true
+                      }
+                    }
                   }
                 }
               },
@@ -43,7 +73,7 @@ export async function GET(
       },
     });
   
-    return NextResponse.json({user},{headers:corsHeaders});
+    return NextResponse.json({user},{headers: corsHeaders});
   } catch (error) {
     console.log('[USER_GET]', error);
     return new NextResponse("Internal error", { status: 500 });

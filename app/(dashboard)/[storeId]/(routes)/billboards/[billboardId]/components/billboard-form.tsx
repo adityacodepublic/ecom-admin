@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { toast } from "react-hot-toast"
 import { Trash } from "lucide-react"
-import { Billboard } from "@prisma/client"
+import { Billboard, Image } from "@prisma/client"
 import { useParams, useRouter } from "next/navigation"
 
 import { Input } from "@/components/ui/input"
@@ -27,13 +27,16 @@ import ImageUpload from "@/components/ui/image-upload"
 
 const formSchema = z.object({
   label: z.string().min(1),
-  imageUrl: z.string().min(1),
+  images: z.object({ url: z.string() }).array()
+
 });
 
 type BillboardFormValues = z.infer<typeof formSchema>
 
 interface BillboardFormProps {
-  initialData: Billboard | null;
+  initialData: Billboard & {
+    images: Image[]
+  } | null;
 };
 
 export const BillboardForm: React.FC<BillboardFormProps> = ({
@@ -50,12 +53,16 @@ export const BillboardForm: React.FC<BillboardFormProps> = ({
   const toastMessage = initialData ? 'Billboard updated.' : 'Billboard created.';
   const action = initialData ? 'Save changes' : 'Create';
 
+  const defaultValues = initialData ? {
+    ...initialData,
+  } : {
+    label: '',
+    images: [],
+  }
+
   const form = useForm<BillboardFormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: initialData || {
-      label: '',
-      imageUrl: ''
-    }
+    defaultValues
   });
 
   const onSubmit = async (data: BillboardFormValues) => {
@@ -117,16 +124,16 @@ export const BillboardForm: React.FC<BillboardFormProps> = ({
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 w-full">
           <FormField
               control={form.control}
-              name="imageUrl"
+              name="images"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Background image</FormLabel>
+                  <FormLabel>Background Images</FormLabel>
                   <FormControl>
                     <ImageUpload 
-                      value={field.value ? [field.value] : []} 
+                      value={field.value.map((image) => image.url)} 
                       disabled={loading} 
-                      onChange={(url) => field.onChange(url)}
-                      onRemove={() => field.onChange('')}
+                      onChange={(url) => field.onChange([...field.value, { url }])}
+                      onRemove={(url) => field.onChange([...field.value.filter((current) => current.url !== url)])}
                     />
                   </FormControl>
                   <FormMessage />

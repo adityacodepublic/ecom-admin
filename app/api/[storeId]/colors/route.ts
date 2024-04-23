@@ -68,6 +68,11 @@ export async function GET(
     const colors = await prismadb.color.findMany({
       where: {
         storeId: params.storeId
+      },
+      select:{
+        id:true,
+        name:true,
+        value:true
       }
     });
   

@@ -1,9 +1,7 @@
 import prismadb from "@/lib/prismadb";
-import { formatter } from "@/lib/utils";
 
 import { UserColumn } from "./components/columns"
 import { UserClient } from "./components/client";
-import { Decimal } from "@prisma/client/runtime";
 
 
 const UsersPage = async ({
@@ -22,6 +20,11 @@ const UsersPage = async ({
             include:{
               product:true,
             }
+          },
+          address:{
+            select:{
+              value:true
+            }
           }
         }
       }
@@ -30,9 +33,6 @@ const UsersPage = async ({
       createdAt: 'desc'
     }
   });
-
-  let productCount: { [key: string]: number } = {};
-
 
 
   function getProductString(item: any): string {
@@ -45,7 +45,6 @@ const UsersPage = async ({
       })
     );
     let productEntries = Object.entries(productCount);
-    // Sort the entries by product name for consistent output
     productEntries.sort((a, b) => a[0].localeCompare(b[0]));
     return productEntries.map(([product, count]) => `${product}(${count})`).join(', ');
   }
@@ -59,11 +58,9 @@ const UsersPage = async ({
       .reduce((total: number, price: number) => total + price, 0);
   
     const finalPrice = parseInt(totalPrice.toString(), 10) || 0;    
-    //console.log(finalPrice);
     return finalPrice;
   };
 
- //const price = data.map((order)=>(order.orders.map((orderitem)=>(orderitem.orderItems.map((item)=>(item.product.price))))))
   
   
   const formattedOrders: UserColumn[] = data.map((item) => ({
@@ -71,7 +68,7 @@ const UsersPage = async ({
     id: item.id,
     email: item.email,
     phone:item.phone,
-    address:item.orders[2]?.address||item.orders[0]?.address,
+    address:item.orders[2]?.address.value||item.orders[0]?.address.value,
     products: getProductString(item),  
     totalPrice: PaidTotalPrice(item),
     imgurl:item.imgurl||"https://static.vecteezy.com/system/resources/thumbnails/021/911/748/small/white-circle-free-png.png",

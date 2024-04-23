@@ -29,7 +29,7 @@ import ImageUpload from "@/components/ui/image-upload"
 import { Checkbox } from "@/components/ui/checkbox"
 
 const formSchema = z.object({
-  name: z.string().min(1),
+  name: z.string().min(1).max(255),
   images: z.object({ url: z.string() }).array(),
   price: z.coerce.number().min(1),
   quantity: z.coerce.number().int().min(1),

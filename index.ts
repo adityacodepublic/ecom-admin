@@ -1,29 +1,59 @@
 
-// import prismadb from "./lib/prismadb"
+import prismadb from "./lib/prismadb"
 
 
-// async function main() {
-//     const user = await prismadb.users.findUnique({
-//         where:{
-//             id:"test3",
-//         },
-//     });
+async function main() {
+    // const orders = await prismadb.order.findMany();
+    const users = await prismadb.product.findFirst({
+        select:{
+            images:true,
+        }
+    });
 
-//     if (user?.imgurl!="hi"){
-//         await prismadb.users.update({
-//             where:{
-//                 id:user?.id,
-//             },
-//             data:{
-//                 imgurl:"hi",
-//             },
-//         })
-//     } 
     
-//     console.log(user)
+    // const addresses = users.map((item)=>(item.address.map((item2)=>(item2))));
+
+    // for (const ord of orders) {
+    //   console.log(ord.createdAt);
+
+    //   for(const item of users){
+    //     for(const items of item.address){
+    //       if(ord.addressId== items.id){
+    //         console.log(items.value);
+    //       }
+    //     }
+    //   }
+    // }
+      
+
+
+//     if (user!=null){
+//             try {
+//             for (const item of user ){
+//                 await prismadb.billboardImage.create({
+//                     data:{
+//                         billboardId:item.billboardId || "no IDDDDDDD",
+//                         url:item.url
+//                     },
+//                 })
+//                 console.log(`created billboard image with billboard id ${item.billboardId} and url ${item.url.slice(0,10)}`)
+                
+//             }
+//     } catch (error) {
+//         console.log("error 1")
+//     }
 // }
 
-// main()
+
+    
+    console.log(users);
+
+}
+
+
+
+main();
+console.log("hi")
 //     .catch(e => {
 //         console.error(e.message)
 //     })

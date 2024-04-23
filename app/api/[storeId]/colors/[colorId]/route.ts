@@ -15,6 +15,11 @@ export async function GET(
     const color = await prismadb.color.findUnique({
       where: {
         id: params.colorId
+      },
+      select:{
+        id:true,
+        name:true,
+        value:true
       }
     });
   

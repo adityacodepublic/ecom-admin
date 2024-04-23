@@ -68,7 +68,23 @@ export async function GET(
     const categories = await prismadb.category.findMany({
       where: {
         storeId: params.storeId
-      }
+      },
+      select:{
+        id:true,
+        name:true,
+        products:{
+          select:{
+            images:{
+              select:{
+                url:true
+              },
+              take:1,
+            },
+            name:true,
+          },
+          take:1
+        },
+      },
     });
   
     return NextResponse.json(categories);

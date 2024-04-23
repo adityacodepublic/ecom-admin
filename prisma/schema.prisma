@@ -3,49 +3,62 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
-  url = env("DATABASE_URL")
+  provider     = "mysql"
+  url          = env("DATABASE_URL")
   relationMode = "prisma"
 }
 
 model Store {
-  id              String    @id @default(uuid())
-  name            String
-  userId          String
-  billboards      Billboard[] @relation("StoreToBillboard")
-  categories      Category[] @relation("StoreToCategory")
-  products        Product[]  @relation("StoreToProduct")
-  sizes           Size[]     @relation("StoreToSize")
-  colors          Color[]     @relation("StoreToColor")
-  orders          Order[]     @relation("StoreToOrder")
-  users           Users[]      @relation("StoreToUsers")
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  id         String      @id @default(uuid())
+  name       String
+  userId     String
+  url        String      @default("")
+  billboards Billboard[] @relation("StoreToBillboard")
+  categories Category[]  @relation("StoreToCategory")
+  products   Product[]   @relation("StoreToProduct")
+  sizes      Size[]      @relation("StoreToSize")
+  colors     Color[]     @relation("StoreToColor")
+  orders     Order[]     @relation("StoreToOrder")
+  users      Users[]     @relation("StoreToUsers")
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
 }
 
 model Billboard {
-  id          String @id @default(uuid())
-  storeId     String
-  store       Store @relation("StoreToBillboard", fields: [storeId], references: [id])
-  label       String
-  imageUrl    String
-  categories  Category[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String           @id @default(uuid())
+  storeId    String
+  store      Store            @relation("StoreToBillboard", fields: [storeId], references: [id])
+  label      String
+  images     billboardImage[]
+  categories Category[]
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
 
   @@index([storeId])
 }
 
+model billboardImage {
+  id          Int        @id @default(autoincrement())
+  billboardId String     @default("")
+  billboard   Billboard? @relation(fields: [billboardId], references: [id], onDelete: Cascade)
+  url         String     @default("")
+  href        String     @default("")
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([billboardId])
+}
+
 model Category {
-  id          String      @id @default(uuid())
-  storeId     String      // Foreign Key to Store
-  store       Store       @relation("StoreToCategory", fields: [storeId], references: [id])
-  billboardId String      // Foreign Key to Billboard
-  billboard   Billboard   @relation(fields: [billboardId], references: [id])
+  id          String    @id @default(uuid())
+  storeId     String    // Foreign Key to Store
+  store       Store     @relation("StoreToCategory", fields: [storeId], references: [id])
+  billboardId String    // Foreign Key to Billboard
+  billboard   Billboard @relation(fields: [billboardId], references: [id])
   name        String
-  products    Product[]   @relation("CategoryToProduct")
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  products    Product[] @relation("CategoryToProduct")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([storeId])
   @@index([billboardId])
@@ -57,12 +70,12 @@ model Product {
   store       Store       @relation("StoreToProduct", fields: [storeId], references: [id])
   categoryId  String      // Foreign Key to Category
   category    Category    @relation("CategoryToProduct", fields: [categoryId], references: [id])
-  name        String
+  name        String      @db.VarChar(255)
   price       Decimal
   isFeatured  Boolean     @default(false)
   isArchived  Boolean     @default(false)
-  quantity    Int         
-  maxQuantity Int         
+  quantity    Int
+  maxQuantity Int
   sizeId      String      // Foreign Key to Size
   size        Size        @relation(fields: [sizeId], references: [id])
   colorId     String      // Foreign Key to Color
@@ -78,84 +91,104 @@ model Product {
   @@index([colorId])
 }
 
+model Image {
+  id        String   @id @default(uuid())
+  productId String   @default("") // Foreign Key to Product
+  product   Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String   // URL of the image
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([productId])
+}
+
 model Users {
-  id          String    @id @unique
-  storeId     String    // Foreign Key to Store
-  store       Store     @relation("StoreToUsers", fields: [storeId], references: [id])
-  orders      Order[]   @relation("UsersToOrder")// relation to Order model
-  email       String    @default("") 
-  phone       String    @default("") 
-  fname       String    @default("")
-  imgurl      String?   @default("")
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id        String    @id @unique
+  storeId   String    // Foreign Key to Store
+  store     Store     @relation("StoreToUsers", fields: [storeId], references: [id])
+  orders    Order[]   @relation("UsersToOrder") // relation to Order model
+  email     String    @default("")
+  phone     String    @default("")
+  fname     String    @default("")
+  address   Address[] @relation("Users-address") // relation to Address model
+  imgurl    String?   @default("")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   @@index([storeId])
 }
 
+model Address {
+  id           String  @id @default(uuid())
+  value        String  @default("")
+  instructions String? @default("")
+  pincode      Int     @default(0)
+  orders       Order[] @relation("AddressToOrder") // relation to Order model
+  usersId      String  // Foreign Key to Users
+  users        Users   @relation("Users-address", fields: [usersId], references: [id], onDelete: Cascade)
+
+  @@index([usersId])
+}
+
 model Order {
-  id          String      @id @default(uuid())
-  storeId     String      // Foreign Key to Store
-  store       Store       @relation("StoreToOrder", fields: [storeId], references: [id])
-  usersId     String      // Foreign Key to User
-  users       Users       @relation("UsersToOrder", fields: [usersId], references: [id])
-  orderItems  OrderItem[] // Relation to OrderItem model
-  address     String      @default("")
-  isPaid      Boolean     @default(false)
-  status      String      @default ("Order Recieved")
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id         String      @id @default(uuid())
+  storeId    String      // Foreign Key to Store
+  store      Store       @relation("StoreToOrder", fields: [storeId], references: [id])
+  usersId    String      // Foreign Key to Users
+  users      Users       @relation("UsersToOrder", fields: [usersId], references: [id], onDelete: Cascade)
+  addressId  String      // Foreign Key to Address
+  address    Address     @relation("AddressToOrder", fields: [addressId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[] // Relation to OrderItem model
+  isPaid     Boolean     @default(false)
+  payment    String      @default("card")
+  status     String      @default("Order Recieved")
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
 
   @@index([storeId])
   @@index([usersId])
+  @@index([addressId])
 }
 
 // Intermediary for a many-to-many relationship
 model OrderItem {
-  id              String  @id @default(uuid())
-  orderId         String  // Foreign Key to Order
-  order           Order   @relation(fields: [orderId], references: [id])
-  productId       String  // Foreign Key to Product
-  product         Product @relation(fields: [productId], references: [id])
-  orderQuantity   Int
+  id            String  @id @default(uuid())
+  orderId       String // Foreign Key to Order
+  order         Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId     String // Foreign Key to Product
+  product       Product @relation(fields: [productId], references: [id])
+  orderQuantity Int
 
   @@index([orderId])
   @@index([productId])
 }
 
 model Size {
-  id          String    @id @default(uuid())
-  storeId     String    // Foreign Key to Store
-  store       Store     @relation("StoreToSize", fields: [storeId], references: [id])
-  name        String
-  value       String
-  products    Product[] // Relation to Product model
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id        String    @id @default(uuid())
+  storeId   String // Foreign Key to Store
+  store     Store     @relation("StoreToSize", fields: [storeId], references: [id])
+  name      String
+  value     String
+  products  Product[] // Relation to Product model
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   @@index([storeId])
 }
 
 model Color {
-  id          String   @id @default(uuid())
-  storeId     String   // Foreign Key to Store
-  store       Store    @relation("StoreToColor", fields: [storeId], references: [id])
-  name        String
-  value       String
-  products    Product[] // Relation to Product model
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id        String    @id @default(uuid())
+  storeId   String // Foreign Key to Store
+  store     Store     @relation("StoreToColor", fields: [storeId], references: [id])
+  name      String
+  value     String
+  products  Product[] // Relation to Product model
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   @@index([storeId])
 }
 
-model Image {
-  id          String   @id @default(uuid())
-  productId   String   // Foreign Key to Product
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  url         String   // URL of the image
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
 
-  @@index([productId])
-}
+
+

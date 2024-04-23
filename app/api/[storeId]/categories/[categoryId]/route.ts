@@ -16,9 +16,15 @@ export async function GET(
       where: {
         id: params.categoryId
       },
-      include: {
-        billboard: true
-      }
+      select:{
+        billboard:{
+          select:{
+            images:true
+          }
+        },
+        id:true,
+        name:true,
+      },
     });
   
     return NextResponse.json(category);

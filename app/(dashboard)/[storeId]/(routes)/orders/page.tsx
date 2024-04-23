@@ -18,6 +18,12 @@ const OrdersPage = async ({
     },
     include: {
       users: true,
+      address:{
+        select:{
+          value:true,
+          pincode:true
+        }
+      },
       orderItems: {
         include: {
           product: true
@@ -33,7 +39,7 @@ const OrdersPage = async ({
     email: item.users.email,
     id: item.id,
     phone: item.users.phone,
-    address: item.address,
+    address: item.address.value + "- " +item.address.pincode,
     products: item.orderItems.map((orderItem) => orderItem.product.name.slice(0,20)).join(',  '),
     totalPrice: formatter.format(item.orderItems.reduce((total, item) => {
       return total + Number(item.product.price)

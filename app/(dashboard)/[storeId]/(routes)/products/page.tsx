@@ -5,6 +5,7 @@ import { formatter } from "@/lib/utils";
 
 import { ProductsClient } from "./components/client";
 import { ProductColumn } from "./components/columns";
+import  Loader  from "./components/loader"
 
 const ProductsPage = async ({
   params
@@ -27,7 +28,7 @@ const ProductsPage = async ({
 
   const formattedProducts: ProductColumn[] = products.map((item) => ({
     id: item.id,
-    name: item.name.slice(0,50) + "....",
+    name: item.name.slice(0,35) + "....",
     isFeatured: item.isFeatured,
     isArchived: item.isArchived,
     price: formatter.format(item.price.toNumber()),
@@ -35,7 +36,7 @@ const ProductsPage = async ({
     size: item.size.name,
     color: item.color,
     quantity: item.quantity,
-    createdAt: format(item.createdAt, 'MMMM do, yyyy'),
+    createdAt: format(item.createdAt, 'd MMM, yyyy'),
   }));
 
   return (

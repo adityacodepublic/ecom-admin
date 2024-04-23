@@ -2,17 +2,19 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs";
 
 import prismadb from "@/lib/prismadb";
-
+import { getStoreURL } from "@/actions/get-store";
+export const revalidate = 0; 
 
 export async function PATCH(
   req: Request,
   { params }: { params: { storeId: string } }
 ) {
   try {
+    const storeRevalidate = getStoreURL(params.storeId);
     const { userId } = auth();
     const body = await req.json();
 
-    const { name } = body;
+    const { name, url } = body;
 
     if (!userId) {
       return new NextResponse("Unauthenticated", { status: 403 });
@@ -20,6 +22,10 @@ export async function PATCH(
 
     if (!name) {
       return new NextResponse("Name is required", { status: 400 });
+    }    
+    
+    if (!url) {
+      return new NextResponse("URL is required", { status: 400 });
     }
 
     if (!params.storeId) {
@@ -32,7 +38,8 @@ export async function PATCH(
         userId,
       },
       data: {
-        name
+        name,
+        url
       }
     });
   
