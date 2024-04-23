@@ -237,9 +237,9 @@ const paddingX = {
               alt="store"
               style={{ margin: "auto" }}
             />
-            <Heading style={global.heading}>It's On Its Way.</Heading>
+            <Heading style={global.heading}>Its On Its Way.</Heading>
             <Text style={global.text}>
-              You order's is on its way. Use the link above to track its progress.
+              You orders is on its way. Use the link above to track its progress.
             </Text>
             <Text style={{ ...global.text, marginTop: 24 }}>
               Your order is confirmed, For payment details,
@@ -391,7 +391,7 @@ const paddingX = {
             <Row>
               <Text style={{ ...footer.text, paddingTop: 30, paddingBottom: 15 }}>
                 Please contact us if you have any questions. (If you reply to this
-                email, we won't be able to see it.)
+                email, we wont be able to see it.)
               </Text>
             </Row>
             <Row>
