@@ -9,7 +9,7 @@ export async function POST(req:Request, res:Response) {
     // add store details
     const {data,error} = await resend.emails.send({
         from: "Acme <onboarding@resend.dev>",
-        to:'website0wordpress@gmail.com',
+        to:"website0wordpress@gmail.com",
         subject:"Thankyou",
         html: render(ConfirmationEmail({name,address,product,orderId,orderDate,contactPhone})),
     })
