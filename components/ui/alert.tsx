@@ -54,7 +54,7 @@ const AlertSubtitle = React.forwardRef<
     {...props}
   />
 ))
-AlertTitle.displayName = "AlertTitle"
+AlertSubtitle.displayName = "AlertSubtitle"
 
 const AlertDescription = React.forwardRef<
   HTMLParagraphElement,
