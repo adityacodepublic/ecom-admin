@@ -10,7 +10,6 @@ export async function PATCH(
   { params }: { params: { storeId: string } }
 ) {
   try {
-    const storeRevalidate = getStoreURL(params.storeId);
     const { userId } = auth();
     const body = await req.json();
 
@@ -32,7 +31,7 @@ export async function PATCH(
       return new NextResponse("Store id is required", { status: 400 });
     }
 
-    const store = await prismadb.store.updateMany({
+    const store = await prismadb.store.update({
       where: {
         id: params.storeId,
         userId,

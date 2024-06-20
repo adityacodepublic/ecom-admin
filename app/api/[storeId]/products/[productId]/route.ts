@@ -91,7 +91,7 @@ export async function DELETE(
     });
     
     try { 
-      const response = await axios.post(`${process.env.FRONTEND_STORE_URL}/api/revalidate`, { path:`/product/${params.productId}`, tag:['categories','products'] });
+      const response = await axios.post(`${process.env.FRONTEND_STORE_URL}/api/revalidate`, { path:[`/product/${params.productId}`,`/category/${product.categoryId}`, product.isFeatured? '/':''], tag:['products'] });
       console.log(response.status);    
     } catch (error) {
       console.error('Error processing revalidation:', error);    
@@ -203,7 +203,7 @@ export async function PATCH(
     })
   
     try { 
-      const response = await axios.post(`${process.env.FRONTEND_STORE_URL}/api/revalidate`, { path:`/product/${params.productId}`, tag:['categories','products'] });
+      const response = await axios.post(`${process.env.FRONTEND_STORE_URL}/api/revalidate`, { path:[`/product/${params.productId}`,`/category/${product.categoryId}`, product.isFeatured? '/':''], tag:['products'] });
       console.log(response.status);    
     } catch (error) {
       console.error('Error processing revalidation:', error);    

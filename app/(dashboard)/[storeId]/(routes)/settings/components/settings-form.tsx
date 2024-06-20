@@ -138,6 +138,7 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
       <Separator />
       <ApiAlert 
         title="NEXT_PUBLIC_API_URL" 
+        subtitle="Use this api key to setup store url and submit the deployed store url in above form."
         variant="public" 
         description={`${origin}/api/${params.storeId}`}
       />

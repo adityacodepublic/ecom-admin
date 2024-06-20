@@ -47,7 +47,6 @@ const Loader = () => {
 
       for (i = data.start; i < data.start + data.quant; i++) {
         const data = response.data.record[i];
-        // console.log(data);
         await axios.post(`/api/757945cd-8675-46c4-b999-d7a7bcbec812/products`, data);
         router.refresh();
         router.push(`/757945cd-8675-46c4-b999-d7a7bcbec812/products`);

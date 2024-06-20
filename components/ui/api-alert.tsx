@@ -1,12 +1,13 @@
 import { Copy, Server } from "lucide-react";
 import { toast } from "react-hot-toast";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle, AlertSubtitle } from "@/components/ui/alert";
 import { Badge, BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 interface ApiAlertProps {
   title: string;
+  subtitle?:string;
   description: string;
   variant: 'public' | 'admin',
 };
@@ -24,6 +25,7 @@ const variantMap: Record<ApiAlertProps["variant"], BadgeProps["variant"]> = {
 
 export const ApiAlert: React.FC<ApiAlertProps> = ({
   title,
+  subtitle,
   description,
   variant = "public"
 }) => {
@@ -41,6 +43,11 @@ export const ApiAlert: React.FC<ApiAlertProps> = ({
           {textMap[variant]}
         </Badge>
       </AlertTitle>
+        {subtitle? 
+          <AlertSubtitle>{subtitle}</AlertSubtitle>  
+        : <></>
+        }
+      
       <AlertDescription className="mt-4 flex items-center justify-between">
         <code className="relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold">
           {description}

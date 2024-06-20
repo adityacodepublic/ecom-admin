@@ -20,7 +20,11 @@ export async function POST(
   req: Request,
   { params }: { params: { storeId: string} }
 ) {
-  const FRONTEND_STORE_URLS = await getStoreURL(params.storeId);
+  
+  if (!params.storeId) {
+    return new NextResponse("Store id is required", { status: 400 });
+  }
+  //const FRONTEND_STORE_URLS = await getStoreURL(params.storeId);
   // storeRevalidate  ${process.env.FRONTEND_STORE_URL}  revalidate in store patch
 
   // validate zod data
@@ -178,8 +182,8 @@ export async function POST(
         // phone_number_collection: {
         //   enabled: true,
         // },
-        success_url: `${FRONTEND_STORE_URLS}/cart?success=1`,
-        cancel_url: `${FRONTEND_STORE_URLS}/cart?canceled=1`,
+        success_url: `/cart?success=1`,
+        cancel_url: `/cart?canceled=1`,
         metadata: {
           orderId: order.id
         },
@@ -210,12 +214,12 @@ export async function POST(
         } catch(error:any){
           console.log('Something went wrong.');
         }
-        return NextResponse.json({ url: `${FRONTEND_STORE_URLS}/cart?success=1` }, {
+        return NextResponse.json({ url: `/cart?success=1` }, {
           headers: corsHeaders
         });
       }
       else{
-        return NextResponse.json({ url: `${FRONTEND_STORE_URLS}/cart?cancelled=1` }, {
+        return NextResponse.json({ url: `/cart?cancelled=1` }, {
           headers: corsHeaders
         });
       }
@@ -238,12 +242,12 @@ export async function POST(
         } catch(error:any){
           console.log('Something went wrong.');
         }
-        return NextResponse.json({ url: `${FRONTEND_STORE_URLS}/pay/UPI` }, {
+        return NextResponse.json({ url: `/pay/UPI` }, {
           headers: corsHeaders
         });
       }
       else{
-        return NextResponse.json({ url: `${FRONTEND_STORE_URLS}/cart?cancelled=1` }, {
+        return NextResponse.json({ url: `/cart?cancelled=1` }, {
           headers: corsHeaders
         });
       }
@@ -266,12 +270,12 @@ export async function POST(
         } catch(error:any){
           console.log('Something went wrong.');
         }
-        return NextResponse.json({ url: `${FRONTEND_STORE_URLS}/payment/NET Banking` }, {
+        return NextResponse.json({ url: `/payment/NET Banking` }, {
           headers: corsHeaders
         });
       }
       else{
-        return NextResponse.json({ url: `${FRONTEND_STORE_URLS}/cart?cancelled=1` }, {
+        return NextResponse.json({ url: `/cart?cancelled=1` }, {
           headers: corsHeaders
         });
       }

@@ -5,7 +5,7 @@ import { formatter } from "@/lib/utils";
 
 import { ProductsClient } from "./components/client";
 import { ProductColumn } from "./components/columns";
-import  Loader  from "./components/loader"
+
 
 const ProductsPage = async ({
   params

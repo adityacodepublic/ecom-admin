@@ -79,11 +79,16 @@ export async function DELETE(
     const billboard = await prismadb.billboard.delete({
       where: {
         id: params.billboardId,
+      },
+      include:{
+        categories:true
       }
     });
     
+    const paths = billboard.categories.map((item)=>(`/category/${item.id}`));
+    if(paths && paths.length===0) {paths.push('/');}
     try { 
-      const response = await axios.post(`${process.env.FRONTEND_STORE_URL}/api/revalidate`, { tag:['billboards'] });
+      const response = await axios.post(`${process.env.FRONTEND_STORE_URL}/api/revalidate`, {path:paths, tag:['billboards'] });
       console.log(response.status);    
     } catch (error) {
       console.error('Error processing revalidation:', error);    
@@ -162,10 +167,15 @@ export async function PATCH(
           },
         },
       },
+      include:{
+        categories:true
+      }
     });
 
+    const paths = billboard.categories.map((item)=>(`/category/${item.id}`));
+    if(paths && paths.length===0) {paths.push('/');}
     try { 
-      const response = await axios.post(`${process.env.FRONTEND_STORE_URL}/api/revalidate`, { tag:['billboards'] });
+      const response = await axios.post(`${process.env.FRONTEND_STORE_URL}/api/revalidate`, {path:paths, tag:['billboards'] });
       console.log(response.status);    
     } catch (error) {
       console.error('Error processing revalidation:', error);    

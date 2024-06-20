@@ -14,13 +14,16 @@ export async function OPTIONS() {
 
 export async function GET(
   req: Request,
-  { params }: { params: { usersId: string } }
+  { params }: { params: { usersId: string, storeId: string } }
 ) {
   try {
     if (!params.usersId) {
       return new NextResponse("User id is required", { status: 400 });
     }
 
+    if (!params.storeId) {
+      return new NextResponse("Store id is required", { status: 400 });
+    }
     const user = await prismadb.users.findUnique({
       where: {
         id: params.usersId
@@ -69,6 +72,9 @@ export async function GET(
               },
             },
           },
+          orderBy:{
+            createdAt:'desc'
+          }
         },
       },
     });

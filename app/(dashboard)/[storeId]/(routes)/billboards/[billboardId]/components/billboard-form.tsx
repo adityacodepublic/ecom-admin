@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { toast } from "react-hot-toast"
 import { Trash } from "lucide-react"
-import { Billboard, Image } from "@prisma/client"
+import { Billboard, billboardImage } from "@prisma/client"
 import { useParams, useRouter } from "next/navigation"
 
 import { Input } from "@/components/ui/input"
@@ -35,7 +35,7 @@ type BillboardFormValues = z.infer<typeof formSchema>
 
 interface BillboardFormProps {
   initialData: Billboard & {
-    images: Image[]
+    images: billboardImage[]
   } | null;
 };
 

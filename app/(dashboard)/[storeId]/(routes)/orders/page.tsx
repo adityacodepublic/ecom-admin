@@ -42,7 +42,7 @@ const OrdersPage = async ({
     address: item.address.value + "- " +item.address.pincode,
     products: item.orderItems.map((orderItem) => orderItem.product.name.slice(0,20)).join(',  '),
     totalPrice: formatter.format(item.orderItems.reduce((total, item) => {
-      return total + Number(item.product.price)
+      return total + (Number(item.product.price)* item.orderQuantity)
     }, 0)),
     isPaid: item.isPaid,
     createdAt: format(item.createdAt, 'do MMM'),

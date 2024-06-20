@@ -131,7 +131,7 @@ export async function PATCH(
     });
   
     try { 
-      const response = await axios.post(`${process.env.FRONTEND_STORE_URL}/api/revalidate`, { tag:['categories'] });
+      const response = await axios.post(`${process.env.FRONTEND_STORE_URL}/api/revalidate`, {tag:['categories'] });
       console.log(response.status);    
     } catch (error) {
       console.error('Error processing revalidation:', error);    
