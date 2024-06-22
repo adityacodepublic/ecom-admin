@@ -11,6 +11,7 @@ export async function POST(
     req:Request, 
     { params }: { params: { storeId: string } }
 ) {
+    const storeurl = req.url;
     try {
         if (!params.storeId) {
             return new NextResponse("Store id is required", { status: 400 });
@@ -22,10 +23,10 @@ export async function POST(
             from: "Acme <onboarding@resend.dev>",
             to:"website0wordpress@gmail.com",
             subject:"Thankyou",
-            html: render(ConfirmationEmail({name,address,product,orderId,orderDate,contactPhone})),
+            html: render(ConfirmationEmail({name,address,product,orderId,orderDate,contactPhone,storeurl})),
         })
 
-        return response.json({message:"Email Sent Successfully"});
+        return response.json({message:"Email Sent Successfully"}, { status: 200 });
     } catch (error) {
         return new response("Internal error", { status: 500});
     }

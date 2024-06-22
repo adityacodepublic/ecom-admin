@@ -3,7 +3,9 @@ import { auth } from '@clerk/nextjs';
 
 import prismadb from '@/lib/prismadb';
 import axios from 'axios';
+import { getStoreURL } from '@/actions/get-storeUrl';
 
+ 
 export async function POST(
   req: Request,
   { params }: { params: { storeId: string } }
@@ -32,6 +34,8 @@ export async function POST(
       return new NextResponse("Store id is required", { status: 400 });
     }
 
+    const store_url = await getStoreURL(params.storeId);
+
     const storeByUserId = await prismadb.store.findFirst({
       where: {
         id: params.storeId,
@@ -50,7 +54,7 @@ export async function POST(
         images: {
           createMany: {
             data: [
-              ...images.map((image: { url: string }) => image),
+              ...images.map((image: { url: string }) => image)
             ],
           },
         },
@@ -58,7 +62,7 @@ export async function POST(
     });
     
     try { 
-      const response = await axios.post(`${process.env.FRONTEND_STORE_URL}/api/revalidate`, { tag:['billboards'] });
+      const response = await axios.post(`${store_url}/api/revalidate`, { tag:['billboards'] });
       console.log(response.status);    
     } catch (error) {
       console.error('Error processing revalidation:', error);    

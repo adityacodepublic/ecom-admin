@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs';
 
 import prismadb from '@/lib/prismadb';
 import axios from 'axios';
+import { getStoreURL } from '@/actions/get-storeUrl';
 
 export async function POST(
   req: Request,
@@ -51,10 +52,11 @@ export async function POST(
       return new NextResponse("Size id is required", { status: 400 });
     }
 
-
     if (!params.storeId) {
       return new NextResponse("Store id is required", { status: 400 });
     }
+
+    const store_url = await getStoreURL(params.storeId);
 
     const storeByUserId = await prismadb.store.findFirst({
       where: {
@@ -109,7 +111,7 @@ export async function POST(
     });
 
     try { 
-      const response = await axios.post(`${process.env.FRONTEND_STORE_URL}/api/revalidate`, { path:[`/category/${categoryId}`, product.isFeatured?'/':''], tag:['categories'] });
+      const response = await axios.post(`${store_url}/api/revalidate`, { path:[`/category/${categoryId}`, product.isFeatured?'/':''], tag:['categories'] });
       console.log(response.status);    
     } catch (error) {
       console.error('Error processing revalidation:', error);    

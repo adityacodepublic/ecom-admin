@@ -33,7 +33,7 @@ export const ProductsClient: React.FC<ProductsClientProps> = ({
             <Plus className="mr-2 h-4 w-4" /> Add New
           </Button>
           <Button className='mx-5 mb-5' onClick={() => setOpen(!open)}>
-            Load Data
+            <Plus className="mr-2 h-4 w-4" /> Load Data
           </Button>
         </div>
       </div>

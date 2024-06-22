@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 
 import { stripe } from "@/lib/stripe";
 import axios from "axios";
-import { getStoreURL } from "@/actions/get-store";
+import { getStoreURL } from "@/actions/get-storeUrl";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -24,10 +24,7 @@ export async function POST(
   if (!params.storeId) {
     return new NextResponse("Store id is required", { status: 400 });
   }
-  //const FRONTEND_STORE_URLS = await getStoreURL(params.storeId);
-  // storeRevalidate  ${process.env.FRONTEND_STORE_URL}  revalidate in store patch
 
-  // validate zod data
   const { cartItems, usersId, name, email, imgurl, phone, radio, address, zip, address_instructions, payradio} = await req.json();
 
   if (!cartItems || cartItems.length === 0) {

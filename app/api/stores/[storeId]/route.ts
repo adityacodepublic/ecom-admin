@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs";
 
 import prismadb from "@/lib/prismadb";
-import { getStoreURL } from "@/actions/get-store";
+import { getStoreURL } from "@/actions/get-storeUrl";
+import axios from "axios";
+import { revalidateTag } from "next/cache";
 export const revalidate = 0; 
 
 export async function PATCH(
@@ -42,6 +44,13 @@ export async function PATCH(
       }
     });
   
+    try { 
+      revalidateTag('storeurl');
+      revalidateTag('store_url'); 
+    } catch (error) {
+      console.error('Error processing revalidation:', error);    
+    }
+    
     return NextResponse.json(store);
   } catch (error) {
     console.log('[STORE_PATCH]', error);
@@ -72,6 +81,13 @@ export async function DELETE(
       }
     });
   
+    try { 
+      revalidateTag('storeurl');
+      revalidateTag('store_url'); 
+    } catch (error) {
+      console.error('Error processing revalidation:', error);    
+    }
+    
     return NextResponse.json(store);
   } catch (error) {
     console.log('[STORE_DELETE]', error);

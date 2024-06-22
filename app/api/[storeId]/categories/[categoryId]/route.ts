@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs";
 
 import prismadb from "@/lib/prismadb";
 import axios from "axios";
+import { getStoreURL } from "@/actions/get-storeUrl";
 
 export async function GET(
   req: Request,
@@ -50,6 +51,8 @@ export async function DELETE(
       return new NextResponse("Category id is required", { status: 400 });
     }
 
+    const store_url = await getStoreURL(params.storeId);
+
     const storeByUserId = await prismadb.store.findFirst({
       where: {
         id: params.storeId,
@@ -68,7 +71,7 @@ export async function DELETE(
     });
   
     try { 
-      const response = await axios.post(`${process.env.FRONTEND_STORE_URL}/api/revalidate`, { tag:['categories'] });
+      const response = await axios.post(`${store_url}/api/revalidate`, { tag:['categories'] });
       console.log(response.status);    
     } catch (error) {
       console.error('Error processing revalidation:', error);    
@@ -109,6 +112,8 @@ export async function PATCH(
       return new NextResponse("Category id is required", { status: 400 });
     }
 
+    const store_url = await getStoreURL(params.storeId);
+
     const storeByUserId = await prismadb.store.findFirst({
       where: {
         id: params.storeId,
@@ -131,7 +136,7 @@ export async function PATCH(
     });
   
     try { 
-      const response = await axios.post(`${process.env.FRONTEND_STORE_URL}/api/revalidate`, {tag:['categories'] });
+      const response = await axios.post(`${store_url}/api/revalidate`, {tag:['categories'] });
       console.log(response.status);    
     } catch (error) {
       console.error('Error processing revalidation:', error);    

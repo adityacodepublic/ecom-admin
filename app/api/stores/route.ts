@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs';
 
 import prismadb from '@/lib/prismadb';
+import { revalidateTag } from 'next/cache';
 
 export async function POST(
   req: Request,
@@ -27,6 +28,13 @@ export async function POST(
       }
     });
   
+    try { 
+      revalidateTag('storeurl');
+      revalidateTag('store_url'); 
+    } catch (error) {
+      console.error('Error processing revalidation:', error);    
+    }
+    
     return NextResponse.json(store);
   } catch (error) {
     console.log('[STORES_POST]', error);

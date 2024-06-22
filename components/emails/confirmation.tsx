@@ -16,9 +16,6 @@ import {
 import { add } from "date-fns";
   import * as React from "react";
   
-const baseUrl = process.env.FRONTEND_STORE_URL
-    ? `${process.env.FRONTEND_STORE_URL}`
-    : "";
 
 const paddingX = {
     paddingLeft: "14px",
@@ -207,9 +204,10 @@ const paddingX = {
     orderId:string;
     orderDate:string;
     contactPhone:string;
+    storeurl:string;
   }
   export const ConfirmationEmail = ({
-   name,address,product,orderId,orderDate,contactPhone
+   name,address,product,orderId,orderDate,contactPhone,storeurl
   }:emailProps) => {
     return (
     <Html style={{ scrollbarWidth:"none"}}>
@@ -224,7 +222,7 @@ const paddingX = {
                 <Text style={track.number}>{orderId}</Text>
               </Column>
               <Column align="right">
-                <Link href={`${baseUrl}/orders`} style={global.button}>Track Package</Link>
+                <Link href={`${storeurl}/orders`} style={global.button}>Track Package</Link>
               </Column>
             </Row>
           </Section>
@@ -298,7 +296,7 @@ const paddingX = {
             </Row>
             <Row>
               <Column align="center">
-                <Link href={`${baseUrl}/orders`} style={global.button}>Order Status</Link>
+                <Link href={`${storeurl}/orders`} style={global.button}>Order Status</Link>
               </Column>
             </Row>
           </Section>
@@ -309,7 +307,7 @@ const paddingX = {
             </Row>
             <Row style={menu.content}>
               <Column style={{ width: "33%" }} colSpan={1}>
-                <Link href={`${baseUrl}/orders`} style={menu.text}>
+                <Link href={`${storeurl}/orders`} style={menu.text}>
                   Shipping Status
                 </Link>
               </Column>
@@ -362,17 +360,17 @@ const paddingX = {
             </Row>
             <Row style={categories.container}>
               <Column align="center">
-                <Link href={`${baseUrl}/categories/laptops`} style={categories.text}>
+                <Link href={`${storeurl}/categories/laptops`} style={categories.text}>
                   Laptops
                 </Link>
               </Column>
               <Column align="center" style={{paddingLeft:"5px", paddingRight:"5px"}}>
-                <Link href={`${baseUrl}/categories/smartphones`} style={categories.text}>
+                <Link href={`${storeurl}/categories/smartphones`} style={categories.text}>
                   Smartphones
                 </Link>
               </Column>
               <Column align="center">
-                <Link href={`${baseUrl}/categories/tv`} style={categories.text}>
+                <Link href={`${storeurl}/categories/tv`} style={categories.text}>
                   Electronics
                 </Link>
               </Column>
