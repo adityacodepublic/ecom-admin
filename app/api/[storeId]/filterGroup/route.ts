@@ -3,6 +3,16 @@ import { NextResponse } from 'next/server';
 import prismadb from '@/lib/prismadb';
 import { auth } from '@clerk/nextjs';
  
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
+
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: corsHeaders });
+}
+
 export async function POST(
   req: Request,
   { params }: { params: { storeId: string } }
@@ -12,7 +22,7 @@ export async function POST(
 
     const body = await req.json();
 
-    const { name, value } = body;
+    const { name} = body;
 
     if (!userId) {
       return new NextResponse("Unauthenticated", { status: 403 });
@@ -20,10 +30,6 @@ export async function POST(
 
     if (!name) {
       return new NextResponse("Name is required", { status: 400 });
-    }
-
-    if (!value) {
-      return new NextResponse("Value is required", { status: 400 });
     }
 
     if (!params.storeId) {
@@ -41,15 +47,14 @@ export async function POST(
       return new NextResponse("Unauthorized", { status: 405 });
     }
 
-    const color = await prismadb.color.create({
+    const color = await prismadb.filterGroup.create({
       data: {
         name,
-        value,
         storeId: params.storeId
       }
     });
   
-    return NextResponse.json(color);
+    return NextResponse.json(color,{headers:corsHeaders});
   } catch (error) {
     console.log('[COLORS_POST]', error);
     return new NextResponse("Internal error", { status: 500 });
@@ -65,18 +70,17 @@ export async function GET(
       return new NextResponse("Store id is required", { status: 400 });
     }
 
-    const colors = await prismadb.color.findMany({
+    const colors = await prismadb.filterGroup.findMany({
       where: {
         storeId: params.storeId
       },
       select:{
         id:true,
-        name:true,
-        value:true
+        name:true
       }
     });
   
-    return NextResponse.json(colors);
+    return NextResponse.json(colors,{headers:corsHeaders});
   } catch (error) {
     console.log('[COLORS_GET]', error);
     return new NextResponse("Internal error", { status: 500 });

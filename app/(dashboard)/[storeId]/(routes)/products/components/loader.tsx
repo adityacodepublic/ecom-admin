@@ -64,7 +64,7 @@ const Loader = () => {
 
   return (
     <div>
-        <div className='mb-7'>
+        <div>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 w-full">
               <div className="grid grid-cols-3 gap-8">

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import prismadb from "@/lib/prismadb";
 import { auth } from "@clerk/nextjs";
 
+
 export async function GET(
   req: Request,
   { params }: { params: { sizeId: string } }

@@ -4,6 +4,17 @@ import { auth } from '@clerk/nextjs';
 import prismadb from '@/lib/prismadb';
 import axios from 'axios';
 import { getStoreURL } from '@/actions/get-storeUrl';
+import {getURL } from '@/lib/_allowedDomains/domains';
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
+
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: corsHeaders });
+}
 
 export async function POST(
   req: Request,
@@ -56,7 +67,7 @@ export async function POST(
       return new NextResponse("Store id is required", { status: 400 });
     }
 
-    const store_url = await getStoreURL(params.storeId);
+    const store_url = getURL(params.storeId);
 
     const storeByUserId = await prismadb.store.findFirst({
       where: {
@@ -117,7 +128,7 @@ export async function POST(
       console.error('Error processing revalidation:', error);    
     }
     
-    return NextResponse.json(product)
+    return NextResponse.json(product,{headers:corsHeaders})
   } catch (error) {
     console.log('[PRODUCTS_POST]', error);
     return new NextResponse("Internal error", { status: 500 });
@@ -204,7 +215,7 @@ export async function GET(
         },
       }
     });
-    return NextResponse.json(products);
+    return NextResponse.json(products,{headers:corsHeaders});
   } catch (error) {
     console.log('[PRODUCTS_GET]', error);
     return new NextResponse("Internal error", { status: 500 });

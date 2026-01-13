@@ -4,9 +4,10 @@ import { auth } from "@clerk/nextjs";
 import prismadb from "@/lib/prismadb";
 import axios from "axios";
 import { getStoreURL } from "@/actions/get-storeUrl";
+import {getURL } from '@/lib/_allowedDomains/domains';
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": `${process.env.ACCESS_CONTROL_ALLOW_ORIGIN}`,
+  "Access-Control-Allow-Origin": `*`,
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
@@ -14,6 +15,7 @@ const corsHeaders = {
 export async function OPTIONS() {
   return NextResponse.json({}, { headers: corsHeaders });
 }
+
 export async function GET(
   req: Request,
   { params }: { params: { billboardId: string } }
@@ -38,13 +40,7 @@ export async function GET(
       }
     });
   
-    return NextResponse.json(billboard, {
-      headers: {
-        'Access-Control-Allow-Origin': `${process.env.ACCESS_CONTROL_ALLOW_ORIGIN}`,
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      },
-    });
+    return NextResponse.json(billboard, {headers: corsHeaders});
   } catch (error) {
     console.log('[BILLBOARD_GET]', error);
     return new NextResponse("Internal error", { status: 500 });
@@ -66,7 +62,7 @@ export async function DELETE(
       return new NextResponse("Billboard id is required", { status: 400 });
     }
 
-    const store_url = await getStoreURL(params.storeId);
+    const store_url = getURL(params.storeId);
 
     const storeByUserId = await prismadb.store.findFirst({
       where: {
@@ -134,7 +130,7 @@ export async function PATCH(
       return new NextResponse("Billboard id is required", { status: 400 });
     }
 
-    const store_url = await getStoreURL(params.storeId);
+    const store_url = getURL(params.storeId);
 
     const storeByUserId = await prismadb.store.findFirst({
       where: {

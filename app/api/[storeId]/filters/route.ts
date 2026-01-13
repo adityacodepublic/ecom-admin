@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs';
 
 import prismadb from '@/lib/prismadb';
+import { Decimal } from '@prisma/client/runtime/library';
 import axios from 'axios';
 import { getStoreURL } from '@/actions/get-storeUrl';
 import {getURL } from '@/lib/_allowedDomains/domains';
@@ -25,7 +26,7 @@ export async function POST(
 
     const body = await req.json();
 
-    const { name, billboardId } = body;
+    const { name, value, feature } = body;
 
     if (!userId) {
       return new NextResponse("Unauthenticated", { status: 403 });
@@ -34,21 +35,19 @@ export async function POST(
     if (!name) {
       return new NextResponse("Name is required", { status: 400 });
     }
-    
-    if (!billboardId) {
-      return new NextResponse("Billboard ID is required", { status: 400 });
+
+    if (!value) {
+      return new NextResponse("Value is required", { status: 400 });
     }
 
     if (!params.storeId) {
       return new NextResponse("Store id is required", { status: 400 });
     }
 
-    const store_url = getURL(params.storeId);
-
     const storeByUserId = await prismadb.store.findFirst({
       where: {
         id: params.storeId,
-        userId,
+        userId
       }
     });
 
@@ -56,24 +55,33 @@ export async function POST(
       return new NextResponse("Unauthorized", { status: 405 });
     }
 
-    const category = await prismadb.category.create({
+    const store_url = getURL(params.storeId);
+
+    const filter = await prismadb.filter.create({
       data: {
-        name,
-        billboardId,
         storeId: params.storeId,
+        name,
+        feature,
+        value:{
+          createMany: {
+            data: [
+              ...value.map((values: {storeId: string, value:Decimal, unit:string})=>values)
+            ]
+          }
+        }
       }
     });
   
     try { 
-      const response = await axios.post(`${store_url}/api/revalidate`, { tag:['categories'] });
+      const response = await axios.post(`${store_url}/api/revalidate`, { tag:['filters'] });
       console.log(response.status);    
     } catch (error) {
       console.error('Error processing revalidation:', error);    
     }
     
-    return NextResponse.json(category,{headers:corsHeaders});
+    return NextResponse.json(filter,{headers:corsHeaders});
   } catch (error) {
-    console.log('[CATEGORIES_POST]', error);
+    console.log('[FILTERS_POST]', error);
     return new NextResponse("Internal error", { status: 500 });
   }
 };
@@ -87,31 +95,25 @@ export async function GET(
       return new NextResponse("Store id is required", { status: 400 });
     }
 
-    const categories = await prismadb.category.findMany({
+    const filters = await prismadb.filter.findMany({
       where: {
         storeId: params.storeId
       },
       select:{
         id:true,
         name:true,
-        products:{
+        value:{
           select:{
-            images:{
-              select:{
-                url:true
-              },
-              take:1,
-            },
-            name:true,
-          },
-          take:1
-        },
-      },
+            value:true,
+            unit:true
+          }
+        }
+      }
     });
   
-    return NextResponse.json(categories,{headers:corsHeaders});
+    return NextResponse.json(filters,{headers:corsHeaders});
   } catch (error) {
-    console.log('[CATEGORIES_GET]', error);
+    console.log('[FILTERS_GET]', error);
     return new NextResponse("Internal error", { status: 500 });
   }
 };

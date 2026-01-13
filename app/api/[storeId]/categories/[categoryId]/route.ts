@@ -4,6 +4,17 @@ import { auth } from "@clerk/nextjs";
 import prismadb from "@/lib/prismadb";
 import axios from "axios";
 import { getStoreURL } from "@/actions/get-storeUrl";
+import {getURL } from '@/lib/_allowedDomains/domains';
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
+
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: corsHeaders });
+}
 
 export async function GET(
   req: Request,
@@ -29,7 +40,7 @@ export async function GET(
       },
     });
   
-    return NextResponse.json(category);
+    return NextResponse.json(category,{headers:corsHeaders});
   } catch (error) {
     console.log('[CATEGORY_GET]', error);
     return new NextResponse("Internal error", { status: 500 });
@@ -51,7 +62,7 @@ export async function DELETE(
       return new NextResponse("Category id is required", { status: 400 });
     }
 
-    const store_url = await getStoreURL(params.storeId);
+    const store_url = getURL(params.storeId);
 
     const storeByUserId = await prismadb.store.findFirst({
       where: {
@@ -77,7 +88,7 @@ export async function DELETE(
       console.error('Error processing revalidation:', error);    
     }
     
-    return NextResponse.json(category);
+    return NextResponse.json(category,{headers:corsHeaders});
   } catch (error) {
     console.log('[CATEGORY_DELETE]', error);
     return new NextResponse("Internal error", { status: 500 });
@@ -112,7 +123,7 @@ export async function PATCH(
       return new NextResponse("Category id is required", { status: 400 });
     }
 
-    const store_url = await getStoreURL(params.storeId);
+    const store_url = getURL(params.storeId);
 
     const storeByUserId = await prismadb.store.findFirst({
       where: {
@@ -142,7 +153,7 @@ export async function PATCH(
       console.error('Error processing revalidation:', error);    
     }
     
-    return NextResponse.json(category);
+    return NextResponse.json(category,{headers:corsHeaders});
   } catch (error) {
     console.log('[CATEGORY_PATCH]', error);
     return new NextResponse("Internal error", { status: 500 });

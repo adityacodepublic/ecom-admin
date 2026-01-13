@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs';
 
 import prismadb from '@/lib/prismadb';
 import { revalidateTag } from 'next/cache';
+import { addStore } from '@/lib/_allowedDomains/domains';
 
 export async function POST(
   req: Request,
@@ -28,6 +29,7 @@ export async function POST(
       }
     });
   
+    addStore("http://localhost:3000",store.id);
     try { 
       revalidateTag('storeurl');
       revalidateTag('store_url'); 

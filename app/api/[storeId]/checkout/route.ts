@@ -4,7 +4,6 @@ import { NextResponse } from "next/server";
 
 import { stripe } from "@/lib/stripe";
 import axios from "axios";
-import { getStoreURL } from "@/actions/get-storeUrl";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

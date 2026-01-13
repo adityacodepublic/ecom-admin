@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs";
-
 import prismadb from "@/lib/prismadb";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": `${process.env.ACCESS_CONTROL_ALLOW_ORIGIN}`,
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
@@ -26,7 +26,8 @@ export async function GET(
     }
     const user = await prismadb.users.findUnique({
       where: {
-        id: params.usersId
+        id: params.usersId,
+        storeId:params.storeId
       },
       select: {
         fname:true,
@@ -104,7 +105,7 @@ export async function DELETE(
     const storeByUserId = await prismadb.store.findFirst({
       where: {
         id: params.storeId,
-        userId
+        userId: params.usersId
       }
     });
 
@@ -118,7 +119,7 @@ export async function DELETE(
       },
     });
   
-    return NextResponse.json(user);
+    return NextResponse.json(user,{headers:corsHeaders});
   } catch (error) {
     console.log('[PRODUCT_DELETE]', error);
     return new NextResponse("Internal error", { status: 500 });
@@ -165,7 +166,7 @@ export async function PATCH(
     const storeByUserId = await prismadb.store.findFirst({
       where: {
         id: params.storeId,
-        userId
+        userId: params.usersId
       }
     });
 
@@ -184,7 +185,7 @@ export async function PATCH(
         imgurl:imgurl,
       },
     });
-
+    return NextResponse.json({status:200},{headers:corsHeaders});
   } catch (error) {
     console.log('[USER_PATCH]', error);
     return new NextResponse("Internal error", { status: 500 });
