@@ -9,22 +9,21 @@ datasource db {
 }
 
 model Store {
-  id          String        @id @default(uuid())
-  name        String
-  userId      String
-  url         String        @default("http://localhost:3001")
-  billboards  Billboard[]   @relation("StoreToBillboard")
-  categories  Category[]    @relation("StoreToCategory")
-  sizes       Size[]        @relation("StoreToSize")
-  colors      Color[]       @relation("StoreToColor")
-  filters     Filter[]      @relation("StoreToFilter")
-  filterGroup FilterGroup[] @relation("StoreToFilterGroup")
-  products    Product[]     @relation("StoreToProduct")
-  variants    Variant[]     @relation("StoreToVariant")
-  orders      Order[]       @relation("StoreToOrder")
-  users       Users[]       @relation("StoreToUsers")
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id         String      @id @default(uuid())
+  name       String
+  userId     String
+  url        String      @default("http://localhost:3001")
+  billboards Billboard[] @relation("StoreToBillboard")
+  categories Category[]  @relation("StoreToCategory")
+  sizes      Size[]      @relation("StoreToSize")
+  colors     Color[]     @relation("StoreToColor")
+  filters    Filter[]    @relation("StoreToFilter")
+  products   Product[]   @relation("StoreToProduct")
+  // variants    Variant[]     @relation("StoreToVariant")
+  orders     Order[]     @relation("StoreToOrder")
+  users      Users[]     @relation("StoreToUsers")
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
 }
 
 model Billboard {
@@ -71,50 +70,50 @@ model Category {
 
 model Product {
   id          String       @id @default(uuid())
-  storeId     String       // Foreign Key to Store
+  storeId     String // Foreign Key to Store
   store       Store        @relation("StoreToProduct", fields: [storeId], references: [id])
-  categoryId  String       // Foreign Key to Category
+  categoryId  String // Foreign Key to Category
   category    Category     @relation("CategoryToProduct", fields: [categoryId], references: [id])
-  variantId   String
-  variant     Variant      @relation("VariantToProduct", fields: [variantId], references: [id])
+  // variantId   String
+  // variant     Variant      @relation("VariantToProduct", fields: [variantId], references: [id])
   name        String       @db.VarChar(255)
   price       Decimal
   isFeatured  Boolean      @default(false)
   isArchived  Boolean      @default(false)
   quantity    Int
   maxQuantity Int
-  sizeId      String       // Foreign Key to Size
+  sizeId      String // Foreign Key to Size
   size        Size         @relation(fields: [sizeId], references: [id])
-  colorId     String       // Foreign Key to Color
+  colorId     String // Foreign Key to Color
   color       Color        @relation(fields: [colorId], references: [id])
-  images      Image[]      // Relation to Image model
+  images      Image[] // Relation to Image model
   filteritems filterItem[] // Relation to Filter model
-  orderItems  OrderItem[]  // Relation to Order model
+  orderItems  OrderItem[] // Relation to Order model
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
   @@index([storeId])
   @@index([categoryId])
-  @@index([variantId])
+  // @@index([variantId])
   @@index([sizeId])
   @@index([colorId])
 }
 
-model Variant {
-  id          String    @id @default(uuid())
-  storeId     String    // Foreign Key to Store
-  store       Store     @relation("StoreToVariant", fields: [storeId], references: [id])
-  products    Product[] @relation("VariantToProduct")
-  updatedAt   DateTime  @updatedAt
+// model Variant {
+//   id          String    @id @default(uuid())
+//   storeId     String    // Foreign Key to Store
+//   store       Store     @relation("StoreToVariant", fields: [storeId], references: [id])
+//   products    Product[] @relation("VariantToProduct")
+//   updatedAt   DateTime  @updatedAt
 
-  @@index([storeId])
-}
+//   @@index([storeId])
+// }
 
 model Image {
   id        String   @id @default(uuid())
   productId String   @default("") // Foreign Key to Product
   product   Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
-  url       String   // URL of the image
+  url       String // URL of the image
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -125,7 +124,7 @@ model Image {
 
 model Users {
   id        String    @id @unique
-  storeId   String    // Foreign Key to Store
+  storeId   String // Foreign Key to Store
   store     Store     @relation("StoreToUsers", fields: [storeId], references: [id])
   orders    Order[]   @relation("UsersToOrder") // relation to Order model
   email     String    @default("")
@@ -145,7 +144,7 @@ model Address {
   instructions String? @default("")
   pincode      Int     @default(0)
   orders       Order[] @relation("AddressToOrder") // relation to Order model
-  usersId      String  // Foreign Key to Users
+  usersId      String // Foreign Key to Users
   users        Users   @relation("Users-address", fields: [usersId], references: [id], onDelete: Cascade)
 
   @@index([usersId])
@@ -155,11 +154,11 @@ model Address {
 
 model Order {
   id         String      @id @default(uuid())
-  storeId    String      // Foreign Key to Store
+  storeId    String // Foreign Key to Store
   store      Store       @relation("StoreToOrder", fields: [storeId], references: [id])
-  usersId    String      // Foreign Key to Users
+  usersId    String // Foreign Key to Users
   users      Users       @relation("UsersToOrder", fields: [usersId], references: [id], onDelete: Cascade)
-  addressId  String      // Foreign Key to Address
+  addressId  String // Foreign Key to Address
   address    Address     @relation("AddressToOrder", fields: [addressId], references: [id], onDelete: Cascade)
   orderItems OrderItem[] // Relation to OrderItem model
   isPaid     Boolean     @default(false)
@@ -185,8 +184,6 @@ model OrderItem {
   @@index([orderId])
   @@index([productId])
 }
-
-//R
 
 model Size {
   id        String    @id @default(uuid())
@@ -214,7 +211,7 @@ model Color {
   @@index([storeId])
 }
 
-// Intermediary for a many-to-many relationship - Value <-> Product
+// Intermediary for a many-to-many relationship - Product <-> Value - Filter 
 model filterItem {
   id        String  @id @default(uuid())
   valueId   String
@@ -228,9 +225,9 @@ model filterItem {
 
 model Value {
   id          String       @id @default(cuid())
+  filterItems filterItem[]
   filterId    String
   filter      Filter       @relation("FiltertoValue", fields: [filterId], references: [id], onDelete: Cascade)
-  filterItems filterItem[]
   value       Decimal?
   unit        String
 
@@ -238,37 +235,13 @@ model Value {
 }
 
 model Filter {
-  id               String            @id @default(uuid())
-  storeId          String // Foreign Key to Store
-  store            Store             @relation("StoreToFilter", fields: [storeId], references: [id])
-  name             String
-  feature          Boolean           @default(false)
-  value            Value[]           @relation("FiltertoValue")
-  filterGroupItems filterGroupItem[]
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  id        String   @id @default(uuid())
+  storeId   String
+  store     Store    @relation("StoreToFilter", fields: [storeId], references: [id])
+  value     Value[]  @relation("FiltertoValue")
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([storeId])
-}
-
-model FilterGroup {
-  id      String            @id @default(cuid())
-  storeId String
-  store   Store             @relation("StoreToFilterGroup", fields: [storeId], references: [id])
-  name    String
-  filters filterGroupItem[]
-
-  @@index([storeId])
-}
-
-// Intermediary for a many-to-many relationship - FilterGroup <-> Filter
-model filterGroupItem {
-  id            String      @id @default(cuid())
-  filterId      String
-  filter        Filter      @relation(fields: [filterId], references: [id], onDelete: Cascade)
-  filterGroupId String
-  FilterGroup   FilterGroup @relation(fields: [filterGroupId], references: [id], onDelete: Cascade)
-
-  @@index([filterId])
-  @@index([filterGroupId])
 }
