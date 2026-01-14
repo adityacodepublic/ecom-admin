@@ -4,7 +4,7 @@ import { auth } from "@clerk/nextjs";
 import prismadb from "@/lib/prismadb";
 import axios from "axios";
 import { getStoreURL } from "@/actions/get-storeUrl";
-import {getURL } from '@/lib/_allowedDomains/domains';
+import { getURL } from "@/lib/_allowedDomains/domains";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,52 +27,52 @@ export async function GET(
 
     const product = await prismadb.product.findUnique({
       where: {
-        id: params.productId
+        id: params.productId,
       },
       select: {
-        id:true,
-        name:true,
-        price:true,
-        quantity:true,
-        maxQuantity:true,
-        images:{
-          orderBy:{
-            updatedAt:'desc'
+        id: true,
+        name: true,
+        price: true,
+        quantity: true,
+        maxQuantity: true,
+        images: {
+          orderBy: {
+            updatedAt: "desc",
           },
-          select:{
-            url:true
-          }
+          select: {
+            url: true,
+          },
         },
-        category:{
-          select:{
-            id:true,
-            name:true
-          }
+        category: {
+          select: {
+            id: true,
+            name: true,
+          },
         },
-        color:{
-          select:{
-            name:true,
-            value:true
-          }
+        color: {
+          select: {
+            name: true,
+            value: true,
+          },
         },
-        size:{
-          select:{
-            name:true,
-            value:true
-          }
+        size: {
+          select: {
+            name: true,
+            value: true,
+          },
         },
-      }
+      },
     });
-    return NextResponse.json(product,{headers:corsHeaders});
+    return NextResponse.json(product, { headers: corsHeaders });
   } catch (error) {
-    console.log('[PRODUCT_GET]', error);
+    console.log("[PRODUCT_GET]", error);
     return new NextResponse("Internal error", { status: 500 });
   }
-};
+}
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { productId: string, storeId: string } }
+  { params }: { params: { productId: string; storeId: string } }
 ) {
   try {
     const { userId } = auth();
@@ -90,8 +90,8 @@ export async function DELETE(
     const storeByUserId = await prismadb.store.findFirst({
       where: {
         id: params.storeId,
-        userId
-      }
+        userId,
+      },
     });
 
     if (!storeByUserId) {
@@ -100,35 +100,45 @@ export async function DELETE(
 
     const product = await prismadb.product.delete({
       where: {
-        id: params.productId
+        id: params.productId,
       },
     });
-    
-    try { 
-      const response = await axios.post(`${store_url}/api/revalidate`, { path:[`/product/${params.productId}`,`/category/${product.categoryId}`, product.isFeatured? '/':''], tag:['products'] });
-      console.log(response.status);    
-    } catch (error) {
-      console.error('Error processing revalidation:', error);    
-    }
-    
-    return NextResponse.json(product,{headers:corsHeaders});
+
+    // try {
+    //   const response = await axios.post(`${store_url}/api/revalidate`, { path:[`/product/${params.productId}`,`/category/${product.categoryId}`, product.isFeatured? '/':''], tag:['products'] });
+    //   console.log(response.status);
+    // } catch (error) {
+    //   console.error('Error processing revalidation:', error);
+    // }
+
+    return NextResponse.json(product, { headers: corsHeaders });
   } catch (error) {
-    console.log('[PRODUCT_DELETE]', error);
+    console.log("[PRODUCT_DELETE]", error);
     return new NextResponse("Internal error", { status: 500 });
   }
-};
-
+}
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { productId: string, storeId: string } }
+  { params }: { params: { productId: string; storeId: string } }
 ) {
   try {
     const { userId } = auth();
 
     const body = await req.json();
 
-    const { name, price, categoryId, images, colorId, sizeId, quantity, maxQuantity, isFeatured, isArchived } = body;
+    const {
+      name,
+      price,
+      categoryId,
+      images,
+      colorId,
+      sizeId,
+      quantity,
+      maxQuantity,
+      isFeatured,
+      isArchived,
+    } = body;
 
     if (!userId) {
       return new NextResponse("Unauthenticated", { status: 403 });
@@ -175,8 +185,8 @@ export async function PATCH(
     const storeByUserId = await prismadb.store.findFirst({
       where: {
         id: params.storeId,
-        userId
-      }
+        userId,
+      },
     });
 
     if (!storeByUserId) {
@@ -185,7 +195,7 @@ export async function PATCH(
 
     await prismadb.product.update({
       where: {
-        id: params.productId
+        id: params.productId,
       },
       data: {
         name,
@@ -205,29 +215,27 @@ export async function PATCH(
 
     const product = await prismadb.product.update({
       where: {
-        id: params.productId
+        id: params.productId,
       },
       data: {
         images: {
           createMany: {
-            data: [
-              ...images.map((image: { url: string }) => image),
-            ],
+            data: [...images.map((image: { url: string }) => image)],
           },
         },
       },
-    })
-  
-    try { 
-      const response = await axios.post(`${store_url}/api/revalidate`, { path:[`/product/${params.productId}`,`/category/${product.categoryId}`, product.isFeatured? '/':''], tag:['products'] });
-      console.log(response.status);    
-    } catch (error) {
-      console.error('Error processing revalidation:', error);    
-    }
-    
-    return NextResponse.json(product,{headers:corsHeaders});
+    });
+
+    // try {
+    //   const response = await axios.post(`${store_url}/api/revalidate`, { path:[`/product/${params.productId}`,`/category/${product.categoryId}`, product.isFeatured? '/':''], tag:['products'] });
+    //   console.log(response.status);
+    // } catch (error) {
+    //   console.error('Error processing revalidation:', error);
+    // }
+
+    return NextResponse.json(product, { headers: corsHeaders });
   } catch (error) {
-    console.log('[PRODUCT_PATCH]', error);
+    console.log("[PRODUCT_PATCH]", error);
     return new NextResponse("Internal error", { status: 500 });
   }
-};
+}

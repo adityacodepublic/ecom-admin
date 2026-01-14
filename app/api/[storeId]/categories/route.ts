@@ -1,11 +1,11 @@
-import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs';
+import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs";
 
-import prismadb from '@/lib/prismadb';
-import axios from 'axios';
-import { getStoreURL } from '@/actions/get-storeUrl';
-import {getURL } from '@/lib/_allowedDomains/domains';
- 
+import prismadb from "@/lib/prismadb";
+import axios from "axios";
+import { getStoreURL } from "@/actions/get-storeUrl";
+import { getURL } from "@/lib/_allowedDomains/domains";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
@@ -34,7 +34,7 @@ export async function POST(
     if (!name) {
       return new NextResponse("Name is required", { status: 400 });
     }
-    
+
     if (!billboardId) {
       return new NextResponse("Billboard ID is required", { status: 400 });
     }
@@ -49,7 +49,7 @@ export async function POST(
       where: {
         id: params.storeId,
         userId,
-      }
+      },
     });
 
     if (!storeByUserId) {
@@ -61,22 +61,22 @@ export async function POST(
         name,
         billboardId,
         storeId: params.storeId,
-      }
+      },
     });
-  
-    try { 
-      const response = await axios.post(`${store_url}/api/revalidate`, { tag:['categories'] });
-      console.log(response.status);    
-    } catch (error) {
-      console.error('Error processing revalidation:', error);    
-    }
-    
-    return NextResponse.json(category,{headers:corsHeaders});
+
+    // try {
+    //   const response = await axios.post(`${store_url}/api/revalidate`, { tag:['categories'] });
+    //   console.log(response.status);
+    // } catch (error) {
+    //   console.error('Error processing revalidation:', error);
+    // }
+
+    return NextResponse.json(category, { headers: corsHeaders });
   } catch (error) {
-    console.log('[CATEGORIES_POST]', error);
+    console.log("[CATEGORIES_POST]", error);
     return new NextResponse("Internal error", { status: 500 });
   }
-};
+}
 
 export async function GET(
   req: Request,
@@ -89,29 +89,29 @@ export async function GET(
 
     const categories = await prismadb.category.findMany({
       where: {
-        storeId: params.storeId
+        storeId: params.storeId,
       },
-      select:{
-        id:true,
-        name:true,
-        products:{
-          select:{
-            images:{
-              select:{
-                url:true
+      select: {
+        id: true,
+        name: true,
+        products: {
+          select: {
+            images: {
+              select: {
+                url: true,
               },
-              take:1,
+              take: 1,
             },
-            name:true,
+            name: true,
           },
-          take:1
+          take: 1,
         },
       },
     });
-  
-    return NextResponse.json(categories,{headers:corsHeaders});
+
+    return NextResponse.json(categories, { headers: corsHeaders });
   } catch (error) {
-    console.log('[CATEGORIES_GET]', error);
+    console.log("[CATEGORIES_GET]", error);
     return new NextResponse("Internal error", { status: 500 });
   }
-};
+}

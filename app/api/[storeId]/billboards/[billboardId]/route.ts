@@ -4,7 +4,7 @@ import { auth } from "@clerk/nextjs";
 import prismadb from "@/lib/prismadb";
 import axios from "axios";
 import { getStoreURL } from "@/actions/get-storeUrl";
-import {getURL } from '@/lib/_allowedDomains/domains';
+import { getURL } from "@/lib/_allowedDomains/domains";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": `*`,
@@ -27,29 +27,29 @@ export async function GET(
 
     const billboard = await prismadb.billboard.findUnique({
       where: {
-        id: params.billboardId
+        id: params.billboardId,
       },
-      select:{
-        label:true,
-        images:{
-          select:{
-            url:true,
-            href:true
-          }
-        }
-      }
+      select: {
+        label: true,
+        images: {
+          select: {
+            url: true,
+            href: true,
+          },
+        },
+      },
     });
-  
-    return NextResponse.json(billboard, {headers: corsHeaders});
+
+    return NextResponse.json(billboard, { headers: corsHeaders });
   } catch (error) {
-    console.log('[BILLBOARD_GET]', error);
+    console.log("[BILLBOARD_GET]", error);
     return new NextResponse("Internal error", { status: 500 });
   }
-};
+}
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { billboardId: string, storeId: string } }
+  { params }: { params: { billboardId: string; storeId: string } }
 ) {
   try {
     const { userId } = auth();
@@ -68,7 +68,7 @@ export async function DELETE(
       where: {
         id: params.storeId,
         userId,
-      }
+      },
     });
 
     if (!storeByUserId) {
@@ -79,41 +79,40 @@ export async function DELETE(
       where: {
         id: params.billboardId,
       },
-      include:{
-        categories:true
-      }
+      include: {
+        categories: true,
+      },
     });
-    
-    const paths = billboard.categories.map((item)=>(`/category/${item.id}`));
-    if(paths && paths.length===0) {paths.push('/');}
-    try { 
-      const response = await axios.post(`${store_url}/api/revalidate`, {path:paths, tag:['billboards'] });
-      console.log(response.status);    
-    } catch (error) {
-      console.error('Error processing revalidation:', error);    
-    }
+
+    // const paths = billboard.categories.map((item)=>(`/category/${item.id}`));
+    // if(paths && paths.length===0) {paths.push('/');}
+    // try {
+    //   const response = await axios.post(`${store_url}/api/revalidate`, {path:paths, tag:['billboards'] });
+    //   console.log(response.status);
+    // } catch (error) {
+    //   console.error('Error processing revalidation:', error);
+    // }
 
     return NextResponse.json(billboard, {
-      headers: corsHeaders
+      headers: corsHeaders,
     });
   } catch (error) {
-    console.log('[BILLBOARD_DELETE]', error);
+    console.log("[BILLBOARD_DELETE]", error);
     return new NextResponse("Internal error", { status: 500 });
   }
-};
-
+}
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { billboardId: string, storeId: string } }
+  { params }: { params: { billboardId: string; storeId: string } }
 ) {
-  try {   
+  try {
     const { userId } = auth();
 
     const body = await req.json();
-    
+
     const { label, images } = body;
-    
+
     if (!userId) {
       return new NextResponse("Unauthenticated", { status: 403 });
     }
@@ -136,7 +135,7 @@ export async function PATCH(
       where: {
         id: params.storeId,
         userId,
-      }
+      },
     });
 
     if (!storeByUserId) {
@@ -149,10 +148,10 @@ export async function PATCH(
       },
       data: {
         label,
-        images:{
-          deleteMany:{},
-        }
-      }
+        images: {
+          deleteMany: {},
+        },
+      },
     });
 
     const billboard = await prismadb.billboard.update({
@@ -160,33 +159,36 @@ export async function PATCH(
         id: params.billboardId,
       },
       data: {
-        images:{
-          createMany:{
-            data: [
-              ...images.map((image: {url: string})=> image),
-            ],
+        images: {
+          createMany: {
+            data: [...images.map((image: { url: string }) => image)],
           },
         },
       },
-      include:{
-        categories:true
-      }
+      include: {
+        categories: true,
+      },
     });
 
-    const paths = billboard.categories.map((item)=>(`/category/${item.id}`));
-    if(paths && paths.length===0) {paths.push('/');}
-    try { 
-      const response = await axios.post(`${store_url}/api/revalidate`, {path:paths, tag:['billboards'] });
-      console.log(response.status);    
-    } catch (error) {
-      console.error('Error processing revalidation:', error);    
+    const paths = billboard.categories.map((item) => `/category/${item.id}`);
+    if (paths && paths.length === 0) {
+      paths.push("/");
     }
+    // try {
+    //   const response = await axios.post(`${store_url}/api/revalidate`, {
+    //     path: paths,
+    //     tag: ["billboards"],
+    //   });
+    //   console.log(response.status);
+    // } catch (error) {
+    //   console.error("Error processing revalidation:", error);
+    // }
 
     return NextResponse.json(billboard, {
-      headers: corsHeaders
+      headers: corsHeaders,
     });
   } catch (error) {
-    console.log('[BILLBOARD_PATCH]', error);
+    console.log("[BILLBOARD_PATCH]", error);
     return new NextResponse("Internal error", { status: 500 });
   }
-};
+}

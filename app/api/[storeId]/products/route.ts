@@ -1,10 +1,10 @@
-import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs';
+import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs";
 
-import prismadb from '@/lib/prismadb';
-import axios from 'axios';
-import { getStoreURL } from '@/actions/get-storeUrl';
-import {getURL } from '@/lib/_allowedDomains/domains';
+import prismadb from "@/lib/prismadb";
+import axios from "axios";
+import { getStoreURL } from "@/actions/get-storeUrl";
+import { getURL } from "@/lib/_allowedDomains/domains";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -25,7 +25,18 @@ export async function POST(
 
     const body = await req.json();
 
-    const { name, price, quantity, maxQuantity, categoryId, colorId, sizeId, images, isFeatured, isArchived } = body;
+    const {
+      name,
+      price,
+      quantity,
+      maxQuantity,
+      categoryId,
+      colorId,
+      sizeId,
+      images,
+      isFeatured,
+      isArchived,
+    } = body;
 
     if (!userId) {
       return new NextResponse("Unauthenticated", { status: 403 });
@@ -72,8 +83,8 @@ export async function POST(
     const storeByUserId = await prismadb.store.findFirst({
       where: {
         id: params.storeId,
-        userId
-      }
+        userId,
+      },
     });
 
     if (!storeByUserId) {
@@ -95,76 +106,75 @@ export async function POST(
         images: {
           createMany: {
             data: [
-              ...images.slice(1,6).map((image: { url: string }) => image),
+              ...images.slice(1, 6).map((image: { url: string }) => image),
               //images[0]
             ],
           },
         },
       },
-      include:{
-        images:{
-          select:{
-            url:true
-          }
-        }
-      }
-    })
+      include: {
+        images: {
+          select: {
+            url: true,
+          },
+        },
+      },
+    });
     // const imageData = images.slice(1, 6).map((image: { url: string }) => ({
     //   productId: product.id,
     //   url: image.url,
     // }));
-    
+
     const image = await prismadb.image.create({
-      data:{
-        productId:product.id,
-        url:images[0].url
-      }
+      data: {
+        productId: product.id,
+        url: images[0].url,
+      },
     });
 
-    try { 
-      const response = await axios.post(`${store_url}/api/revalidate`, { path:[`/category/${categoryId}`, product.isFeatured?'/':''], tag:['categories'] });
-      console.log(response.status);    
-    } catch (error) {
-      console.error('Error processing revalidation:', error);    
-    }
-    
-    return NextResponse.json(product,{headers:corsHeaders})
+    // try {
+    //   const response = await axios.post(`${store_url}/api/revalidate`, { path:[`/category/${categoryId}`, product.isFeatured?'/':''], tag:['categories'] });
+    //   console.log(response.status);
+    // } catch (error) {
+    //   console.error('Error processing revalidation:', error);
+    // }
+
+    return NextResponse.json(product, { headers: corsHeaders });
   } catch (error) {
-    console.log('[PRODUCTS_POST]', error);
+    console.log("[PRODUCTS_POST]", error);
     return new NextResponse("Internal error", { status: 500 });
   }
-};
+}
 
 export async function GET(
   req: Request,
-  { params }: {params: { storeId: string }}
+  { params }: { params: { storeId: string } }
 ) {
   try {
-
     const { searchParams } = new URL(req.url);
     const categoryId = searchParams.get("categoryId") || undefined;
     const colorId = searchParams.get("colorId") || undefined;
     const sizeId = searchParams.get("sizeId") || undefined;
-    const searchValue = searchParams.get('searchValue') || undefined;
-    const isFeatured = searchParams.get("isFeatured")|| undefined;
-    const isArchived = searchParams.get("isArchived")|| undefined;
+    const searchValue = searchParams.get("searchValue") || undefined;
+    const isFeatured = searchParams.get("isFeatured") || undefined;
+    const isArchived = searchParams.get("isArchived") || undefined;
     const price = Number(searchParams.get("price")) || undefined;
 
     const priceFilter: { gt?: number; lt?: number } = {};
     if (price && price > 0) {
-        priceFilter.gt = price;
+      priceFilter.gt = price;
     } else if (price && price < 0) {
-        priceFilter.lt = -1*price;
+      priceFilter.lt = -1 * price;
     }
-    
+
     let searchWords;
-    if (searchValue){
-      const searchWords = searchValue.split(' ');
+    if (searchValue) {
+      const searchWords = searchValue.split(" ");
       searchWords.push(searchValue);
     }
-    
+
     if (!params.storeId) {
-        return new NextResponse("StoreId is required", { status: 400 });
+      return new NextResponse("StoreId is required", { status: 400 });
     }
 
     const products = await prismadb.product.findMany({
@@ -174,50 +184,50 @@ export async function GET(
         colorId,
         sizeId,
         name: {
-          contains: searchValue
+          contains: searchValue,
         },
         isFeatured: isFeatured ? true : undefined, // we dont pass false so it ignores this clause
         isArchived: isArchived ? false : undefined, // we dont pass false so it ignores this clause
-        price:priceFilter,
+        price: priceFilter,
       },
       select: {
-        id:true,
-        name:true,
-        price:true,
-        quantity:true,
-        maxQuantity:true,
-        images:{
-          orderBy:{
-            updatedAt:'desc'
+        id: true,
+        name: true,
+        price: true,
+        quantity: true,
+        maxQuantity: true,
+        images: {
+          orderBy: {
+            updatedAt: "desc",
           },
-          select:{
-            url:true
+          select: {
+            url: true,
           },
-          take: 1
+          take: 1,
         },
-        category:{
-          select:{
-            id:true,
-            name:true
+        category: {
+          select: {
+            id: true,
+            name: true,
           },
         },
-        color:{
-          select:{
-            name:true,
-            value:true
-          }
+        color: {
+          select: {
+            name: true,
+            value: true,
+          },
         },
-        size:{
-          select:{
-            name:true,
-            value:true
-          }
+        size: {
+          select: {
+            name: true,
+            value: true,
+          },
         },
-      }
+      },
     });
-    return NextResponse.json(products,{headers:corsHeaders});
+    return NextResponse.json(products, { headers: corsHeaders });
   } catch (error) {
-    console.log('[PRODUCTS_GET]', error);
+    console.log("[PRODUCTS_GET]", error);
     return new NextResponse("Internal error", { status: 500 });
   }
-};
+}

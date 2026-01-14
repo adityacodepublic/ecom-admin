@@ -1,12 +1,12 @@
-import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs';
+import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs";
 
-import prismadb from '@/lib/prismadb';
-import { Decimal } from '@prisma/client/runtime/library';
-import axios from 'axios';
-import { getStoreURL } from '@/actions/get-storeUrl';
-import {getURL } from '@/lib/_allowedDomains/domains';
- 
+import prismadb from "@/lib/prismadb";
+import { Decimal } from "@prisma/client/runtime/library";
+import axios from "axios";
+import { getStoreURL } from "@/actions/get-storeUrl";
+import { getURL } from "@/lib/_allowedDomains/domains";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
@@ -47,8 +47,8 @@ export async function POST(
     const storeByUserId = await prismadb.store.findFirst({
       where: {
         id: params.storeId,
-        userId
-      }
+        userId,
+      },
     });
 
     if (!storeByUserId) {
@@ -61,30 +61,34 @@ export async function POST(
       data: {
         storeId: params.storeId,
         name,
-        feature,
-        value:{
+        value: {
           createMany: {
             data: [
-              ...value.map((values: {storeId: string, value:Decimal, unit:string})=>values)
-            ]
-          }
-        }
-      }
+              ...value.map(
+                (values: { storeId: string; value: Decimal; unit: string }) =>
+                  values
+              ),
+            ],
+          },
+        },
+      },
     });
-  
-    try { 
-      const response = await axios.post(`${store_url}/api/revalidate`, { tag:['filters'] });
-      console.log(response.status);    
-    } catch (error) {
-      console.error('Error processing revalidation:', error);    
-    }
-    
-    return NextResponse.json(filter,{headers:corsHeaders});
+
+    // try {
+    //   const response = await axios.post(`${store_url}/api/revalidate`, {
+    //     tag: ["filters"],
+    //   });
+    //   console.log(response.status);
+    // } catch (error) {
+    //   console.error("Error processing revalidation:", error);
+    // }
+
+    return NextResponse.json(filter, { headers: corsHeaders });
   } catch (error) {
-    console.log('[FILTERS_POST]', error);
+    console.log("[FILTERS_POST]", error);
     return new NextResponse("Internal error", { status: 500 });
   }
-};
+}
 
 export async function GET(
   req: Request,
@@ -97,23 +101,23 @@ export async function GET(
 
     const filters = await prismadb.filter.findMany({
       where: {
-        storeId: params.storeId
+        storeId: params.storeId,
       },
-      select:{
-        id:true,
-        name:true,
-        value:{
-          select:{
-            value:true,
-            unit:true
-          }
-        }
-      }
+      select: {
+        id: true,
+        name: true,
+        value: {
+          select: {
+            value: true,
+            unit: true,
+          },
+        },
+      },
     });
-  
-    return NextResponse.json(filters,{headers:corsHeaders});
+
+    return NextResponse.json(filters, { headers: corsHeaders });
   } catch (error) {
-    console.log('[FILTERS_GET]', error);
+    console.log("[FILTERS_GET]", error);
     return new NextResponse("Internal error", { status: 500 });
   }
-};
+}
