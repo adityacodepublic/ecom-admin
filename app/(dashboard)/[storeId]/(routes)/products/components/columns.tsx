@@ -20,6 +20,7 @@ export const columns: ColumnDef<ProductColumn>[] = [
   {
     accessorKey: "name",
     header: "Name",
+    size: 300,
   },
   {
     accessorKey: "isArchived",
@@ -48,5 +49,6 @@ export const columns: ColumnDef<ProductColumn>[] = [
   {
     id: "actions",
     cell: ({ row }) => <CellAction data={row.original} />,
+    enableResizing: false,
   },
 ];

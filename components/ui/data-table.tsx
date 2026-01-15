@@ -81,7 +81,7 @@ export function DataTable<TData, TValue>({
                       className={cn(
                         "relative select-none whitespace-nowrap",
                         isActionsColumn &&
-                          "sticky -inset-1 bg-background border-l z-10 px-1 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]"
+                          "sticky -inset-1 bg-background border-l-[1px] border-border/40 z-10 px-1 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]"
                       )}
                       style={
                         isResized && !isActionsColumn

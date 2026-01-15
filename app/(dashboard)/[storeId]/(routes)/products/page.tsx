@@ -68,7 +68,7 @@ const ProductsPage = async ({ params }: { params: { storeId: string } }) => {
 
     return {
       id: item.id,
-      name: item.name.slice(0, 35) + "....",
+      name: item.name,
       isFeatured: item.isFeatured,
       isArchived: item.isArchived,
       price: formatter.format(item.price.toNumber()),

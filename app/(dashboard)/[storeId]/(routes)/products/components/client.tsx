@@ -68,7 +68,7 @@ export const ProductsClient: React.FC<ProductsClientProps> = ({
     <>
       <Accordion key={"loadData"} type="single" collapsible>
         <AccordionItem value="item1">
-          <div className="flex items-center gap-2 justify-between flex-wrap">
+          <div className="flex gap-2.5 items-center justify-between flex-wrap">
             <Heading
               title={`Products (${data.length})`}
               description="Manage products for your store"
