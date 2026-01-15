@@ -49,16 +49,19 @@ export async function GET(
             name: true,
           },
         },
-        color: {
+        filteritems: {
           select: {
-            name: true,
-            value: true,
-          },
-        },
-        size: {
-          select: {
-            name: true,
-            value: true,
+            value: {
+              select: {
+                value: true,
+                unit: true,
+                filter: {
+                  select: {
+                    name: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -132,8 +135,6 @@ export async function PATCH(
       price,
       categoryId,
       images,
-      colorId,
-      sizeId,
       quantity,
       maxQuantity,
       isFeatured,
@@ -172,14 +173,6 @@ export async function PATCH(
       return new NextResponse("Category id is required", { status: 400 });
     }
 
-    if (!colorId) {
-      return new NextResponse("Color id is required", { status: 400 });
-    }
-
-    if (!sizeId) {
-      return new NextResponse("Size id is required", { status: 400 });
-    }
-
     const store_url = getURL(params.storeId);
 
     const storeByUserId = await prismadb.store.findFirst({
@@ -201,8 +194,6 @@ export async function PATCH(
         name,
         price,
         categoryId,
-        colorId,
-        sizeId,
         quantity,
         maxQuantity,
         images: {

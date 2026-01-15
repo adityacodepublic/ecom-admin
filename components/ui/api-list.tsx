@@ -16,15 +16,39 @@ export const ApiList: React.FC<ApiListProps> = ({
   const params = useParams();
   const origin = useOrigin();
 
+  if (process.env.NODE_ENV !== "development") {
+    return null;
+  }
+
   const baseUrl = `${origin}/api/${params.storeId}`;
 
   return (
     <>
-      <ApiAlert title="GET" variant="public" description={`${baseUrl}/${entityName}`} />
-      <ApiAlert title="GET" variant="public" description={`${baseUrl}/${entityName}/{${entityIdName}}`} />
-      <ApiAlert title="POST" variant="admin" description={`${baseUrl}/${entityName}`} />
-      <ApiAlert title="PATCH" variant="admin" description={`${baseUrl}/${entityName}/{${entityIdName}}`} />
-      <ApiAlert title="DELETE" variant="admin" description={`${baseUrl}/${entityName}/{${entityIdName}}`} />
+      <ApiAlert
+        title="GET"
+        variant="public"
+        description={`${baseUrl}/${entityName}`}
+      />
+      <ApiAlert
+        title="GET"
+        variant="public"
+        description={`${baseUrl}/${entityName}/{${entityIdName}}`}
+      />
+      <ApiAlert
+        title="POST"
+        variant="admin"
+        description={`${baseUrl}/${entityName}`}
+      />
+      <ApiAlert
+        title="PATCH"
+        variant="admin"
+        description={`${baseUrl}/${entityName}/{${entityIdName}}`}
+      />
+      <ApiAlert
+        title="DELETE"
+        variant="admin"
+        description={`${baseUrl}/${entityName}/{${entityIdName}}`}
+      />
     </>
   );
 };

@@ -5,6 +5,7 @@ import prismadb from "@/lib/prismadb";
 import axios from "axios";
 import { getStoreURL } from "@/actions/get-storeUrl";
 import { getURL } from "@/lib/_allowedDomains/domains";
+import { log } from "console";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -31,8 +32,6 @@ export async function POST(
       quantity,
       maxQuantity,
       categoryId,
-      colorId,
-      sizeId,
       images,
       isFeatured,
       isArchived,
@@ -66,14 +65,6 @@ export async function POST(
       return new NextResponse("Category id is required", { status: 400 });
     }
 
-    if (!colorId) {
-      return new NextResponse("Color id is required", { status: 400 });
-    }
-
-    if (!sizeId) {
-      return new NextResponse("Size id is required", { status: 400 });
-    }
-
     if (!params.storeId) {
       return new NextResponse("Store id is required", { status: 400 });
     }
@@ -98,8 +89,6 @@ export async function POST(
         isFeatured,
         isArchived,
         categoryId,
-        colorId,
-        sizeId,
         storeId: params.storeId,
         quantity,
         maxQuantity,
@@ -153,12 +142,25 @@ export async function GET(
   try {
     const { searchParams } = new URL(req.url);
     const categoryId = searchParams.get("categoryId") || undefined;
-    const colorId = searchParams.get("colorId") || undefined;
-    const sizeId = searchParams.get("sizeId") || undefined;
     const searchValue = searchParams.get("searchValue") || undefined;
     const isFeatured = searchParams.get("isFeatured") || undefined;
     const isArchived = searchParams.get("isArchived") || undefined;
     const price = Number(searchParams.get("price")) || undefined;
+
+    const filters: string[][] = searchParams.get("filterId")
+      ? JSON.parse(searchParams.get("filterId")!)
+      : [];
+    // console.log("Filters:", searchParams.entries());
+
+    const filterConditions = Object.values(filters).map((valueIds) => ({
+      filteritems: {
+        some: {
+          valueId: {
+            in: valueIds,
+          },
+        },
+      },
+    }));
 
     const priceFilter: { gt?: number; lt?: number } = {};
     if (price && price > 0) {
@@ -181,14 +183,15 @@ export async function GET(
       where: {
         storeId: params.storeId,
         categoryId,
-        colorId,
-        sizeId,
         name: {
           contains: searchValue,
         },
         isFeatured: isFeatured ? true : undefined, // we dont pass false so it ignores this clause
         isArchived: isArchived ? false : undefined, // we dont pass false so it ignores this clause
         price: priceFilter,
+        ...(filterConditions.length > 0 && {
+          AND: filterConditions,
+        }),
       },
       select: {
         id: true,
@@ -211,16 +214,19 @@ export async function GET(
             name: true,
           },
         },
-        color: {
+        filteritems: {
           select: {
-            name: true,
-            value: true,
-          },
-        },
-        size: {
-          select: {
-            name: true,
-            value: true,
+            value: {
+              select: {
+                value: true,
+                unit: true,
+                filter: {
+                  select: {
+                    name: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
