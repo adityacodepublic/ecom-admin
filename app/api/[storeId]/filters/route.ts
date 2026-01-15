@@ -26,7 +26,7 @@ export async function POST(
 
     const body = await req.json();
 
-    const { name, value, feature } = body;
+    const { name, value } = body;
 
     if (!userId) {
       return new NextResponse("Unauthenticated", { status: 403 });
@@ -95,10 +95,35 @@ export async function GET(
   { params }: { params: { storeId: string } }
 ) {
   try {
+    const url = new URL(req.url);
+    const name = url.searchParams.get("name");
+
     if (!params.storeId) {
       return new NextResponse("Store id is required", { status: 400 });
     }
 
+    if (name) {
+      // Get specific filter by name
+      const filter = await prismadb.filter.findUnique({
+        where: {
+          name: name,
+        },
+        select: {
+          id: true,
+          name: true,
+          value: {
+            select: {
+              id: true,
+              value: true,
+              unit: true,
+            },
+          },
+        },
+      });
+      return NextResponse.json(filter, { headers: corsHeaders });
+    }
+
+    // Get all filters for the store
     const filters = await prismadb.filter.findMany({
       where: {
         storeId: params.storeId,
@@ -108,6 +133,7 @@ export async function GET(
         name: true,
         value: {
           select: {
+            id: true,
             value: true,
             unit: true,
           },

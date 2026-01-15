@@ -108,7 +108,7 @@ export async function PATCH(
 
     const body = await req.json();
 
-    const { name, feature, value, group } = body;
+    const { name, value } = body;
 
     if (!userId) {
       return new NextResponse("Unauthenticated", { status: 403 });
@@ -120,14 +120,6 @@ export async function PATCH(
 
     if (!value) {
       return new NextResponse("Value is required", { status: 400 });
-    }
-
-    if (feature === undefined || feature === null) {
-      return new NextResponse("Feature is required", { status: 400 });
-    }
-
-    if (!group) {
-      return new NextResponse("Group is required", { status: 400 });
     }
 
     if (!params.filterId) {
