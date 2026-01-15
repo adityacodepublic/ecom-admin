@@ -15,8 +15,6 @@ model Store {
   url        String      @default("http://localhost:3001")
   billboards Billboard[] @relation("StoreToBillboard")
   categories Category[]  @relation("StoreToCategory")
-  sizes      Size[]      @relation("StoreToSize")
-  colors     Color[]     @relation("StoreToColor")
   filters    Filter[]    @relation("StoreToFilter")
   products   Product[]   @relation("StoreToProduct")
   // variants    Variant[]     @relation("StoreToVariant")
@@ -82,21 +80,15 @@ model Product {
   isArchived  Boolean      @default(false)
   quantity    Int
   maxQuantity Int
-  sizeId      String // Foreign Key to Size
-  size        Size         @relation(fields: [sizeId], references: [id])
-  colorId     String // Foreign Key to Color
-  color       Color        @relation(fields: [colorId], references: [id])
   images      Image[] // Relation to Image model
   filteritems filterItem[] // Relation to Filter model
   orderItems  OrderItem[] // Relation to Order model
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+  // @@index([variantId])
 
   @@index([storeId])
   @@index([categoryId])
-  // @@index([variantId])
-  @@index([sizeId])
-  @@index([colorId])
 }
 
 // model Variant {
@@ -183,32 +175,6 @@ model OrderItem {
 
   @@index([orderId])
   @@index([productId])
-}
-
-model Size {
-  id        String    @id @default(uuid())
-  storeId   String // Foreign Key to Store
-  store     Store     @relation("StoreToSize", fields: [storeId], references: [id])
-  name      String
-  value     String
-  products  Product[] // Relation to Product model
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-
-  @@index([storeId])
-}
-
-model Color {
-  id        String    @id @default(uuid())
-  storeId   String // Foreign Key to Store
-  store     Store     @relation("StoreToColor", fields: [storeId], references: [id])
-  name      String
-  value     String
-  products  Product[] // Relation to Product model
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-
-  @@index([storeId])
 }
 
 // Intermediary for a many-to-many relationship - Product <-> Value - Filter 
