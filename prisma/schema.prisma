@@ -239,7 +239,7 @@ model Filter {
   storeId   String
   store     Store    @relation("StoreToFilter", fields: [storeId], references: [id])
   value     Value[]  @relation("FiltertoValue")
-  name      String
+  name      String   @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
