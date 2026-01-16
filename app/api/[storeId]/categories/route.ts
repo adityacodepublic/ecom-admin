@@ -99,6 +99,10 @@ export async function GET(
             images: {
               select: {
                 url: true,
+                order: true,
+              },
+              orderBy: {
+                order: "asc",
               },
               take: 1,
             },

@@ -210,7 +210,7 @@ export async function GET(
         maxQuantity: true,
         images: {
           orderBy: {
-            updatedAt: "desc",
+            order: "asc",
           },
           select: {
             url: true,
