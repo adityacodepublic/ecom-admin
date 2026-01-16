@@ -53,7 +53,6 @@ export const FilterForm: React.FC<FilterFormProps> = ({ initialData }) => {
 
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [colorValues, setColorValues] = useState<(string | null)[]>([]);
 
   const title = initialData ? "Edit filter" : "Create filter";
   const description = initialData
@@ -115,47 +114,15 @@ export const FilterForm: React.FC<FilterFormProps> = ({ initialData }) => {
       const number = parseInt(numberMatch[1], 10);
       const text = numberMatch[2].trim();
       form.setValue(`value.${index}.value`, number);
-      form.setValue(`value.${index}.unit`, text);
+      form.setValue(`value.${index}.unit`, sanitize(text));
     } else {
-      form.setValue(`value.${index}.unit`, sanitize(input, index));
+      form.setValue(`value.${index}.unit`, sanitize(input));
     }
   };
 
-  const sanitize = (value: string, index: number): string => {
-    const hexRegex = /#?([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})\b/;
-    const match = value.match(hexRegex);
-    if (match) {
-      const sanitizedValue = value
-        .replace(new RegExp(`#?${match[1]}`, "i"), "")
-        .replace(/[^A-Za-z0-9#\s]/g, "")
-        .replace(/\s+/g, " ")
-        .trim();
-      const hexColor =
-        match[1].length === 3
-          ? match[1]
-              .split("")
-              .map((c) => c + c)
-              .join("")
-          : match[1];
-      const newColors = [...colorValues];
-      newColors[index] = hexColor ? `#${hexColor}` : null;
-      setColorValues(newColors);
-      return `#${hexColor}-${sanitizedValue}`;
-    }
-    return value
-      .replace(/[^A-Za-z0-9#\s]/g, "")
-      .replace(/\s+/g, " ")
-      .trim();
+  const sanitize = (value: string): string => {
+    return value.replace(/\s+/g, " ").trim();
   };
-
-  function isValidColor(strColor: string): boolean {
-    if (typeof window !== "undefined" && typeof window.Option !== "undefined") {
-      const s = new window.Option().style;
-      s.color = strColor;
-      return s.color !== "";
-    }
-    return false;
-  }
 
   const onSubmit = async (data: FilterFormValues) => {
     try {
@@ -311,21 +278,6 @@ export const FilterForm: React.FC<FilterFormProps> = ({ initialData }) => {
                       </div>
                       <FormControl>
                         <div className="flex items-center gap-x-2">
-                          {isValidColor(
-                            colorValues[index] ||
-                              field.value.unit.substring(0, 7) ||
-                              ""
-                          ) && (
-                            <div
-                              className=" p-4 rounded-full"
-                              style={{
-                                backgroundColor:
-                                  colorValues[index] ||
-                                  field.value.unit.substring(0, 7) ||
-                                  "transparent",
-                              }}
-                            />
-                          )}
                           <Input
                             placeholder="Enter value and unit"
                             disabled={loading}

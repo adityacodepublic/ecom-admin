@@ -48,7 +48,7 @@ const Loader = () => {
     try {
       let response: any = null;
 
-      response = await tryCatch(Promise.resolve(JSON.parse(data.url)));
+      response = await tryCatch(() => JSON.parse(data.url));
       if (response.error) response = await axios.get(data.url);
 
       for (i = data.start; i < data.start + data.quant; i++) {
