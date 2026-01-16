@@ -37,10 +37,11 @@ export async function GET(
         maxQuantity: true,
         images: {
           orderBy: {
-            updatedAt: "desc",
+            order: "asc",
           },
           select: {
             url: true,
+            order: true,
           },
         },
         category: {
@@ -215,7 +216,12 @@ export async function PATCH(
       data: {
         images: {
           createMany: {
-            data: [...images.map((image: { url: string }) => image)],
+            data: [
+              ...images.map((image: { url: string; order: number }) => ({
+                url: image.url,
+                order: image.order,
+              })),
+            ],
           },
         },
         filteritems:

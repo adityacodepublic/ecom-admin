@@ -1,5 +1,56 @@
 import prismadb from "@/lib/prismadb";
 
+// Migration script: Assign order numbers to existing product images
+async function assignImageOrders() {
+  console.log("Starting image order migration...");
+
+  // Get all products with their images
+  const products = await prismadb.product.findMany({
+    include: {
+      images: {
+        orderBy: {
+          createdAt: "asc", // Order by creation time
+        },
+      },
+    },
+  });
+
+  console.log(`Found ${products.length} products`);
+
+  let totalImagesUpdated = 0;
+
+  // Process each product
+  for (const product of products) {
+    if (product.images.length === 0) continue;
+
+    console.log(
+      `Processing product ${product.name} with ${product.images.length} images`
+    );
+
+    // Assign sequential order numbers (1, 2, 3, ...)
+    for (let i = 0; i < product.images.length; i++) {
+      const image = product.images[i];
+      await prismadb.image.update({
+        where: { id: image.id },
+        data: { order: i + 1 },
+      });
+      totalImagesUpdated++;
+    }
+  }
+
+  console.log(`Migration complete! Updated ${totalImagesUpdated} images.`);
+}
+
+// Run the migration
+assignImageOrders()
+  .catch((error) => {
+    console.error("Migration failed:", error);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prismadb.$disconnect();
+  });
+
 const colors = [
   {
     id: "0d2ae7fc-4eec-4638-8090-811a6c2a9096",
@@ -455,33 +506,33 @@ const products = [
   },
 ];
 
-const migrateColors = async () => {
-  const set = new Map<string, string>();
-  for (const color of colors) {
-    set.set(color.id, color.valueid);
-  }
+// const migrateColors = async () => {
+//   const set = new Map<string, string>();
+//   for (const color of colors) {
+//     set.set(color.id, color.valueid);
+//   }
 
-  const filterItems = [];
-  for (const product of products) {
-    const colorValueId = set.get(product.colorId);
-    if (colorValueId) {
-      filterItems.push({
-        productId: product.id,
-        valueId: colorValueId,
-      });
-    } else {
-      console.log(
-        `No color valueId found for product ${product.id} with colorId ${product.colorId}`
-      );
-    }
-  }
+//   const filterItems = [];
+//   for (const product of products) {
+//     const colorValueId = set.get(product.colorId);
+//     if (colorValueId) {
+//       filterItems.push({
+//         productId: product.id,
+//         valueId: colorValueId,
+//       });
+//     } else {
+//       console.log(
+//         `No color valueId found for product ${product.id} with colorId ${product.colorId}`
+//       );
+//     }
+//   }
 
-  console.log("Prepared filter items:", filterItems);
-  await prismadb.filterItem.createMany({
-    data: filterItems,
-  });
+//   console.log("Prepared filter items:", filterItems);
+//   await prismadb.filterItem.createMany({
+//     data: filterItems,
+//   });
 
-  // console(await prismadb.value.findFirst({});)
-};
+//   // console(await prismadb.value.findFirst({});)
+// };
 
-migrateColors();
+// migrateColors();

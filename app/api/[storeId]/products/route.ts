@@ -95,10 +95,16 @@ export async function POST(
         maxQuantity,
         images: {
           createMany: {
-            data: [
-              ...images.slice(1, 6).map((image: { url: string }) => image),
-              //images[0]
-            ],
+            data: images
+              .sort(
+                (a: { order: number }, b: { order: number }) =>
+                  a.order - b.order
+              )
+              .map((image: { url: string; order?: number }, index: number) => ({
+                url: image.url,
+                order:
+                  typeof image.order === "number" ? image.order : index + 1,
+              })),
           },
         },
         filteritems:
@@ -118,19 +124,9 @@ export async function POST(
         images: {
           select: {
             url: true,
+            order: true,
           },
         },
-      },
-    });
-    // const imageData = images.slice(1, 6).map((image: { url: string }) => ({
-    //   productId: product.id,
-    //   url: image.url,
-    // }));
-
-    const image = await prismadb.image.create({
-      data: {
-        productId: product.id,
-        url: images[0].url,
       },
     });
 

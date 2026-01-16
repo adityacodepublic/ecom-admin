@@ -106,6 +106,7 @@ model Image {
   productId String   @default("") // Foreign Key to Product
   product   Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
   url       String // URL of the image
+  order     Int      @default(1) // Order/position of the image
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

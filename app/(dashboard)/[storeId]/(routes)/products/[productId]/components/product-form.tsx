@@ -36,7 +36,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 
 const formSchema = z.object({
   name: z.string().min(1).max(255),
-  images: z.object({ url: z.string() }).array(),
+  images: z.object({ url: z.string(), order: z.number() }).array(),
   price: z.coerce.number().min(1),
   quantity: z.coerce.number().int().min(1),
   maxQuantity: z.coerce.number().int().min(1),
@@ -128,6 +128,12 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         ...initialData,
         price: parseFloat(String(initialData?.price)),
         filteritems: prefillFilterItems,
+        images: initialData.images
+          .sort((a, b) => a.order - b.order)
+          .map((img) => ({
+            url: img.url,
+            order: img.order,
+          })),
       }
     : {
         name: "",
@@ -243,16 +249,9 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                 <FormLabel>Images</FormLabel>
                 <FormControl>
                   <ImageUpload
-                    value={field.value.map((image) => image.url)}
+                    value={field.value}
                     disabled={loading}
-                    onChange={(url) =>
-                      field.onChange([...field.value, { url }])
-                    }
-                    onRemove={(url) =>
-                      field.onChange([
-                        ...field.value.filter((current) => current.url !== url),
-                      ])
-                    }
+                    onChange={(images) => field.onChange(images)}
                   />
                 </FormControl>
                 <FormMessage />

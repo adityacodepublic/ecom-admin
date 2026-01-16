@@ -5,19 +5,22 @@ import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
-import { ImagePlus, Trash } from "lucide-react";
+import { ChevronRight, ChevronLeft, ImagePlus, Trash } from "lucide-react";
+
+interface OrderedImage {
+  url: string;
+  order: number;
+}
 
 interface ImageUploadProps {
   disabled?: boolean;
-  onChange: (value: string) => void;
-  onRemove: (value: string) => void;
-  value: string[];
+  onChange: (value: OrderedImage[]) => void;
+  value: OrderedImage[];
 }
 
 const ImageUpload: React.FC<ImageUploadProps> = ({
   disabled,
   onChange,
-  onRemove,
   value,
 }) => {
   const [isMounted, setIsMounted] = useState(false);
@@ -26,36 +29,104 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
     setIsMounted(true);
   }, []);
 
+  const sortByOrder = (images: OrderedImage[]) =>
+    [...images].sort((a, b) => a.order - b.order);
+
+  const renumberImages = (images: OrderedImage[]) =>
+    images.map((img, index) => ({ ...img, order: index + 1 }));
+
   const onUpload = (result: any) => {
-    onChange(result.info.secure_url);
+    const currentImages = sortByOrder(value || []);
+    const newImages = renumberImages([
+      ...currentImages,
+      { url: result.info.secure_url, order: currentImages.length + 1 },
+    ]);
+    onChange(newImages);
+  };
+
+  const onRemove = (url: string) => {
+    const filtered = sortByOrder(value).filter((img) => img.url !== url);
+    onChange(renumberImages(filtered));
+  };
+
+  const moveImageUp = (index: number) => {
+    if (index === 0) return;
+    const sorted = sortByOrder(value);
+    [sorted[index - 1], sorted[index]] = [sorted[index], sorted[index - 1]];
+    onChange(renumberImages(sorted));
+  };
+
+  const moveImageDown = (index: number) => {
+    const sorted = sortByOrder(value);
+    if (index === sorted.length - 1) return;
+    [sorted[index], sorted[index + 1]] = [sorted[index + 1], sorted[index]];
+    onChange(renumberImages(sorted));
   };
 
   if (!isMounted) {
     return null;
   }
 
+  const sortedImages = renumberImages(sortByOrder(value || []));
+
   return (
-    <div>
-      <div className="mb-4 flex items-center gap-4">
-        {value.map((url) => (
+    <div className="space-y-4">
+      <div className="mb-2 flex flex-wrap gap-4">
+        {sortedImages.map((image, index) => (
           <div
-            key={url}
-            className="relative w-[200px] h-[200px] rounded-md overflow-hidden"
+            key={image.url}
+            className="relative w-[200px] h-[240px] rounded-md overflow-hidden "
           >
-            <div className="z-10 absolute top-2 right-2">
-              <Button
-                type="button"
-                onClick={() => onRemove(url)}
-                variant="destructive"
-                size="sm"
-              >
-                <Trash className="h-4 w-4" />
-              </Button>
+            <div className="relative w-full h-[200px]">
+              <div className="z-10 absolute top-2 right-2">
+                <Button
+                  type="button"
+                  onClick={() => onRemove(image.url)}
+                  variant="destructive"
+                  size="sm"
+                  disabled={disabled}
+                >
+                  <Trash className="h-4 w-4" />
+                </Button>
+              </div>
+              <Image
+                fill
+                className="object-cover"
+                alt="Image"
+                src={image.url}
+              />
             </div>
-            <Image fill className="object-cover" alt="Image" src={url} />
+            {sortedImages.length > 1 && (
+              <div className="h-[40px] flex items-center justify-center gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="p-2 rounded-lg"
+                  disabled={disabled || index === 0}
+                  onClick={() => moveImageUp(index)}
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </Button>
+                <span className="text-sm font-medium min-w-[20px] text-center">
+                  {image.order}
+                </span>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="p-2 rounded-lg"
+                  disabled={disabled || index === sortedImages.length - 1}
+                  onClick={() => moveImageDown(index)}
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </Button>
+              </div>
+            )}
           </div>
         ))}
       </div>
+
       <CldUploadWidget onUpload={onUpload} uploadPreset="ecommtest">
         {({ open }) => {
           const onClick = () => {
