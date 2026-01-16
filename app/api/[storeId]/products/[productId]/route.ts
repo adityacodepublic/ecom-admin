@@ -139,6 +139,7 @@ export async function PATCH(
       maxQuantity,
       isFeatured,
       isArchived,
+      filteritems,
     } = body;
 
     if (!userId) {
@@ -199,6 +200,9 @@ export async function PATCH(
         images: {
           deleteMany: {},
         },
+        filteritems: {
+          deleteMany: {},
+        },
         isFeatured,
         isArchived,
       },
@@ -214,6 +218,18 @@ export async function PATCH(
             data: [...images.map((image: { url: string }) => image)],
           },
         },
+        filteritems:
+          filteritems && filteritems.length > 0
+            ? {
+                createMany: {
+                  data: filteritems.map(
+                    (item: { filterId: string; valueId: string }) => ({
+                      valueId: item.valueId,
+                    })
+                  ),
+                },
+              }
+            : undefined,
       },
     });
 

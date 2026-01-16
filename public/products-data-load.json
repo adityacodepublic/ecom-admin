@@ -37,11 +37,18 @@
         "categoryId": {
           "type": "string"
         },
-        "colorId": {
-          "type": "string"
-        },
-        "sizeId": {
-          "type": "string"
+        "filteritems": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "valueId": {
+                "type": "string"
+              }
+            },
+            "required": ["valueId"],
+            "additionalProperties": false
+          }
         },
         "quantity": {
           "type": "number"
@@ -97,7 +104,16 @@
           "type": "string"
         }
       },
-      "required": ["name", "price", "isFeatured", "isArchived", "categoryId", "colorId", "sizeId", "quantity", "maxQuantity", "images"],
+      "required": [
+        "name",
+        "price",
+        "isFeatured",
+        "isArchived",
+        "categoryId",
+        "quantity",
+        "maxQuantity",
+        "images"
+      ],
       "additionalProperties": true
     }
   }

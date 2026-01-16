@@ -35,6 +35,7 @@ export async function POST(
       images,
       isFeatured,
       isArchived,
+      filteritems,
     } = body;
 
     if (!userId) {
@@ -100,6 +101,18 @@ export async function POST(
             ],
           },
         },
+        filteritems:
+          filteritems && filteritems.length > 0
+            ? {
+                createMany: {
+                  data: filteritems.map(
+                    (item: { filterId: string; valueId: string }) => ({
+                      valueId: item.valueId,
+                    })
+                  ),
+                },
+              }
+            : undefined,
       },
       include: {
         images: {

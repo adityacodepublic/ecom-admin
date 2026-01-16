@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs';
-import prismadb from '@/lib/prismadb';
- 
+import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs";
+import prismadb from "@/lib/prismadb";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
@@ -21,7 +21,7 @@ export async function POST(
 
     const body = await req.json();
 
-    const { email,phone,fname,imgurl } = body;
+    const { email, phone, fname, imgurl } = body;
 
     if (!userId) {
       return new NextResponse("Unauthenticated", { status: 403 });
@@ -46,31 +46,31 @@ export async function POST(
     const storeByUserId = await prismadb.store.findFirst({
       where: {
         id: params.storeId,
-        userId
-      }
+        userId,
+      },
     });
 
     if (!storeByUserId) {
       return new NextResponse("Unauthorized", { status: 405 });
     }
 
-    const size = await prismadb.users.create({
+    const user = await prismadb.users.create({
       data: {
-        storeId:params.storeId,
-        id:userId,
-        email:email,
-        phone:phone,
-        fname:fname,
-        imgurl:imgurl,
+        storeId: params.storeId,
+        id: userId,
+        email: email,
+        phone: phone,
+        fname: fname,
+        imgurl: imgurl,
       },
     });
-  
-    return NextResponse.json(size,{headers:corsHeaders});
+
+    return NextResponse.json(user, { headers: corsHeaders });
   } catch (error) {
-    console.log('[SIZES_POST]', error);
+    console.log("[USERS_POST]", error);
     return new NextResponse("Internal error", { status: 500 });
   }
-};
+}
 
 export async function GET(
   req: Request,
@@ -81,18 +81,18 @@ export async function GET(
       return new NextResponse("Store id is required", { status: 400 });
     }
 
-    const sizes = await prismadb.users.findMany({
+    const users = await prismadb.users.findMany({
       where: {
-        storeId: params.storeId
+        storeId: params.storeId,
       },
-      select:{
-        id:true
-      }
+      select: {
+        id: true,
+      },
     });
-  
-    return NextResponse.json(sizes,{headers:corsHeaders});
+
+    return NextResponse.json(users, { headers: corsHeaders });
   } catch (error) {
-    console.log('[USERS_GET]', error);
+    console.log("[USERS_GET]", error);
     return new NextResponse("Internal error", { status: 500 });
   }
-};
+}

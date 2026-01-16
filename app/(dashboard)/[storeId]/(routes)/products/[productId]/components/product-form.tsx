@@ -2,11 +2,11 @@
 
 import * as z from "zod";
 import axios from "axios";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { toast } from "react-hot-toast";
-import { Trash } from "lucide-react";
+import { Trash, X } from "lucide-react";
 import { Category, Image, Product } from "@prisma/client";
 import { useParams, useRouter } from "next/navigation";
 
@@ -41,40 +41,93 @@ const formSchema = z.object({
   quantity: z.coerce.number().int().min(1),
   maxQuantity: z.coerce.number().int().min(1),
   categoryId: z.string().min(1),
+  filteritems: z
+    .array(
+      z.object({
+        filterId: z.string().min(1),
+        valueId: z.string().min(1),
+      })
+    )
+    .optional(),
   isFeatured: z.boolean().default(false).optional(),
   isArchived: z.boolean().default(false).optional(),
 });
 
 type ProductFormValues = z.infer<typeof formSchema>;
 
+interface Filter {
+  id: string;
+  name: string;
+  values: { id: string; value: string | null; unit: string }[];
+}
+
 interface ProductFormProps {
   initialData:
     | (Product & {
         images: Image[];
+        filteritems?: Array<{
+          valueId: string;
+          value: {
+            value: string | null;
+            unit: string;
+            filterId: string;
+            filter: {
+              id: string;
+              name: string;
+            };
+          };
+        }>;
       })
     | null;
   categories: Category[];
+  filters: Array<{
+    id: string;
+    name: string;
+    value: Array<{
+      id: string;
+      value: string | null;
+      unit: string;
+    }>;
+  }>;
 }
 
 export const ProductForm: React.FC<ProductFormProps> = ({
   initialData,
   categories,
+  filters: serverFilters,
 }) => {
   const params = useParams();
   const router = useRouter();
 
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [filters, setFilters] = useState<Filter[]>([]);
 
   const title = initialData ? "Edit product" : "Create product";
   const description = initialData ? "Edit a product." : "Add a new product";
   const toastMessage = initialData ? "Product updated." : "Product created.";
   const action = initialData ? "Save changes" : "Create";
 
+  // Convert server filters to client format
+  const convertedFilters: Filter[] = serverFilters.map((filter) => ({
+    id: filter.id,
+    name: filter.name,
+    values: filter.value || [],
+  }));
+
+  // Build prefilled filteritems from initialData
+  const prefillFilterItems = initialData?.filteritems
+    ? initialData.filteritems.map((item) => ({
+        filterId: item.value.filterId,
+        valueId: item.valueId,
+      }))
+    : [];
+
   const defaultValues = initialData
     ? {
         ...initialData,
         price: parseFloat(String(initialData?.price)),
+        filteritems: prefillFilterItems,
       }
     : {
         name: "",
@@ -83,6 +136,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         quantity: 0,
         maxQuantity: 0,
         categoryId: "",
+        filteritems: [],
         isFeatured: false,
         isArchived: false,
       };
@@ -92,16 +146,30 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     defaultValues,
   });
 
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "filteritems",
+  });
+
+  // Initialize with server filters on mount
+  useEffect(() => {
+    setFilters(convertedFilters);
+  }, [serverFilters]);
+
   const onSubmit = async (data: ProductFormValues) => {
     try {
       setLoading(true);
+      const submitData = {
+        ...data,
+        filteritems: data.filteritems || [],
+      };
       if (initialData) {
         await axios.patch(
           `/api/${params.storeId}/products/${params.productId}`,
-          data
+          submitData
         );
       } else {
-        await axios.post(`/api/${params.storeId}/products`, data);
+        await axios.post(`/api/${params.storeId}/products`, submitData);
       }
       router.refresh();
       router.push(`/${params.storeId}/products`);
@@ -127,6 +195,18 @@ export const ProductForm: React.FC<ProductFormProps> = ({
       setOpen(false);
     }
   };
+
+  // Get selected filter IDs to prevent duplicates
+  const selectedFilterIds = form
+    .watch("filteritems")
+    ?.map((field) => field.filterId);
+
+  const notSelectedFilters = filters.filter(
+    (f) => !selectedFilterIds?.includes(f.id)
+  );
+  const availableFilters = filters.filter(
+    (f) => !selectedFilterIds?.includes(f.id)
+  );
 
   return (
     <>
@@ -179,7 +259,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               </FormItem>
             )}
           />
-          <div className="md:grid md:grid-cols-3 gap-8">
+          <div className="md:grid md:grid-cols-3 md:gap-8 space-y-4">
             <FormField
               control={form.control}
               name="name"
@@ -272,17 +352,31 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {categories.map((category) => (
-                        <SelectItem key={category.id} value={category.id}>
-                          {category.name}
+                      {categories.length > 0 ? (
+                        categories
+                          .slice()
+                          .sort((a, b) =>
+                            a.name.localeCompare(b.name, undefined, {
+                              sensitivity: "base",
+                            })
+                          )
+                          .map((category) => (
+                            <SelectItem key={category.id} value={category.id}>
+                              {category.name}
+                            </SelectItem>
+                          ))
+                      ) : (
+                        <SelectItem value="" disabled>
+                          No categories available
                         </SelectItem>
-                      ))}
+                      )}
                     </SelectContent>
                   </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
+
             <FormField
               control={form.control}
               name="isFeatured"
@@ -327,6 +421,190 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               )}
             />
           </div>
+
+          {/* Filter Selection Section */}
+          <Separator className="h-[0.5px]" />
+          <div className="md:grid md:grid-cols-3 gap-8">
+            <div className="mb-4">
+              <FormLabel className="text-base">Filters</FormLabel>
+              <FormDescription>
+                Add filter values to this product
+              </FormDescription>
+            </div>
+
+            <div className="space-y-4 col-span-2">
+              {fields.length > 0 && (
+                <>
+                  {fields.map((field, index) => {
+                    const selectedFilter = filters.find(
+                      (f) =>
+                        f.id === form.watch(`filteritems.${index}.filterId`)
+                    );
+                    const filterValues = selectedFilter?.values || [];
+
+                    return (
+                      <div key={field.id} className="flex gap-3 items-end">
+                        {/* Filter Name Dropdown */}
+                        <FormField
+                          control={form.control}
+                          name={`filteritems.${index}.filterId`}
+                          render={({ field: filterField }) => (
+                            <FormItem className="flex-1">
+                              <FormLabel>Filter</FormLabel>
+                              <Select
+                                disabled={loading}
+                                onValueChange={(value) => {
+                                  filterField.onChange(value);
+                                  // Reset valueId when filter changes
+                                  form.setValue(
+                                    `filteritems.${index}.valueId`,
+                                    ""
+                                  );
+                                }}
+                                value={filterField.value}
+                              >
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select a filter">
+                                      {selectedFilter?.name}
+                                    </SelectValue>
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {notSelectedFilters.length > 0 ? (
+                                    notSelectedFilters
+                                      .slice()
+                                      .sort((a, b) =>
+                                        a.name.localeCompare(
+                                          b.name,
+                                          undefined,
+                                          { sensitivity: "base" }
+                                        )
+                                      )
+                                      .map((filter) => (
+                                        <SelectItem
+                                          key={filter.id}
+                                          value={filter.id}
+                                        >
+                                          {filter.name}
+                                        </SelectItem>
+                                      ))
+                                  ) : (
+                                    <SelectItem value="" disabled>
+                                      No filters available
+                                    </SelectItem>
+                                  )}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        {/* Filter Value Dropdown */}
+                        <FormField
+                          control={form.control}
+                          name={`filteritems.${index}.valueId`}
+                          render={({ field: valueField }) => (
+                            <FormItem className="flex-1">
+                              <FormLabel>Value</FormLabel>
+                              <Select
+                                disabled={loading || !selectedFilter}
+                                onValueChange={valueField.onChange}
+                                value={valueField.value}
+                              >
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select a value" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {filterValues.length > 0 ? (
+                                    filterValues
+                                      .slice()
+                                      .sort((a, b) => {
+                                        const aHasValue = a.value !== null;
+                                        const bHasValue = b.value !== null;
+
+                                        // 1. Both have values → numeric sort
+                                        if (aHasValue && bHasValue) {
+                                          return (
+                                            parseFloat(a.value!) -
+                                            parseFloat(b.value!)
+                                          );
+                                        }
+                                        // 2. Only one has value → value comes first
+                                        if (aHasValue) return -1;
+                                        if (bHasValue) return 1;
+
+                                        // 3. Neither has value → sort by unit
+                                        return (a.unit ?? "").localeCompare(
+                                          b.unit ?? "",
+                                          undefined,
+                                          {
+                                            sensitivity: "base",
+                                          }
+                                        );
+                                      })
+                                      .map((value) => (
+                                        <SelectItem
+                                          key={value.id}
+                                          value={value.id}
+                                        >
+                                          {value.value
+                                            ? `${value.value}${
+                                                value.unit
+                                                  ? ` ${value.unit}`
+                                                  : ""
+                                              }`
+                                            : value.unit}
+                                        </SelectItem>
+                                      ))
+                                  ) : selectedFilter ? (
+                                    <SelectItem value="" disabled>
+                                      No values found for this filter
+                                    </SelectItem>
+                                  ) : (
+                                    <SelectItem value="" disabled>
+                                      Select a filter first
+                                    </SelectItem>
+                                  )}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        {/* Remove Button */}
+                        <Button
+                          type="button"
+                          variant="link"
+                          // size=""
+                          onClick={() => remove(index)}
+                          disabled={loading}
+                        >
+                          <X className="h- w-5" />
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+              <div />
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="mt-7"
+                disabled={loading || availableFilters.length === 0}
+                onClick={() => append({ filterId: "", valueId: "" })}
+              >
+                Add Filter
+              </Button>
+            </div>
+          </div>
+
           <Button disabled={loading} className="ml-auto" type="submit">
             {action}
           </Button>

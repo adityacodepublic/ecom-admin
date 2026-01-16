@@ -14,7 +14,7 @@ export async function OPTIONS() {
 
 export async function GET(
   req: Request,
-  { params }: { params: { usersId: string, storeId: string } }
+  { params }: { params: { usersId: string; storeId: string } }
 ) {
   try {
     if (!params.usersId) {
@@ -27,69 +27,73 @@ export async function GET(
     const user = await prismadb.users.findUnique({
       where: {
         id: params.usersId,
-        storeId:params.storeId
+        storeId: params.storeId,
       },
       select: {
-        fname:true,
-        phone:true,
-        address:{
-          select:{
-            id:true,
-            value:true,
-            pincode:true,
-          }
+        fname: true,
+        phone: true,
+        address: {
+          select: {
+            id: true,
+            value: true,
+            pincode: true,
+          },
         },
-        orders:{
-          select:{
-            isPaid:true,
-            status:true,
-            addressId:true,
-            orderItems:{
-              select:{
-                orderQuantity:true,
-                product:{
-                  select:{
-                    id:true,
-                    name:true,
-                    price:true,
-                    size:{
-                      select:{
-                        name:true
-                      }
+        orders: {
+          select: {
+            isPaid: true,
+            status: true,
+            addressId: true,
+            orderItems: {
+              select: {
+                orderQuantity: true,
+                product: {
+                  select: {
+                    id: true,
+                    name: true,
+                    price: true,
+                    filteritems: {
+                      select: {
+                        value: {
+                          select: {
+                            value: true,
+                            unit: true,
+                            filter: {
+                              select: {
+                                name: true,
+                              },
+                            },
+                          },
+                        },
+                      },
                     },
-                    color:{
-                      select:{
-                        name:true,
-                        value:true
-                      }
+                    images: {
+                      select: {
+                        url: true,
+                      },
                     },
-                    images:{
-                      select:{
-                        url:true
-                      }
-                    }
-                  }
-                }
+                  },
+                },
               },
             },
           },
-          orderBy:{
-            createdAt:'desc'
-          }
+          orderBy: {
+            createdAt: "desc",
+          },
         },
       },
     });
-  
-    return NextResponse.json({user},{headers: corsHeaders});
+
+    return NextResponse.json({ user }, { headers: corsHeaders });
   } catch (error) {
-    console.log('[USER_GET]', error);
+    console.log("[USER_GET]", error);
     return new NextResponse("Internal error", { status: 500 });
   }
-};
+}
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { usersId: string, storeId: string } }
+  { params }: { params: { usersId: string; storeId: string } }
 ) {
   try {
     const { userId } = auth();
@@ -105,8 +109,8 @@ export async function DELETE(
     const storeByUserId = await prismadb.store.findFirst({
       where: {
         id: params.storeId,
-        userId: params.usersId
-      }
+        userId: params.usersId,
+      },
     });
 
     if (!storeByUserId) {
@@ -115,28 +119,27 @@ export async function DELETE(
 
     const user = await prismadb.users.delete({
       where: {
-        id: params.usersId
+        id: params.usersId,
       },
     });
-  
-    return NextResponse.json(user,{headers:corsHeaders});
+
+    return NextResponse.json(user, { headers: corsHeaders });
   } catch (error) {
-    console.log('[PRODUCT_DELETE]', error);
+    console.log("[PRODUCT_DELETE]", error);
     return new NextResponse("Internal error", { status: 500 });
   }
-};
-
+}
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { usersId: string, storeId: string } }
+  { params }: { params: { usersId: string; storeId: string } }
 ) {
   try {
     const { userId } = auth();
 
     const body = await req.json();
 
-    const { email,phone,fname,imgurl } = body;
+    const { email, phone, fname, imgurl } = body;
 
     if (!userId) {
       return new NextResponse("Unauthenticated", { status: 403 });
@@ -162,12 +165,11 @@ export async function PATCH(
       return new NextResponse("Category id is required", { status: 400 });
     }
 
-
     const storeByUserId = await prismadb.store.findFirst({
       where: {
         id: params.storeId,
-        userId: params.usersId
-      }
+        userId: params.usersId,
+      },
     });
 
     if (!storeByUserId) {
@@ -176,18 +178,18 @@ export async function PATCH(
 
     await prismadb.users.update({
       where: {
-        id: params.usersId
+        id: params.usersId,
       },
       data: {
-        email:email,
-        phone:phone,
-        fname:fname,
-        imgurl:imgurl,
+        email: email,
+        phone: phone,
+        fname: fname,
+        imgurl: imgurl,
       },
     });
-    return NextResponse.json({status:200},{headers:corsHeaders});
+    return NextResponse.json({ status: 200 }, { headers: corsHeaders });
   } catch (error) {
-    console.log('[USER_PATCH]', error);
+    console.log("[USER_PATCH]", error);
     return new NextResponse("Internal error", { status: 500 });
   }
-};
+}
