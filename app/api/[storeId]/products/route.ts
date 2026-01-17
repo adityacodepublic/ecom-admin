@@ -187,8 +187,8 @@ export async function GET(
         name: {
           contains: searchValue,
         },
-        isFeatured: isFeatured ? true : undefined, // we dont pass false so it ignores this clause
-        isArchived: isArchived ? false : undefined, // we dont pass false so it ignores this clause
+        isFeatured: isFeatured ? isFeatured === "true" : undefined, // we dont pass false so it ignores this clause
+        isArchived: isArchived ? isArchived === "true" : undefined, // we dont pass false so it ignores this clause
         price: priceFilter,
         ...(filterConditions.length > 0 && {
           AND: filterConditions,
@@ -200,6 +200,8 @@ export async function GET(
         price: true,
         quantity: true,
         maxQuantity: true,
+        isFeatured: true,
+        isArchived: true,
         images: {
           orderBy: {
             order: "asc",

@@ -39,9 +39,9 @@ model Billboard {
 
 model billboardImage {
   id          Int        @id @default(autoincrement())
-  billboardId String     @default("")
+  billboardId String
   billboard   Billboard? @relation(fields: [billboardId], references: [id], onDelete: Cascade)
-  url         String     @default("")
+  url         String
   href        String     @default("")
   order       Int        @default(1) // Order/position of the image
   createdAt   DateTime   @default(now())
@@ -59,6 +59,7 @@ model Category {
   billboardId String // Foreign Key to Billboard
   billboard   Billboard @relation(fields: [billboardId], references: [id])
   name        String
+  imageUrl    String
   products    Product[] @relation("CategoryToProduct")
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -92,16 +93,6 @@ model Product {
   @@index([categoryId])
 }
 
-// model Variant {
-//   id          String    @id @default(uuid())
-//   storeId     String    // Foreign Key to Store
-//   store       Store     @relation("StoreToVariant", fields: [storeId], references: [id])
-//   products    Product[] @relation("VariantToProduct")
-//   updatedAt   DateTime  @updatedAt
-
-//   @@index([storeId])
-// }
-
 model Image {
   id        String   @id @default(uuid())
   productId String   @default("") // Foreign Key to Product
@@ -113,6 +104,16 @@ model Image {
 
   @@index([productId])
 }
+
+// model Variant {
+//   id          String    @id @default(uuid())
+//   storeId     String    // Foreign Key to Store
+//   store       Store     @relation("StoreToVariant", fields: [storeId], references: [id])
+//   products    Product[] @relation("VariantToProduct")
+//   updatedAt   DateTime  @updatedAt
+
+//   @@index([storeId])
+// }
 
 //R
 

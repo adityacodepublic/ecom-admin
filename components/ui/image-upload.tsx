@@ -23,12 +23,14 @@ interface ImageUploadProps {
   disabled?: boolean;
   onChange: (value: OrderedImage[]) => void;
   value: OrderedImage[];
+  multiple?: boolean;
 }
 
 const ImageUpload: React.FC<ImageUploadProps> = ({
   disabled,
   onChange,
   value,
+  multiple = true,
 }) => {
   const [isMounted, setIsMounted] = useState(false);
 
@@ -139,7 +141,11 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         ))}
       </div>
 
-      <CldUploadWidget onUpload={onUpload} uploadPreset="ecommtest">
+      <CldUploadWidget
+        onUpload={onUpload}
+        uploadPreset="ecommtest"
+        options={multiple ? { maxFiles: 20 } : { maxFiles: 1, multiple: false }}
+      >
         {({ open }) => {
           const onClick = () => {
             open();
