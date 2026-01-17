@@ -162,10 +162,13 @@ export async function PATCH(
       data: {
         images: {
           createMany: {
-            data: images.map((image: { url: string; order: number }) => ({
-              url: image.url,
-              order: image.order,
-            })),
+            data: images.map(
+              (image: { url: string; order: number; href?: string }) => ({
+                url: image.url,
+                order: image.order,
+                href: image.href ?? "",
+              })
+            ),
           },
         },
       },

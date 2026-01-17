@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs";
 
 import prismadb from "@/lib/prismadb";
-import axios from "axios";
-import { getStoreURL } from "@/actions/get-storeUrl";
 import { getURL } from "@/lib/_allowedDomains/domains";
 
 const corsHeaders = {
@@ -62,10 +60,13 @@ export async function POST(
         storeId: params.storeId,
         images: {
           createMany: {
-            data: images.map((image: { url: string; order: number }) => ({
-              url: image.url,
-              order: image.order,
-            })),
+            data: images.map(
+              (image: { url: string; order: number; href?: string }) => ({
+                url: image.url,
+                order: image.order,
+                href: image.href ?? "",
+              })
+            ),
           },
         },
       },
@@ -104,6 +105,7 @@ export async function GET(
           select: {
             url: true,
             order: true,
+            href: true,
           },
         },
       },

@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -23,11 +24,17 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Heading } from "@/components/ui/heading";
 import { AlertModal } from "@/components/modals/alert-modal";
-import ImageUpload from "@/components/ui/image-upload";
+import BillboardImageUpload from "@/components/ui/billboard-image-upload";
 
 const formSchema = z.object({
   label: z.string().min(1),
-  images: z.object({ url: z.string(), order: z.number() }).array(),
+  images: z
+    .object({
+      url: z.string().min(2),
+      order: z.number().min(1),
+      href: z.string().optional(),
+    })
+    .array(),
 });
 
 type BillboardFormValues = z.infer<typeof formSchema>;
@@ -137,23 +144,6 @@ export const BillboardForm: React.FC<BillboardFormProps> = ({
           onSubmit={form.handleSubmit(onSubmit)}
           className="space-y-8 w-full"
         >
-          <FormField
-            control={form.control}
-            name="images"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Background Images</FormLabel>
-                <FormControl>
-                  <ImageUpload
-                    value={field.value}
-                    disabled={loading}
-                    onChange={(images) => field.onChange(images)}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
           <div className="md:grid md:grid-cols-3 gap-8">
             <FormField
               control={form.control}
@@ -173,6 +163,24 @@ export const BillboardForm: React.FC<BillboardFormProps> = ({
               )}
             />
           </div>
+          <FormField
+            control={form.control}
+            name="images"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Billboard Images</FormLabel>
+                <FormControl>
+                  <BillboardImageUpload
+                    value={field.value}
+                    disabled={loading}
+                    onChange={(images) => field.onChange(images)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
           <Button disabled={loading} className="ml-auto" type="submit">
             {action}
           </Button>

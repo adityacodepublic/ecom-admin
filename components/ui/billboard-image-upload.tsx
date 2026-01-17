@@ -4,28 +4,23 @@ import { CldUploadWidget } from "next-cloudinary";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import Image from "next/image";
-import {
-  ChevronRight,
-  ChevronLeft,
-  ChevronUp,
-  ChevronDown,
-  ImagePlus,
-  Trash,
-} from "lucide-react";
+import { ChevronRight, ChevronLeft, ChevronUp, ChevronDown, ImagePlus, Trash } from "lucide-react";
 
-interface OrderedImage {
+interface BillboardOrderedImage {
   url: string;
   order: number;
+  href?: string;
 }
 
-interface ImageUploadProps {
+interface BillboardImageUploadProps {
   disabled?: boolean;
-  onChange: (value: OrderedImage[]) => void;
-  value: OrderedImage[];
+  onChange: (value: BillboardOrderedImage[]) => void;
+  value: BillboardOrderedImage[];
 }
 
-const ImageUpload: React.FC<ImageUploadProps> = ({
+const BillboardImageUpload: React.FC<BillboardImageUploadProps> = ({
   disabled,
   onChange,
   value,
@@ -39,17 +34,21 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
     onChange(newImages);
   }, []);
 
-  const sortByOrder = (images: OrderedImage[]) =>
+  const sortByOrder = (images: BillboardOrderedImage[]) =>
     [...images].sort((a, b) => a.order - b.order);
 
-  const renumberImages = (images: OrderedImage[]) =>
+  const renumberImages = (images: BillboardOrderedImage[]) =>
     images.map((img, index) => ({ ...img, order: index + 1 }));
 
   const onUpload = (result: any) => {
     const currentImages = sortByOrder(value || []);
     const newImages = renumberImages([
       ...currentImages,
-      { url: result.info.secure_url, order: currentImages.length + 1 },
+      {
+        url: result.info.secure_url,
+        order: currentImages.length + 1,
+        href: "",
+      },
     ]);
     onChange(newImages);
   };
@@ -57,6 +56,13 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   const onRemove = (url: string) => {
     const filtered = sortByOrder(value).filter((img) => img.url !== url);
     onChange(renumberImages(filtered));
+  };
+
+  const onHrefChange = (url: string, newHref: string) => {
+    const updated = sortByOrder(value).map((img) =>
+      img.url === url ? { ...img, href: newHref } : img
+    );
+    onChange(updated);
   };
 
   const moveImageUp = (index: number) => {
@@ -80,12 +86,31 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   const sortedImages = renumberImages(sortByOrder(value || []));
 
   return (
-    <div className="space-y-4">
-      <div className="mb-2 flex flex-wrap gap-4">
+    <div className="space-y-10 py-2">
+      <CldUploadWidget onUpload={onUpload} uploadPreset="ecommtest">
+        {({ open }) => {
+          const onClick = () => {
+            open();
+          };
+
+          return (
+            <Button
+              type="button"
+              disabled={disabled}
+              variant="secondary"
+              onClick={onClick}
+            >
+              <ImagePlus className="h-4 w-4 mr-2" />
+              Upload an Image
+            </Button>
+          );
+        }}
+      </CldUploadWidget>
+      <div className="mb-2 mt-5 flex flex-wrap gap-4">
         {sortedImages.map((image, index) => (
           <div
             key={image.url}
-            className="relative w-[200px] h-[240px] rounded-md overflow-hidden "
+            className="relative w-[400px] rounded-lg overflow-hidden border"
           >
             <div className="relative w-full h-[200px]">
               <div className="z-10 absolute top-2 right-2">
@@ -107,7 +132,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
               />
             </div>
             {sortedImages.length > 1 && (
-              <div className="h-[40px] flex items-center justify-center gap-2">
+              <div className="h-[40px] flex items-center justify-center gap-2 mt-2">
                 <Button
                   type="button"
                   variant="secondary"
@@ -135,31 +160,24 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
                 </Button>
               </div>
             )}
+            <div className="p-3">
+              <div className="text-foreground/80 mb-0.5 text-sm">
+                Destination page (optional)
+              </div>
+              <Input
+                type="text"
+                placeholder="e.g. https://example.com/product"
+                value={image.href || ""}
+                onChange={(e) => onHrefChange(image.url, e.target.value)}
+                disabled={disabled}
+                className="text-sm"
+              />
+            </div>
           </div>
         ))}
       </div>
-
-      <CldUploadWidget onUpload={onUpload} uploadPreset="ecommtest">
-        {({ open }) => {
-          const onClick = () => {
-            open();
-          };
-
-          return (
-            <Button
-              type="button"
-              disabled={disabled}
-              variant="secondary"
-              onClick={onClick}
-            >
-              <ImagePlus className="h-4 w-4 mr-2" />
-              Upload an Image
-            </Button>
-          );
-        }}
-      </CldUploadWidget>
     </div>
   );
 };
 
-export default ImageUpload;
+export default BillboardImageUpload;
