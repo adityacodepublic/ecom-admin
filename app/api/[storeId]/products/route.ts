@@ -120,14 +120,6 @@ export async function POST(
               }
             : undefined,
       },
-      include: {
-        images: {
-          select: {
-            url: true,
-            order: true,
-          },
-        },
-      },
     });
 
     // try {

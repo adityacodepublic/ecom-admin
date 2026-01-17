@@ -12,11 +12,7 @@ const ProductPage = async ({
       id: params.productId,
     },
     include: {
-      images: {
-        orderBy: {
-          updatedAt: "desc",
-        },
-      },
+      images: true,
       filteritems: {
         select: {
           valueId: true,

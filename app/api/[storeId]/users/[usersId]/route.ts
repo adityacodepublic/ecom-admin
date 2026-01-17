@@ -71,6 +71,10 @@ export async function GET(
                       select: {
                         url: true,
                       },
+                      orderBy: {
+                        order: "asc",
+                      },
+                      take: 1,
                     },
                   },
                 },
@@ -109,7 +113,7 @@ export async function DELETE(
     const storeByUserId = await prismadb.store.findFirst({
       where: {
         id: params.storeId,
-        userId: params.usersId,
+        userId,
       },
     });
 
@@ -125,7 +129,7 @@ export async function DELETE(
 
     return NextResponse.json(user, { headers: corsHeaders });
   } catch (error) {
-    console.log("[PRODUCT_DELETE]", error);
+    console.log("[USER_DELETE]", error);
     return new NextResponse("Internal error", { status: 500 });
   }
 }
@@ -146,29 +150,29 @@ export async function PATCH(
     }
 
     if (!params.usersId) {
-      return new NextResponse("Product id is required", { status: 400 });
+      return new NextResponse("User id is required", { status: 400 });
     }
 
     if (!email) {
-      return new NextResponse("Name is required", { status: 400 });
+      return new NextResponse("Email is required", { status: 400 });
     }
 
     if (!phone) {
-      return new NextResponse("Images are required", { status: 400 });
+      return new NextResponse("Phone is required", { status: 400 });
     }
 
     if (!fname) {
-      return new NextResponse("Price is required", { status: 400 });
+      return new NextResponse("First name is required", { status: 400 });
     }
 
     if (!imgurl) {
-      return new NextResponse("Category id is required", { status: 400 });
+      return new NextResponse("Image URL is required", { status: 400 });
     }
 
     const storeByUserId = await prismadb.store.findFirst({
       where: {
         id: params.storeId,
-        userId: params.usersId,
+        userId,
       },
     });
 
