@@ -27,6 +27,9 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
 
   useEffect(() => {
     setIsMounted(true);
+    const currentImages = sortByOrder(value || []);
+    const newImages = renumberImages([...currentImages]);
+    onChange(newImages);
   }, []);
 
   const sortByOrder = (images: OrderedImage[]) =>

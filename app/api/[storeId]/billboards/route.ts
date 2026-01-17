@@ -62,7 +62,10 @@ export async function POST(
         storeId: params.storeId,
         images: {
           createMany: {
-            data: [...images.map((image: { url: string }) => image)],
+            data: images.map((image: { url: string; order: number }) => ({
+              url: image.url,
+              order: image.order,
+            })),
           },
         },
       },
@@ -100,6 +103,7 @@ export async function GET(
         images: {
           select: {
             url: true,
+            order: true,
           },
         },
       },

@@ -32,7 +32,13 @@ export async function GET(
       select: {
         billboard: {
           select: {
-            id: true,
+            label: true,
+            images: {
+              select: {
+                url: true,
+                href: true,
+              },
+            },
           },
         },
         id: true,
