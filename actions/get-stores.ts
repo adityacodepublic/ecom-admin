@@ -3,9 +3,9 @@ import { cache } from "react";
 
 export const getStores = cache(async () => {
   const storeURL = await prismadb.store.findMany({
-    select:{
-        url:true
-    }
+    select: {
+      url: true,
+    },
   });
-  return storeURL.flatMap((item: { url: string })=>(item.url));
+  return storeURL.flatMap((item: { url: string }) => item.url);
 });
