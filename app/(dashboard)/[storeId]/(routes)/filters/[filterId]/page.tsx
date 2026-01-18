@@ -5,11 +5,12 @@ import { FilterForm } from "./components/filter-form";
 const FilterPage = async ({
   params,
 }: {
-  params: { filterId: string; storeId: string };
+  params: Promise<{ filterId: string; storeId: string }>;
 }) => {
+  const resolvedParams = await params;
   const filter = await prismadb.filter.findUnique({
     where: {
-      id: params.filterId,
+      id: resolvedParams.filterId,
     },
     select: {
       id: true,

@@ -6,11 +6,16 @@ import { formatter } from "@/lib/utils";
 import { ProductsClient } from "./components/client";
 import { ProductColumn } from "./components/columns";
 
-const ProductsPage = async ({ params }: { params: { storeId: string } }) => {
+const ProductsPage = async ({
+  params,
+}: {
+  params: Promise<{ storeId: string }>;
+}) => {
+  const resolvedParams = await params;
   // Fetch all filters for this store
   const filters = await prismadb.filter.findMany({
     where: {
-      storeId: params.storeId,
+      storeId: resolvedParams.storeId,
     },
     select: {
       id: true,
@@ -20,7 +25,7 @@ const ProductsPage = async ({ params }: { params: { storeId: string } }) => {
 
   const products = await prismadb.product.findMany({
     where: {
-      storeId: params.storeId,
+      storeId: resolvedParams.storeId,
     },
     select: {
       id: true,

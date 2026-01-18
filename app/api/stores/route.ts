@@ -29,8 +29,8 @@ export async function POST(req: Request) {
 
     addStore("http://localhost:3000", store.id);
     try {
-      revalidateTag("storeurl");
-      revalidateTag("store_url");
+      revalidateTag("storeurl", "max");
+      revalidateTag("store_url", "max");
     } catch (error) {
       console.error("Error processing revalidation:", error);
     }

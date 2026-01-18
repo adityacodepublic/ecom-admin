@@ -17,51 +17,68 @@ export async function OPTIONS() {
 
 export async function POST(
   req: Request,
-  { params }: { params: { storeId: string} }
+  { params }: { params: Promise<{ storeId: string }> },
 ) {
-  
-  if (!params.storeId) {
+  const resolvedParams = await params;
+
+  if (!resolvedParams.storeId) {
     return new NextResponse("Store id is required", { status: 400 });
   }
 
-  const { cartItems, usersId, name, email, imgurl, phone, radio, address, zip, address_instructions, payradio} = await req.json();
+  const {
+    cartItems,
+    usersId,
+    name,
+    email,
+    imgurl,
+    phone,
+    radio,
+    address,
+    zip,
+    address_instructions,
+    payradio,
+  } = await req.json();
 
   if (!cartItems || cartItems.length === 0) {
     return new NextResponse("Product ids are required", { status: 400 });
-  };
+  }
 
-  // Find Products 
+  // Find Products
   const products = await prismadb.product.findMany({
     where: {
       id: {
-        in: cartItems.map((product:any)=>product.id),
-      }
-    }
+        in: cartItems.map((product: any) => product.id),
+      },
+    },
   });
 
   // Check User
   const user = await prismadb.users.findUnique({
-    where:{
-        id:usersId,
+    where: {
+      id: usersId,
     },
   });
 
   //Else Create User
-  if (!user){ 
-      const user = await prismadb.users.create({
-          data:{
-              id:usersId,
-              storeId:params.storeId,
-              email:email,
-              fname:name,
-              phone:phone,
-              imgurl:imgurl,
-          }
-      })
-  }
-  else{
-  //Compare / Update User Data
-    let updateData: { email?: string, fname?: string, phone?: string, imgurl?: string } = {};
+  if (!user) {
+    const user = await prismadb.users.create({
+      data: {
+        id: usersId,
+        storeId: resolvedParams.storeId,
+        email: email,
+        fname: name,
+        phone: phone,
+        imgurl: imgurl,
+      },
+    });
+  } else {
+    //Compare / Update User Data
+    let updateData: {
+      email?: string;
+      fname?: string;
+      phone?: string;
+      imgurl?: string;
+    } = {};
 
     if (user.email != email) {
       updateData.email = email;
@@ -72,108 +89,110 @@ export async function POST(
     if (user.phone != phone) {
       updateData.phone = phone;
     }
-    if(user.imgurl != imgurl) {
+    if (user.imgurl != imgurl) {
       updateData.imgurl = imgurl;
     }
-    
+
     if (Object.keys(updateData).length > 0) {
       await prismadb.users.update({
-          where: {
-              id: usersId,
-          },
-          data: updateData,
+        where: {
+          id: usersId,
+        },
+        data: updateData,
       });
-    }; 
+    }
   }
-
-
 
   //create new address
   let newaddress;
-  if (radio==="new"){
+  if (radio === "new") {
     newaddress = await prismadb.address.create({
-      data:{
-        usersId:usersId,
-        value:address,
-        instructions:address_instructions,
-        pincode:zip
-      }
-    })
-  };
+      data: {
+        usersId: usersId,
+        value: address,
+        instructions: address_instructions,
+        pincode: zip,
+      },
+    });
+  }
 
   const order = await prismadb.order.create({
     data: {
-      storeId: params.storeId,
+      storeId: resolvedParams.storeId,
       usersId: usersId,
-      addressId: radio==="new" ? newaddress?.id : radio,
+      addressId: radio === "new" ? newaddress?.id : radio,
       isPaid: false,
       orderItems: {
         create: products.map((item: any) => {
-          const cartItem = cartItems.find((orderItem: any)=> item.id === orderItem.id);
+          const cartItem = cartItems.find(
+            (orderItem: any) => item.id === orderItem.id,
+          );
           return {
             product: {
               connect: {
                 id: item.id,
               },
             },
-            orderQuantity: cartItem.orderQuantity
+            orderQuantity: cartItem.orderQuantity,
           };
-
         }),
       },
     },
   });
 
   const emailaddress = await prismadb.address.findUnique({
-    where:{
-      id:radio==="new" ? newaddress?.id : radio
-    }
-  })
+    where: {
+      id: radio === "new" ? newaddress?.id : radio,
+    },
+  });
 
-  // Email details 
+  // Email details
   const date = new Date();
   let day = date.getDate();
   let month = date.getMonth() + 1;
   let year = date.getFullYear();
-  let currentDate = `${day}-${month}-${year}`; 
+  let currentDate = `${day}-${month}-${year}`;
 
-  const productData = cartItems.map((product:any) => ({name:product.name.slice(0,20), url: product.images.map((image:any)=>(image.url))[0]}));
+  const productData = cartItems.map((product: any) => ({
+    name: product.name.slice(0, 20),
+    url: product.images.map((image: any) => image.url)[0],
+  }));
   const emailData = {
-    name:user?.fname||" ",
-    address: emailaddress?.value||" ",
-    product:productData,
-    orderId:order.id.slice(5,25),
-    orderDate:currentDate,
-    contactPhone:"+91 963891738",
-    email:email
-  }
+    name: user?.fname || " ",
+    address: emailaddress?.value || " ",
+    product: productData,
+    orderId: order.id.slice(5, 25),
+    orderDate: currentDate,
+    contactPhone: "+91 963891738",
+    email: email,
+  };
   console.log("Email Data");
   console.log(emailData);
   // Payment Process ------------>
 
-  switch(payradio){
+  switch (payradio) {
     case "card":
       const line_items: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
       // Product List
       products.forEach((product) => {
-        const orderItem = cartItems.find((item:any)=> item.id === product.id);
+        const orderItem = cartItems.find((item: any) => item.id === product.id);
         line_items.push({
           quantity: orderItem.orderQuantity,
           price_data: {
-            currency: 'INR',
+            currency: "INR",
             product_data: {
               name: product.name,
             },
-            unit_amount: product.price.toNumber() * 100
-          }
+            unit_amount: product.price.toNumber() * 100,
+          },
         });
       });
-    
+
       const session = await stripe.checkout.sessions.create({
         //custom_fields
         line_items,
-        mode: 'payment',
-        customer_email:email,
+        mode: "payment",
+        customer_email: email,
         // billing_address_collection: 'required',
         // phone_number_collection: {
         //   enabled: true,
@@ -181,101 +200,127 @@ export async function POST(
         success_url: `/cart?success=1`,
         cancel_url: `/cart?canceled=1`,
         metadata: {
-          orderId: order.id
+          orderId: order.id,
         },
       });
-      try{
-        axios.post(`/api/${params.storeId}/mail/orderConfirm`, emailData);
-      } catch(error:any){
-        console.error('Something went wrong.');
+      try {
+        axios.post(
+          `/api/${resolvedParams.storeId}/mail/orderConfirm`,
+          emailData,
+        );
+      } catch (error: any) {
+        console.error("Something went wrong.");
       }
-      return NextResponse.json({ url: session.url }, {
-        headers: corsHeaders
-      });
-    break;
-
+      return NextResponse.json(
+        { url: session.url },
+        {
+          headers: corsHeaders,
+        },
+      );
+      break;
 
     case "cod":
       const updatecod = await prismadb.order.update({
         where: {
-          id:order.id,
+          id: order.id,
         },
         data: {
-          payment:"COD",
+          payment: "COD",
         },
-      }); 
-      if(updatecod){
-        try{
-          axios.post(`/api/${params.storeId}/mail/orderConfirm`, emailData);
-        } catch(error:any){
-          console.log('Something went wrong.');
+      });
+      if (updatecod) {
+        try {
+          axios.post(
+            `/api/${resolvedParams.storeId}/mail/orderConfirm`,
+            emailData,
+          );
+        } catch (error: any) {
+          console.log("Something went wrong.");
         }
-        return NextResponse.json({ url: `/cart?success=1` }, {
-          headers: corsHeaders
-        });
+        return NextResponse.json(
+          { url: `/cart?success=1` },
+          {
+            headers: corsHeaders,
+          },
+        );
+      } else {
+        return NextResponse.json(
+          { url: `/cart?cancelled=1` },
+          {
+            headers: corsHeaders,
+          },
+        );
       }
-      else{
-        return NextResponse.json({ url: `/cart?cancelled=1` }, {
-          headers: corsHeaders
-        });
-      }
-    break;
-
+      break;
 
     case "upi":
       const updateupi = await prismadb.order.update({
         where: {
-          id:order.id,
+          id: order.id,
         },
         data: {
-          payment:"upi",
-          isPaid:true
+          payment: "upi",
+          isPaid: true,
         },
-      }); 
-      if(updateupi){
-        try{
-          axios.post(`/api/${params.storeId}/mail/orderConfirm`, emailData);
-        } catch(error:any){
-          console.log('Something went wrong.');
+      });
+      if (updateupi) {
+        try {
+          axios.post(
+            `/api/${resolvedParams.storeId}/mail/orderConfirm`,
+            emailData,
+          );
+        } catch (error: any) {
+          console.log("Something went wrong.");
         }
-        return NextResponse.json({ url: `/pay/UPI` }, {
-          headers: corsHeaders
-        });
+        return NextResponse.json(
+          { url: `/pay/UPI` },
+          {
+            headers: corsHeaders,
+          },
+        );
+      } else {
+        return NextResponse.json(
+          { url: `/cart?cancelled=1` },
+          {
+            headers: corsHeaders,
+          },
+        );
       }
-      else{
-        return NextResponse.json({ url: `/cart?cancelled=1` }, {
-          headers: corsHeaders
-        });
-      }
-    break;
-
+      break;
 
     case "netbanking":
       const updatenetb = await prismadb.order.update({
         where: {
-          id:order.id,
+          id: order.id,
         },
         data: {
-          payment:"net banking",
-          isPaid:true
+          payment: "net banking",
+          isPaid: true,
         },
-      }); 
-      if(updatenetb){
-        try{
-          axios.post(`/api/${params.storeId}/mail/orderConfirm`, emailData);
-        } catch(error:any){
-          console.log('Something went wrong.');
+      });
+      if (updatenetb) {
+        try {
+          axios.post(
+            `/api/${resolvedParams.storeId}/mail/orderConfirm`,
+            emailData,
+          );
+        } catch (error: any) {
+          console.log("Something went wrong.");
         }
-        return NextResponse.json({ url: `/payment/NET Banking` }, {
-          headers: corsHeaders
-        });
+        return NextResponse.json(
+          { url: `/payment/NET Banking` },
+          {
+            headers: corsHeaders,
+          },
+        );
+      } else {
+        return NextResponse.json(
+          { url: `/cart?cancelled=1` },
+          {
+            headers: corsHeaders,
+          },
+        );
       }
-      else{
-        return NextResponse.json({ url: `/cart?cancelled=1` }, {
-          headers: corsHeaders
-        });
-      }
-    break;
-  
+      break;
   }
-};
+}

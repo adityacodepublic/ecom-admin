@@ -11,18 +11,17 @@ import { getStockCount } from "@/actions/get-stock-count";
 import { formatter } from "@/lib/utils";
 
 interface DashboardPageProps {
-  params: {
+  params: Promise<{
     storeId: string;
-  };
-};
+  }>;
+}
 
-const DashboardPage: React.FC<DashboardPageProps> = async ({ 
-  params
-}) => {
-  const totalRevenue = await getTotalRevenue(params.storeId);
-  const graphRevenue = await getGraphRevenue(params.storeId);
-  const salesCount = await getSalesCount(params.storeId);
-  const stockCount = await getStockCount(params.storeId);
+const DashboardPage: React.FC<DashboardPageProps> = async ({ params }) => {
+  const resolvedParams = await params;
+  const totalRevenue = await getTotalRevenue(resolvedParams.storeId);
+  const graphRevenue = await getGraphRevenue(resolvedParams.storeId);
+  const salesCount = await getSalesCount(resolvedParams.storeId);
+  const stockCount = await getStockCount(resolvedParams.storeId);
 
   return (
     <div className="flex-col">
@@ -38,7 +37,9 @@ const DashboardPage: React.FC<DashboardPageProps> = async ({
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatter.format(totalRevenue)}</div>
+              <div className="text-2xl font-bold">
+                {formatter.format(totalRevenue)}
+              </div>
             </CardContent>
           </Card>
           <Card>
@@ -52,7 +53,9 @@ const DashboardPage: React.FC<DashboardPageProps> = async ({
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Products In Stock</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Products In Stock
+              </CardTitle>
               <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>

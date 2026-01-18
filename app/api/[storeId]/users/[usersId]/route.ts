@@ -14,20 +14,21 @@ export async function OPTIONS() {
 
 export async function GET(
   req: Request,
-  { params }: { params: { usersId: string; storeId: string } },
+  { params }: { params: Promise<{ usersId: string; storeId: string }> },
 ) {
   try {
-    if (!params.usersId) {
+    const resolvedParams = await params;
+    if (!resolvedParams.usersId) {
       return new NextResponse("User id is required", { status: 400 });
     }
 
-    if (!params.storeId) {
+    if (!resolvedParams.storeId) {
       return new NextResponse("Store id is required", { status: 400 });
     }
     const user = await prismadb.users.findUnique({
       where: {
-        id: params.usersId,
-        storeId: params.storeId,
+        id: resolvedParams.usersId,
+        storeId: resolvedParams.storeId,
       },
       select: {
         fname: true,
@@ -97,22 +98,23 @@ export async function GET(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { usersId: string; storeId: string } },
+  { params }: { params: Promise<{ usersId: string; storeId: string }> },
 ) {
   try {
+    const resolvedParams = await params;
     const { userId } = await auth();
 
     if (!userId) {
       return new NextResponse("Unauthenticated", { status: 403 });
     }
 
-    if (!params.usersId) {
+    if (!resolvedParams.usersId) {
       return new NextResponse("User id is required", { status: 400 });
     }
 
     const storeByUserId = await prismadb.store.findFirst({
       where: {
-        id: params.storeId,
+        id: resolvedParams.storeId,
         userId,
       },
     });
@@ -123,7 +125,7 @@ export async function DELETE(
 
     const user = await prismadb.users.delete({
       where: {
-        id: params.usersId,
+        id: resolvedParams.usersId,
       },
     });
 
@@ -136,9 +138,10 @@ export async function DELETE(
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { usersId: string; storeId: string } },
+  { params }: { params: Promise<{ usersId: string; storeId: string }> },
 ) {
   try {
+    const resolvedParams = await params;
     const { userId } = await auth();
 
     const body = await req.json();
@@ -149,7 +152,7 @@ export async function PATCH(
       return new NextResponse("Unauthenticated", { status: 403 });
     }
 
-    if (!params.usersId) {
+    if (!resolvedParams.usersId) {
       return new NextResponse("User id is required", { status: 400 });
     }
 
@@ -171,7 +174,7 @@ export async function PATCH(
 
     const storeByUserId = await prismadb.store.findFirst({
       where: {
-        id: params.storeId,
+        id: resolvedParams.storeId,
         userId,
       },
     });
@@ -182,7 +185,7 @@ export async function PATCH(
 
     await prismadb.users.update({
       where: {
-        id: params.usersId,
+        id: resolvedParams.usersId,
       },
       data: {
         email: email,

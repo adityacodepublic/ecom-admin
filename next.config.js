@@ -1,13 +1,23 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    serverActions: true,
-  },
   images: {
-    domains: [
-      "res.cloudinary.com",
-      "m.media-amazon.com",
-      "rukmini1.flixcart.com",
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "res.cloudinary.com",
+      },
+      {
+        protocol: "https",
+        hostname: "m.media-amazon.com",
+      },
+      {
+        protocol: "https",
+        hostname: "rukmini1.flixcart.com",
+      },
+      {
+        protocol: "http",
+        hostname: "rukmini1.flixcart.com",
+      },
     ],
   },
 };

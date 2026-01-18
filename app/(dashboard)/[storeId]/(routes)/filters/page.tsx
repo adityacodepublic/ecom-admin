@@ -5,10 +5,15 @@ import prismadb from "@/lib/prismadb";
 import { FilterColumn } from "./components/columns";
 import { FiltersClient } from "./components/client";
 
-const FiltersPage = async ({ params }: { params: { storeId: string } }) => {
+const FiltersPage = async ({
+  params,
+}: {
+  params: Promise<{ storeId: string }>;
+}) => {
+  const resolvedParams = await params;
   const filters = await prismadb.filter.findMany({
     where: {
-      storeId: params.storeId,
+      storeId: resolvedParams.storeId,
     },
     orderBy: {
       updatedAt: "desc",
@@ -27,7 +32,7 @@ const FiltersPage = async ({ params }: { params: { storeId: string } }) => {
     id: item.id,
     name: item.name,
     value: item.value.map(
-      (values) => (values.value ?? "") + " " + (values.unit ?? "")
+      (values) => (values.value ?? "") + " " + (values.unit ?? ""),
     ),
     createdAt: format(item.updatedAt, "MMMM do, yyyy"),
   }));

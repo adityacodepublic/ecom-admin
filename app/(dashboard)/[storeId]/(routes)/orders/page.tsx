@@ -3,50 +3,54 @@ import { format } from "date-fns";
 import prismadb from "@/lib/prismadb";
 import { formatter } from "@/lib/utils";
 
-import { OrderColumn } from "./components/columns"
+import { OrderColumn } from "./components/columns";
 import { OrderClient } from "./components/client";
 
-
 const OrdersPage = async ({
-  params
+  params,
 }: {
-  params: { storeId: string }
+  params: Promise<{ storeId: string }>;
 }) => {
+  const resolvedParams = await params;
   const orders = await prismadb.order.findMany({
     where: {
-      storeId: params.storeId
+      storeId: resolvedParams.storeId,
     },
     include: {
       users: true,
-      address:{
-        select:{
-          value:true,
-          pincode:true
-        }
+      address: {
+        select: {
+          value: true,
+          pincode: true,
+        },
       },
       orderItems: {
         include: {
-          product: true
-        }
-      }
+          product: true,
+        },
+      },
     },
     orderBy: {
-      createdAt: 'desc'
-    }
+      createdAt: "desc",
+    },
   });
 
   const formattedOrders: OrderColumn[] = orders.map((item) => ({
     email: item.users.email,
     id: item.id,
     phone: item.users.phone,
-    address: item.address.value + "- " +item.address.pincode,
-    products: item.orderItems.map((orderItem) => orderItem.product.name.slice(0,20)).join(',  '),
-    totalPrice: formatter.format(item.orderItems.reduce((total, item) => {
-      return total + (Number(item.product.price)* item.orderQuantity)
-    }, 0)),
+    address: item.address.value + "- " + item.address.pincode,
+    products: item.orderItems
+      .map((orderItem) => orderItem.product.name.slice(0, 20))
+      .join(",  "),
+    totalPrice: formatter.format(
+      item.orderItems.reduce((total, item) => {
+        return total + Number(item.product.price) * item.orderQuantity;
+      }, 0),
+    ),
     isPaid: item.isPaid,
-    createdAt: format(item.createdAt, 'do MMM'),
-    status:item.payment.slice(0,5)
+    createdAt: format(item.createdAt, "do MMM"),
+    status: item.payment.slice(0, 5),
   }));
 
   return (

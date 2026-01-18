@@ -19,9 +19,10 @@ export async function OPTIONS() {
 
 export async function POST(
   req: Request,
-  { params }: { params: { storeId: string } },
+  { params }: { params: Promise<{ storeId: string }> },
 ) {
   try {
+    const resolvedParams = await params;
     const { userId } = await auth();
 
     const body = await req.json();
@@ -66,15 +67,15 @@ export async function POST(
       return new NextResponse("Category id is required", { status: 400 });
     }
 
-    if (!params.storeId) {
+    if (!resolvedParams.storeId) {
       return new NextResponse("Store id is required", { status: 400 });
     }
 
-    const store_url = getURL(params.storeId);
+    const store_url = getURL(resolvedParams.storeId);
 
     const storeByUserId = await prismadb.store.findFirst({
       where: {
-        id: params.storeId,
+        id: resolvedParams.storeId,
         userId,
       },
     });
@@ -90,7 +91,7 @@ export async function POST(
         isFeatured,
         isArchived,
         categoryId,
-        storeId: params.storeId,
+        storeId: resolvedParams.storeId,
         quantity,
         maxQuantity,
         images: {
@@ -138,9 +139,10 @@ export async function POST(
 
 export async function GET(
   req: Request,
-  { params }: { params: { storeId: string } },
+  { params }: { params: Promise<{ storeId: string }> },
 ) {
   try {
+    const resolvedParams = await params;
     const { searchParams } = new URL(req.url);
     const categoryId = searchParams.get("categoryId") || undefined;
     const searchValue = searchParams.get("searchValue") || undefined;
@@ -176,13 +178,13 @@ export async function GET(
       searchWords.push(searchValue);
     }
 
-    if (!params.storeId) {
+    if (!resolvedParams.storeId) {
       return new NextResponse("StoreId is required", { status: 400 });
     }
 
     const products = await prismadb.product.findMany({
       where: {
-        storeId: params.storeId,
+        storeId: resolvedParams.storeId,
         categoryId,
         name: {
           contains: searchValue,

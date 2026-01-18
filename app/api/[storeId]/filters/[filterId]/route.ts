@@ -19,16 +19,17 @@ export async function OPTIONS() {
 
 export async function GET(
   req: Request,
-  { params }: { params: { filterId: string } },
+  { params }: { params: Promise<{ filterId: string; storeId?: string }> },
 ) {
   try {
-    if (!params.filterId) {
+    const resolvedParams = await params;
+    if (!resolvedParams.filterId) {
       return new NextResponse("Filter id is required", { status: 400 });
     }
 
     const filter = await prismadb.filter.findUnique({
       where: {
-        id: params.filterId,
+        id: resolvedParams.filterId,
       },
       select: {
         id: true,
@@ -51,22 +52,23 @@ export async function GET(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { filterId: string; storeId: string } },
+  { params }: { params: Promise<{ filterId: string; storeId: string }> },
 ) {
   try {
+    const resolvedParams = await params;
     const { userId } = await auth();
 
     if (!userId) {
       return new NextResponse("Unauthenticated", { status: 403 });
     }
 
-    if (!params.filterId) {
+    if (!resolvedParams.filterId) {
       return new NextResponse("Filter id is required", { status: 400 });
     }
 
     const storeByUserId = await prismadb.store.findFirst({
       where: {
-        id: params.storeId,
+        id: resolvedParams.storeId,
         userId,
       },
     });
@@ -75,11 +77,11 @@ export async function DELETE(
       return new NextResponse("Unauthorized", { status: 405 });
     }
 
-    const store_url = getURL(params.storeId);
+    const store_url = getURL(resolvedParams.storeId);
 
     const filter = await prismadb.filter.delete({
       where: {
-        id: params.filterId,
+        id: resolvedParams.filterId,
       },
     });
 
@@ -101,9 +103,10 @@ export async function DELETE(
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { filterId: string; storeId: string } },
+  { params }: { params: Promise<{ filterId: string; storeId: string }> },
 ) {
   try {
+    const resolvedParams = await params;
     const { userId } = await auth();
 
     const body = await req.json();
@@ -122,17 +125,17 @@ export async function PATCH(
       return new NextResponse("Value is required", { status: 400 });
     }
 
-    if (!params.filterId) {
+    if (!resolvedParams.filterId) {
       return new NextResponse("Filter id is required", { status: 400 });
     }
 
-    if (!params.storeId) {
+    if (!resolvedParams.storeId) {
       return new NextResponse("Filter id is required", { status: 400 });
     }
 
     const storeByUserId = await prismadb.store.findFirst({
       where: {
-        id: params.storeId,
+        id: resolvedParams.storeId,
         userId,
       },
     });
@@ -143,7 +146,7 @@ export async function PATCH(
 
     await prismadb.filter.update({
       where: {
-        id: params.filterId,
+        id: resolvedParams.filterId,
       },
       data: {
         name,
@@ -155,7 +158,7 @@ export async function PATCH(
 
     const filter = await prismadb.filter.update({
       where: {
-        id: params.filterId,
+        id: resolvedParams.filterId,
       },
       data: {
         value: {

@@ -14,9 +14,10 @@ export async function OPTIONS() {
 
 export async function POST(
   req: Request,
-  { params }: { params: { storeId: string } },
+  { params }: { params: Promise<{ storeId: string }> },
 ) {
   try {
+    const resolvedParams = await params;
     const { userId } = await auth();
 
     const body = await req.json();
@@ -39,13 +40,13 @@ export async function POST(
       return new NextResponse("fname is required", { status: 400 });
     }
 
-    if (!params.storeId) {
+    if (!resolvedParams.storeId) {
       return new NextResponse("Store id is required", { status: 400 });
     }
 
     const storeByUserId = await prismadb.store.findFirst({
       where: {
-        id: params.storeId,
+        id: resolvedParams.storeId,
         userId,
       },
     });
@@ -56,7 +57,7 @@ export async function POST(
 
     const user = await prismadb.users.create({
       data: {
-        storeId: params.storeId,
+        storeId: resolvedParams.storeId,
         id: userId,
         email: email,
         phone: phone,
@@ -74,16 +75,17 @@ export async function POST(
 
 export async function GET(
   req: Request,
-  { params }: { params: { storeId: string } },
+  { params }: { params: Promise<{ storeId: string }> },
 ) {
   try {
-    if (!params.storeId) {
+    const resolvedParams = await params;
+    if (!resolvedParams.storeId) {
       return new NextResponse("Store id is required", { status: 400 });
     }
 
     const users = await prismadb.users.findMany({
       where: {
-        storeId: params.storeId,
+        storeId: resolvedParams.storeId,
       },
       select: {
         id: true,

@@ -19,9 +19,10 @@ export async function OPTIONS() {
 
 export async function POST(
   req: Request,
-  { params }: { params: { storeId: string } },
+  { params }: { params: Promise<{ storeId: string }> },
 ) {
   try {
+    const resolvedParams = await params;
     const { userId } = await auth();
 
     const body = await req.json();
@@ -40,13 +41,13 @@ export async function POST(
       return new NextResponse("Value is required", { status: 400 });
     }
 
-    if (!params.storeId) {
+    if (!resolvedParams.storeId) {
       return new NextResponse("Store id is required", { status: 400 });
     }
 
     const storeByUserId = await prismadb.store.findFirst({
       where: {
-        id: params.storeId,
+        id: resolvedParams.storeId,
         userId,
       },
     });
@@ -55,11 +56,11 @@ export async function POST(
       return new NextResponse("Unauthorized", { status: 405 });
     }
 
-    const store_url = getURL(params.storeId);
+    const store_url = getURL(resolvedParams.storeId);
 
     const filter = await prismadb.filter.create({
       data: {
-        storeId: params.storeId,
+        storeId: resolvedParams.storeId,
         name,
         value: {
           createMany: {
@@ -92,13 +93,14 @@ export async function POST(
 
 export async function GET(
   req: Request,
-  { params }: { params: { storeId: string } },
+  { params }: { params: Promise<{ storeId: string }> },
 ) {
   try {
+    const resolvedParams = await params;
     const url = new URL(req.url);
     const name = url.searchParams.get("name");
 
-    if (!params.storeId) {
+    if (!resolvedParams.storeId) {
       return new NextResponse("Store id is required", { status: 400 });
     }
 
@@ -126,7 +128,7 @@ export async function GET(
     // Get all filters for the store
     const filters = await prismadb.filter.findMany({
       where: {
-        storeId: params.storeId,
+        storeId: resolvedParams.storeId,
       },
       select: {
         id: true,
