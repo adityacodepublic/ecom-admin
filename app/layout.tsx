@@ -6,8 +6,6 @@ import { ToastProvider } from "@/providers/toast-provider";
 import { ThemeProvider } from "@/providers/theme-provider";
 
 import "./globals.css";
-import prismadb from "@/lib/prismadb";
-import { shadcn, dark } from "@clerk/themes";
 
 const inter = Inter({ subsets: ["latin"] });
 

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs";
+import { auth } from "@clerk/nextjs/server";
 
 import prismadb from "@/lib/prismadb";
 import axios from "axios";
@@ -19,10 +19,10 @@ export async function OPTIONS() {
 
 export async function POST(
   req: Request,
-  { params }: { params: { storeId: string } }
+  { params }: { params: { storeId: string } },
 ) {
   try {
-    const { userId } = auth();
+    const { userId } = await auth();
 
     const body = await req.json();
 
@@ -98,7 +98,7 @@ export async function POST(
             data: images
               .sort(
                 (a: { order: number }, b: { order: number }) =>
-                  a.order - b.order
+                  a.order - b.order,
               )
               .map((image: { url: string; order?: number }, index: number) => ({
                 url: image.url,
@@ -114,7 +114,7 @@ export async function POST(
                   data: filteritems.map(
                     (item: { filterId: string; valueId: string }) => ({
                       valueId: item.valueId,
-                    })
+                    }),
                   ),
                 },
               }
@@ -138,7 +138,7 @@ export async function POST(
 
 export async function GET(
   req: Request,
-  { params }: { params: { storeId: string } }
+  { params }: { params: { storeId: string } },
 ) {
   try {
     const { searchParams } = new URL(req.url);

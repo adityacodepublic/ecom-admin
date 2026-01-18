@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs";
+import { auth } from "@clerk/nextjs/server";
 
 import prismadb from "@/lib/prismadb";
 import axios from "axios";
@@ -18,7 +18,7 @@ export async function OPTIONS() {
 
 export async function GET(
   req: Request,
-  { params }: { params: { productId: string } }
+  { params }: { params: { productId: string } },
 ) {
   try {
     if (!params.productId) {
@@ -76,10 +76,10 @@ export async function GET(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { productId: string; storeId: string } }
+  { params }: { params: { productId: string; storeId: string } },
 ) {
   try {
-    const { userId } = auth();
+    const { userId } = await auth();
 
     if (!userId) {
       return new NextResponse("Unauthenticated", { status: 403 });
@@ -124,10 +124,10 @@ export async function DELETE(
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { productId: string; storeId: string } }
+  { params }: { params: { productId: string; storeId: string } },
 ) {
   try {
-    const { userId } = auth();
+    const { userId } = await auth();
 
     const body = await req.json();
 
@@ -231,7 +231,7 @@ export async function PATCH(
                   data: filteritems.map(
                     (item: { filterId: string; valueId: string }) => ({
                       valueId: item.valueId,
-                    })
+                    }),
                   ),
                 },
               }

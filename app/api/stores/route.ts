@@ -1,15 +1,13 @@
-import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs';
+import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 
-import prismadb from '@/lib/prismadb';
-import { revalidateTag } from 'next/cache';
-import { addStore } from '@/lib/_allowedDomains/domains';
+import prismadb from "@/lib/prismadb";
+import { revalidateTag } from "next/cache";
+import { addStore } from "@/lib/_allowedDomains/domains";
 
-export async function POST(
-  req: Request,
-) {
+export async function POST(req: Request) {
   try {
-    const { userId } = auth();
+    const { userId } = await auth();
     const body = await req.json();
 
     const { name } = body;
@@ -26,20 +24,20 @@ export async function POST(
       data: {
         name,
         userId,
-      }
+      },
     });
-  
-    addStore("http://localhost:3000",store.id);
-    try { 
-      revalidateTag('storeurl');
-      revalidateTag('store_url'); 
+
+    addStore("http://localhost:3000", store.id);
+    try {
+      revalidateTag("storeurl");
+      revalidateTag("store_url");
     } catch (error) {
-      console.error('Error processing revalidation:', error);    
+      console.error("Error processing revalidation:", error);
     }
-    
+
     return NextResponse.json(store);
   } catch (error) {
-    console.log('[STORES_POST]', error);
+    console.log("[STORES_POST]", error);
     return new NextResponse("Internal error", { status: 500 });
   }
-};
+}

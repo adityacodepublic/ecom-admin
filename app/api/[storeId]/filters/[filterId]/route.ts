@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import prismadb from "@/lib/prismadb";
-import { auth } from "@clerk/nextjs";
+import { auth } from "@clerk/nextjs/server";
 import { Decimal } from "@prisma/client/runtime/library";
 import axios from "axios";
 import { getStoreURL } from "@/actions/get-storeUrl";
@@ -19,7 +19,7 @@ export async function OPTIONS() {
 
 export async function GET(
   req: Request,
-  { params }: { params: { filterId: string } }
+  { params }: { params: { filterId: string } },
 ) {
   try {
     if (!params.filterId) {
@@ -51,10 +51,10 @@ export async function GET(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { filterId: string; storeId: string } }
+  { params }: { params: { filterId: string; storeId: string } },
 ) {
   try {
-    const { userId } = auth();
+    const { userId } = await auth();
 
     if (!userId) {
       return new NextResponse("Unauthenticated", { status: 403 });
@@ -101,10 +101,10 @@ export async function DELETE(
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { filterId: string; storeId: string } }
+  { params }: { params: { filterId: string; storeId: string } },
 ) {
   try {
-    const { userId } = auth();
+    const { userId } = await auth();
 
     const body = await req.json();
 
@@ -162,7 +162,7 @@ export async function PATCH(
           createMany: {
             data: [
               ...value.map(
-                (values: { value: Decimal; unit: String }) => values
+                (values: { value: Decimal; unit: String }) => values,
               ),
             ],
           },
