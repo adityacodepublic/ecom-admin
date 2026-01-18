@@ -71,10 +71,14 @@ export const FilterForm: React.FC<FilterFormProps> = ({ initialData }) => {
     };
   };
 
-  const transformedValue = (data: {
-    unit: string;
-    value?: number | undefined;
-  }): string => {
+  const transformedValue = (
+    data:
+      | {
+          unit: string;
+          value?: number | undefined;
+        }
+      | undefined,
+  ): string => {
     if (data) {
       if (data.value === undefined || null) {
         return data.unit;
@@ -130,7 +134,7 @@ export const FilterForm: React.FC<FilterFormProps> = ({ initialData }) => {
       if (initialData) {
         await axios.patch(
           `/api/${params.storeId}/filters/${params.filterId}`,
-          data
+          data,
         );
       } else {
         await axios.post(`/api/${params.storeId}/filters`, data);
@@ -155,7 +159,7 @@ export const FilterForm: React.FC<FilterFormProps> = ({ initialData }) => {
       toast.success("Filter deleted.");
     } catch (error: any) {
       toast.error(
-        "Make sure you removed all products using this filter first."
+        "Make sure you removed all products using this filter first.",
       );
     } finally {
       setLoading(false);
@@ -281,7 +285,7 @@ export const FilterForm: React.FC<FilterFormProps> = ({ initialData }) => {
                           <Input
                             placeholder="Enter value and unit"
                             disabled={loading}
-                            defaultValue={transformedValue(field.value) || ""}
+                            defaultValue={transformedValue(field?.value) || ""}
                             onChange={(e) =>
                               handleInputChange(index, e.target.value)
                             }
