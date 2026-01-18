@@ -7,5 +7,5 @@ export const getStores = cache(async () => {
         url:true
     }
   });
-  return storeURL.flatMap((item)=>(item.url));
+  return storeURL.flatMap((item: { url: string })=>(item.url));
 });
