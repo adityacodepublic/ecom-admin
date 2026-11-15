@@ -188,6 +188,7 @@ export async function GET(
         categoryId,
         name: {
           contains: searchValue,
+          mode: "insensitive", // Postgres LIKE is case-sensitive, MySQL's was not
         },
         isFeatured: isFeatured ? isFeatured === "true" : undefined, // we dont pass false so it ignores this clause
         isArchived: isArchived ? isArchived === "true" : undefined, // we dont pass false so it ignores this clause
