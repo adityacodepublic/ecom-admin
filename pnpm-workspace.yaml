@@ -1,3 +1,7 @@
+# A workspace file needs a packages list on pnpm 9 (Vercel). This repo is a single package.
+packages:
+  - '.'
+
 # pnpm 10+ blocks dependency build scripts unless listed here.
 allowBuilds:
   '@clerk/shared': false
