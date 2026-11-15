@@ -82,6 +82,7 @@ model Product {
   isArchived  Boolean      @default(false)
   quantity    Int
   maxQuantity Int
+  description String? @db.Text // Markdown shown on the store product page
   images      Image[] // Relation to Image model
   filteritems filterItem[] // Relation to Filter model
   orderItems  OrderItem[] // Relation to Order model

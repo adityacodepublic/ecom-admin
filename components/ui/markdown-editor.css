@@ -1,0 +1,56 @@
+/* Crepe colours and fonts come from the admin theme, so the editor follows light/dark mode. */
+.markdown-editor .milkdown {
+  --crepe-color-background: hsl(var(--background));
+  --crepe-color-on-background: hsl(var(--foreground));
+  --crepe-color-surface: hsl(var(--card));
+  --crepe-color-surface-low: hsl(var(--muted));
+  --crepe-color-on-surface: hsl(var(--foreground));
+  --crepe-color-on-surface-variant: hsl(var(--muted-foreground));
+  --crepe-color-outline: hsl(var(--border));
+  --crepe-color-primary: hsl(var(--primary));
+  --crepe-color-secondary: hsl(var(--secondary));
+  --crepe-color-on-secondary: hsl(var(--secondary-foreground));
+  --crepe-color-inverse: hsl(var(--foreground));
+  --crepe-color-on-inverse: hsl(var(--background));
+  --crepe-color-inline-code: hsl(var(--foreground));
+  --crepe-color-error: hsl(var(--destructive));
+  --crepe-color-hover: hsl(var(--accent));
+  --crepe-color-selected: hsl(var(--accent));
+  --crepe-color-inline-area: hsl(var(--muted));
+  --crepe-font-title: inherit;
+  --crepe-font-default: inherit;
+}
+
+/* The editor grows with its text: no inner scroll box, so menus (like "/") are never clipped. */
+.markdown-editor .milkdown .ProseMirror {
+  min-height: 10rem;
+  padding: 1rem 3.5rem;
+}
+
+/* A clear text cursor: the default one is thin and hard to see in dark mode. */
+.markdown-editor .milkdown .ProseMirror {
+  caret-color: hsl(var(--foreground));
+}
+.markdown-editor .milkdown .ProseMirror .ProseMirror-gapcursor::after {
+  border-top-color: hsl(var(--foreground));
+}
+
+/* Same text sizes as the store product page (components/ui/markdown.tsx). */
+.markdown-editor .milkdown .ProseMirror {
+  font-size: 1rem;
+}
+.markdown-editor .milkdown .ProseMirror p,
+.markdown-editor .milkdown .ProseMirror li {
+  font-size: 1rem;
+  line-height: 1.75rem;
+}
+.markdown-editor .milkdown .ProseMirror h1 { font-size: 1.5rem; line-height: 2rem; font-weight: 700; }
+.markdown-editor .milkdown .ProseMirror h2 { font-size: 1.25rem; line-height: 1.75rem; font-weight: 700; }
+.markdown-editor .milkdown .ProseMirror h3 { font-size: 1.125rem; line-height: 1.75rem; font-weight: 600; }
+.markdown-editor .milkdown .ProseMirror h4,
+.markdown-editor .milkdown .ProseMirror h5,
+.markdown-editor .milkdown .ProseMirror h6 { font-size: 1rem; line-height: 1.5rem; font-weight: 600; }
+.markdown-editor .milkdown .ProseMirror code,
+.markdown-editor .milkdown .ProseMirror pre {
+  font-size: 0.875rem;
+}

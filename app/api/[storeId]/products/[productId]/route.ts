@@ -36,6 +36,7 @@ export async function GET(
         price: true,
         quantity: true,
         maxQuantity: true,
+        description: true,
         images: {
           orderBy: {
             order: "asc",
@@ -144,6 +145,7 @@ export async function PATCH(
       isFeatured,
       isArchived,
       filteritems,
+      description,
     } = body;
 
     if (!userId) {
@@ -199,6 +201,7 @@ export async function PATCH(
         name,
         price,
         categoryId,
+        description,
         quantity,
         maxQuantity,
         images: {

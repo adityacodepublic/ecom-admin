@@ -9,6 +9,7 @@ import { toast } from "react-hot-toast";
 import { Trash, X } from "lucide-react";
 import { Category, Image, Product } from "@prisma/client";
 import { useParams, useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,12 @@ import {
 import ImageUpload from "@/components/ui/image-upload";
 import { Checkbox } from "@/components/ui/checkbox";
 
+// The editor needs the browser, so it is not rendered on the server.
+const MarkdownEditor = dynamic(() => import("@/components/ui/markdown-editor"), {
+  ssr: false,
+  loading: () => <div className="h-40 rounded-md border" />,
+});
+
 const formSchema = z.object({
   name: z.string().min(1).max(255),
   images: z.object({ url: z.string(), order: z.number() }).array(),
@@ -51,6 +58,7 @@ const formSchema = z.object({
     .optional(),
   isFeatured: z.boolean().default(false).optional(),
   isArchived: z.boolean().default(false).optional(),
+  description: z.string().optional(),
 });
 
 type ProductFormValues = z.infer<typeof formSchema>;
@@ -126,6 +134,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   const defaultValues = initialData
     ? {
         ...initialData,
+        description: initialData.description ?? "",
         price: parseFloat(String(initialData?.price)),
         filteritems: prefillFilterItems,
         images: initialData.images
@@ -145,6 +154,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         filteritems: [],
         isFeatured: false,
         isArchived: false,
+        description: "",
       };
 
   const form = useForm<ProductFormValues>({
@@ -603,6 +613,27 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               </Button>
             </div>
           </div>
+
+          <FormField
+            control={form.control}
+            name="description"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Description (Markdown)</FormLabel>
+                <FormControl>
+                  <MarkdownEditor
+                    value={field.value ?? ""}
+                    disabled={loading}
+                    onChange={field.onChange}
+                  />
+                </FormControl>
+                <FormDescription>
+                  Shown on the store product page. Images can be uploaded or added from a link.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
           <Button disabled={loading} className="ml-auto" type="submit">
             {action}

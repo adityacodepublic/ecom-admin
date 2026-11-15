@@ -37,6 +37,7 @@ export async function POST(
       isFeatured,
       isArchived,
       filteritems,
+      description,
     } = body;
 
     if (!userId) {
@@ -91,6 +92,7 @@ export async function POST(
         isFeatured,
         isArchived,
         categoryId,
+        description,
         storeId: resolvedParams.storeId,
         quantity,
         maxQuantity,
