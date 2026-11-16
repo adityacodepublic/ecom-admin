@@ -61,12 +61,20 @@ export async function DELETE(
       return new NextResponse("Store id is required", { status: 400 });
     }
 
-    const store = await prismadb.store.deleteMany({
-      where: {
-        id: resolvedParams.storeId,
-        userId,
-      },
-    });
+    // Library rows first, then the store, in ONE transaction: if the store delete fails
+    // (it still has products etc.) the library rows come back. Cloudinary files stay.
+    // Only this user's own store is touched.
+    const [, store] = await prismadb.$transaction([
+      prismadb.mediaImage.deleteMany({
+        where: { storeId: resolvedParams.storeId, store: { userId } },
+      }),
+      prismadb.store.deleteMany({
+        where: {
+          id: resolvedParams.storeId,
+          userId,
+        },
+      }),
+    ]);
 
     return NextResponse.json(store);
   } catch (error) {

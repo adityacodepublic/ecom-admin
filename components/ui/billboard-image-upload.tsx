@@ -1,11 +1,12 @@
 "use client";
 
-import { CldUploadWidget } from "next-cloudinary";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Image from "next/image";
+import { MediaPicker } from "@/components/media/media-picker";
+import type { MediaItem } from "@/lib/media";
 import { ChevronRight, ChevronLeft, ChevronUp, ChevronDown, ImagePlus, Trash } from "lucide-react";
 
 interface BillboardOrderedImage {
@@ -26,6 +27,7 @@ const BillboardImageUpload: React.FC<BillboardImageUploadProps> = ({
   value,
 }) => {
   const [isMounted, setIsMounted] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
@@ -40,17 +42,12 @@ const BillboardImageUpload: React.FC<BillboardImageUploadProps> = ({
   const renumberImages = (images: BillboardOrderedImage[]) =>
     images.map((img, index) => ({ ...img, order: index + 1 }));
 
-  const onUpload = (result: any) => {
+  // Called by the picker. Picking the same image twice is not allowed (the url is the key).
+  const onPick = (items: MediaItem[]) => {
     const currentImages = sortByOrder(value || []);
-    const newImages = renumberImages([
-      ...currentImages,
-      {
-        url: result.info.secure_url,
-        order: currentImages.length + 1,
-        href: "",
-      },
-    ]);
-    onChange(newImages);
+    const have = new Set(currentImages.map((i) => i.url));
+    const added = items.filter((i) => !have.has(i.url)).map((i) => ({ url: i.url, order: 0, href: "" }));
+    onChange(renumberImages([...currentImages, ...added]));
   };
 
   const onRemove = (url: string) => {
@@ -87,25 +84,17 @@ const BillboardImageUpload: React.FC<BillboardImageUploadProps> = ({
 
   return (
     <div className="space-y-10 py-2">
-      <CldUploadWidget onUpload={onUpload} uploadPreset="ecommtest">
-        {({ open }) => {
-          const onClick = () => {
-            open();
-          };
-
-          return (
-            <Button
-              type="button"
-              disabled={disabled}
-              variant="secondary"
-              onClick={onClick}
-            >
-              <ImagePlus className="h-4 w-4 mr-2" />
-              Upload an Image
-            </Button>
-          );
-        }}
-      </CldUploadWidget>
+      <Button type="button" disabled={disabled} variant="secondary" onClick={() => setPickerOpen(true)}>
+        <ImagePlus className="h-4 w-4 mr-2" />
+        Add images
+      </Button>
+      <MediaPicker
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        multiple
+        existingUrls={sortedImages.map((i) => i.url)}
+        onSelect={onPick}
+      />
       <div className="mb-2 mt-5 flex flex-wrap gap-4">
         {sortedImages.map((image, index) => (
           <div

@@ -21,6 +21,7 @@ model Store {
   // variants    Variant[]     @relation("StoreToVariant")
   orders     Order[]     @relation("StoreToOrder")
   users      Users[]     @relation("StoreToUsers")
+  media      MediaImage[] @relation("StoreToMedia")
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
 }
@@ -215,4 +216,20 @@ model Filter {
   updatedAt DateTime @updatedAt
 
   @@index([storeId])
+}
+
+// The store's image library: every uploaded image (and every image link) the owner can reuse.
+// Products, billboards and categories still keep only the url; "used in" is found by matching it.
+model MediaImage {
+  id        String   @id @default(uuid())
+  storeId   String
+  store     Store    @relation("StoreToMedia", fields: [storeId], references: [id])
+  url       String
+  publicId  String? // Cloudinary id. Empty for a plain link (source "url")
+  source    String   @default("upload") // "upload" (Cloudinary file we own) | "url" (link only)
+  name      String   @default("") // original file name, shown and searched
+  createdAt DateTime @default(now())
+
+  @@unique([storeId, url])
+  @@index([storeId, createdAt])
 }
