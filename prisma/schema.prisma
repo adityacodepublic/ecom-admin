@@ -13,6 +13,8 @@ model Store {
   name       String
   userId     String
   url        String      @default("http://localhost:3001")
+  // The store home page: an ordered list of sections, see lib/home-layout.ts. Null = default page.
+  homeLayout Json?
   billboards Billboard[] @relation("StoreToBillboard")
   categories Category[]  @relation("StoreToCategory")
   filters    Filter[]    @relation("StoreToFilter")
