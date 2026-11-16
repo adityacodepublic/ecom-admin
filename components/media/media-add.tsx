@@ -5,8 +5,8 @@ import { Check, CloudUpload, Loader2, X } from "lucide-react";
 import toast from "react-hot-toast";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { MediaItem } from "@/lib/media";
 import { MAX_FILE_MB, addImageLink, checkFile, errorText, uploadImage } from "@/lib/media-client";
@@ -170,16 +170,10 @@ export function UrlTab({ storeId, onAdded }: { storeId: string; onAdded: (item: 
         </div>
       )}
 
-      <div className="flex items-start gap-2">
-        <Checkbox id="media-copy" checked={copy} onCheckedChange={(v) => setCopy(v === true)} disabled={busy} className="mt-0.5" />
-        <label htmlFor="media-copy" className="text-sm">
-          Also store this image on our servers
-          <span className="block text-muted-foreground">
-            The image always appears in your library. Off: the picture stays on the other website, so it disappears
-            if they remove it. On: we keep our own copy, so it never disappears.
-          </span>
-        </label>
-      </div>
+      <label className="flex items-center gap-2 text-sm">
+        <Checkbox checked={copy} onCheckedChange={(v) => setCopy(v === true)} disabled={busy} />
+        Create and use a copy of this image, else used directly
+      </label>
 
       <Button type="button" disabled={!valid || busy} onClick={add}>
         {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
