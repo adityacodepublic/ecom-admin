@@ -12,6 +12,11 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata = {
   title: "Dashboard",
   description: "E-Commerce Dashboard",
+  // Same icons as the store.
+  icons: {
+    icon: [{ url: "/favicon.ico" }, { url: "/storelogo.png", type: "image/png", sizes: "512x512" }],
+    apple: "/storelogo.png",
+  },
 };
 
 export default async function RootLayout({
