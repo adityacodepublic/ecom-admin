@@ -2,6 +2,8 @@ import { ConfirmationEmail } from "@/components/emails/confirmation";
 import { Resend } from "resend";
 import { render } from "@react-email/components";
 import { NextResponse } from "next/server";
+import prismadb from "@/lib/prismadb";
+import { storeUrl } from "@/lib/store-url";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -11,12 +13,17 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ storeId: string }> },
 ): Promise<NextResponse> {
-  const storeurl = req.url;
   try {
     const resolvedParams = await params;
     if (!resolvedParams.storeId) {
       return new NextResponse("Store id is required", { status: 400 });
     }
+    // Links in the email go to this store's own URL.
+    const store = await prismadb.store.findUniqueOrThrow({
+      where: { id: resolvedParams.storeId },
+      select: { slug: true },
+    });
+    const storeurl = storeUrl(store.slug);
 
     const { name, address, product, orderId, orderDate, contactPhone, email } =
       await req.json();

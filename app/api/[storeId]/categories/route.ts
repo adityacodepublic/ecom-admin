@@ -2,9 +2,6 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 
 import prismadb from "@/lib/prismadb";
-import axios from "axios";
-import { getStoreURL } from "@/actions/get-storeUrl";
-import { getURL } from "@/lib/_allowedDomains/domains";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -48,7 +45,6 @@ export async function POST(
       return new NextResponse("Store id is required", { status: 400 });
     }
 
-    const store_url = getURL(resolvedParams.storeId);
 
     const storeByUserId = await prismadb.store.findFirst({
       where: {
@@ -70,12 +66,6 @@ export async function POST(
       },
     });
 
-    // try {
-    //   const response = await axios.post(`${store_url}/api/revalidate`, { tag:['categories'] });
-    //   console.log(response.status);
-    // } catch (error) {
-    //   console.error('Error processing revalidation:', error);
-    // }
 
     return NextResponse.json(category, { headers: corsHeaders });
   } catch (error) {

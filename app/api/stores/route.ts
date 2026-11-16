@@ -1,16 +1,14 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 
-import prismadb from "@/lib/prismadb";
-import { revalidateTag } from "next/cache";
-import { addStore } from "@/lib/_allowedDomains/domains";
+import { createStore } from "@/lib/store-slug";
 
 export async function POST(req: Request) {
   try {
     const { userId } = await auth();
     const body = await req.json();
 
-    const { name } = body;
+    const name = typeof body?.name === "string" ? body.name.trim() : "";
 
     if (!userId) {
       return new NextResponse("Unauthorized", { status: 403 });
@@ -20,22 +18,12 @@ export async function POST(req: Request) {
       return new NextResponse("Name is required", { status: 400 });
     }
 
-    const store = await prismadb.store.create({
-      data: {
-        name,
-        userId,
-      },
-    });
-
-    addStore("http://localhost:3000", store.id);
-    try {
-      revalidateTag("storeurl", "max");
-      revalidateTag("store_url", "max");
-    } catch (error) {
-      console.error("Error processing revalidation:", error);
+    // The slug is the owner's choice, used as typed. 400 = not allowed, 409 = taken. Never auto-changed.
+    const result = await createStore(name, userId, body?.slug);
+    if (!result.ok) {
+      return NextResponse.json({ field: "slug", error: result.error }, { status: result.status });
     }
-
-    return NextResponse.json(store);
+    return NextResponse.json(result.value);
   } catch (error) {
     console.log("[STORES_POST]", error);
     return new NextResponse("Internal error", { status: 500 });

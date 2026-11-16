@@ -12,7 +12,9 @@ model Store {
   id         String      @id @default(uuid())
   name       String
   userId     String
-  url        String      @default("http://localhost:3001")
+  // The store's URL name, chosen by the owner, unique, editable in Settings (lib/slug.ts).
+  // The public URL is built from it (lib/store-url.ts).
+  slug       String      @unique
   // The store home page: an ordered list of sections, see lib/home-layout.ts. Null = default page.
   homeLayout Json?
   billboards Billboard[] @relation("StoreToBillboard")

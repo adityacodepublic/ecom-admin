@@ -2,9 +2,6 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 
 import prismadb from "@/lib/prismadb";
-import axios from "axios";
-import { getStoreURL } from "@/actions/get-storeUrl";
-import { getURL } from "@/lib/_allowedDomains/domains";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": `*`,
@@ -65,7 +62,6 @@ export async function DELETE(
       return new NextResponse("Billboard id is required", { status: 400 });
     }
 
-    const store_url = getURL(resolvedParams.storeId);
 
     const storeByUserId = await prismadb.store.findFirst({
       where: {
@@ -89,12 +85,6 @@ export async function DELETE(
 
     // const paths = billboard.categories.map((item)=>(`/category/${item.id}`));
     // if(paths && paths.length===0) {paths.push('/');}
-    // try {
-    //   const response = await axios.post(`${store_url}/api/revalidate`, {path:paths, tag:['billboards'] });
-    //   console.log(response.status);
-    // } catch (error) {
-    //   console.error('Error processing revalidation:', error);
-    // }
 
     return NextResponse.json(billboard, {
       headers: corsHeaders,
@@ -133,7 +123,6 @@ export async function PATCH(
       return new NextResponse("Billboard id is required", { status: 400 });
     }
 
-    const store_url = getURL(resolvedParams.storeId);
 
     const storeByUserId = await prismadb.store.findFirst({
       where: {
@@ -184,15 +173,6 @@ export async function PATCH(
     if (paths && paths.length === 0) {
       paths.push("/");
     }
-    // try {
-    //   const response = await axios.post(`${store_url}/api/revalidate`, {
-    //     path: paths,
-    //     tag: ["billboards"],
-    //   });
-    //   console.log(response.status);
-    // } catch (error) {
-    //   console.error("Error processing revalidation:", error);
-    // }
 
     return NextResponse.json(billboard, {
       headers: corsHeaders,

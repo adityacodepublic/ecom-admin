@@ -25,10 +25,11 @@ import { Heading } from "@/components/ui/heading"
 import { AlertModal } from "@/components/modals/alert-modal"
 import { ApiAlert } from "@/components/ui/api-alert"
 import { useOrigin } from "@/hooks/use-origin"
+import { storeUrl } from "@/lib/store-url"
+import { ChangeSlugModal } from "./change-slug-modal"
 
 const formSchema = z.object({
   name: z.string().min(2),
-  url: z.string().min(2)
 });
 
 type SettingsFormValues = z.infer<typeof formSchema>
@@ -38,18 +39,19 @@ interface SettingsFormProps {
 };
 
 export const SettingsForm: React.FC<SettingsFormProps> = ({
-  initialData
+  initialData,
 }) => {
   const params = useParams();
   const router = useRouter();
   const origin = useOrigin();
 
   const [open, setOpen] = useState(false);
+  const [slugOpen, setSlugOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const form = useForm<SettingsFormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: initialData
+    defaultValues: { name: initialData.name }
   });
 
   const onSubmit = async (data: SettingsFormValues) => {
@@ -82,6 +84,12 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
 
   return (
     <>
+    <ChangeSlugModal
+      storeId={initialData.id}
+      currentSlug={initialData.slug}
+      isOpen={slugOpen}
+      onClose={() => setSlugOpen(false)}
+    />
     <AlertModal 
       isOpen={open} 
       onClose={() => setOpen(false)}
@@ -116,19 +124,6 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="url"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Submit Store URL</FormLabel>
-                  <FormControl>
-                    <Input disabled={loading} placeholder="Store URL" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
           </div>
           <Button disabled={loading} className="ml-auto" type="submit">
             Save changes
@@ -136,10 +131,19 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
         </form>
       </Form>
       <Separator />
-      <ApiAlert 
-        title="NEXT_PUBLIC_API_URL" 
-        subtitle="Use this api key to setup store url and submit the deployed store url in above form."
-        variant="public" 
+      <div className="space-y-2">
+        <ApiAlert
+          title="Store URL"
+          variant="public"
+          description={storeUrl(initialData.slug)}
+        />
+        <Button type="button" variant="outline" size="sm" onClick={() => setSlugOpen(true)}>
+          Change URL
+        </Button>
+      </div>
+      <ApiAlert
+        title="Store API"
+        variant="public"
         description={`${origin}/api/${params.storeId}`}
       />
     </>

@@ -3,6 +3,7 @@ import prismadb from "@/lib/prismadb";
 import { NextResponse } from "next/server";
 
 import { stripe } from "@/lib/stripe";
+import { storeUrl } from "@/lib/store-url";
 import axios from "axios";
 
 const corsHeaders = {
@@ -188,6 +189,12 @@ export async function POST(
         });
       });
 
+      // Stripe needs absolute URLs: send the shopper back to this store's own URL.
+      const store = await prismadb.store.findUniqueOrThrow({
+        where: { id: resolvedParams.storeId },
+        select: { slug: true },
+      });
+      const storeBase = storeUrl(store.slug);
       const session = await stripe.checkout.sessions.create({
         //custom_fields
         line_items,
@@ -197,8 +204,8 @@ export async function POST(
         // phone_number_collection: {
         //   enabled: true,
         // },
-        success_url: `/cart?success=1`,
-        cancel_url: `/cart?canceled=1`,
+        success_url: `${storeBase}/cart?success=1`,
+        cancel_url: `${storeBase}/cart?canceled=1`,
         metadata: {
           orderId: order.id,
         },

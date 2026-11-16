@@ -3,9 +3,6 @@ import { auth } from "@clerk/nextjs/server";
 
 import prismadb from "@/lib/prismadb";
 import { Decimal } from "@prisma/client/runtime/library";
-import axios from "axios";
-import { getStoreURL } from "@/actions/get-storeUrl";
-import { getURL } from "@/lib/_allowedDomains/domains";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -56,7 +53,6 @@ export async function POST(
       return new NextResponse("Unauthorized", { status: 405 });
     }
 
-    const store_url = getURL(resolvedParams.storeId);
 
     const filter = await prismadb.filter.create({
       data: {
@@ -75,14 +71,6 @@ export async function POST(
       },
     });
 
-    // try {
-    //   const response = await axios.post(`${store_url}/api/revalidate`, {
-    //     tag: ["filters"],
-    //   });
-    //   console.log(response.status);
-    // } catch (error) {
-    //   console.error("Error processing revalidation:", error);
-    // }
 
     return NextResponse.json(filter, { headers: corsHeaders });
   } catch (error) {

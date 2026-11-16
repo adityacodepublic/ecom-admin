@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 
 import prismadb from "@/lib/prismadb";
-import { revalidateTag } from "next/cache";
-import { deleteStore, patchUrl } from "@/lib/_allowedDomains/domains";
 export const revalidate = 0;
 
 export async function PATCH(
@@ -14,7 +12,8 @@ export async function PATCH(
     const { userId } = await auth();
     const body = await req.json();
 
-    const { name, url } = body;
+    // The name only. The slug (store URL name) changes through PATCH /api/stores/[storeId]/slug.
+    const { name } = body;
 
     if (!userId) {
       return new NextResponse("Unauthenticated", { status: 403 });
@@ -22,10 +21,6 @@ export async function PATCH(
 
     if (!name) {
       return new NextResponse("Name is required", { status: 400 });
-    }
-
-    if (!url) {
-      return new NextResponse("URL is required", { status: 400 });
     }
 
     const resolvedParams = await params;
@@ -40,17 +35,9 @@ export async function PATCH(
       },
       data: {
         name,
-        url,
       },
     });
 
-    patchUrl(resolvedParams.storeId, url);
-    try {
-      revalidateTag("storeurl", "max");
-      revalidateTag("store_url", "max");
-    } catch (error) {
-      console.error("Error processing revalidation:", error);
-    }
     return NextResponse.json(store);
   } catch (error) {
     console.log("[STORE_PATCH]", error);
@@ -80,14 +67,6 @@ export async function DELETE(
         userId,
       },
     });
-
-    deleteStore(resolvedParams.storeId);
-    try {
-      revalidateTag("storeurl", "max");
-      revalidateTag("store_url", "max");
-    } catch (error) {
-      console.error("Error processing revalidation:", error);
-    }
 
     return NextResponse.json(store);
   } catch (error) {

@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import prismadb from "@/lib/prismadb";
+import { storeAppOrigin } from "@/lib/store-url";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": `${process.env.ACCESS_CONTROL_ALLOW_ORIGIN}`,
+  // Only the store app may read a user (all stores share its origin in path mode).
+  "Access-Control-Allow-Origin": storeAppOrigin(),
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
