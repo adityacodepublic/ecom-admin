@@ -27,9 +27,9 @@ export function MobileNav() {
       active: pathname === `/${params.storeId}`,
     },
     {
-      href: `/${params.storeId}/home-page`,
-      label: "Home page",
-      active: pathname === `/${params.storeId}/home-page`,
+      href: `/${params.storeId}/homepage`,
+      label: "Homepage",
+      active: pathname === `/${params.storeId}/homepage`,
     },
     {
       href: `/${params.storeId}/billboards`,

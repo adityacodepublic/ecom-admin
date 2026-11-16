@@ -11,8 +11,12 @@ import type { HomeSection } from "@/lib/home-layout";
 export const SectionPreview = ({ storeUrl, section }: { storeUrl: string; section: HomeSection }) => {
   const frame = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(160);
+  // The admin window height: the store sizes some images in vh, and the small iframe's vh would be wrong.
+  const [viewportHeight, setViewportHeight] = useState<number | null>(null);
+  useEffect(() => setViewportHeight(window.innerHeight), []);
   const src = useDebounced(
-    `${storeUrl}/preview/section?section=${encodeURIComponent(JSON.stringify(section))}`,
+    viewportHeight &&
+      `${storeUrl}/preview/section?vh=${viewportHeight}&section=${encodeURIComponent(JSON.stringify(section))}`,
     400,
   );
 
@@ -30,7 +34,7 @@ export const SectionPreview = ({ storeUrl, section }: { storeUrl: string; sectio
   return (
     <iframe
       ref={frame}
-      src={src}
+      src={src || undefined}
       title="Section preview"
       loading="lazy"
       // A preview only: links inside must not navigate the frame.

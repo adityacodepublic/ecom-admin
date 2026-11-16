@@ -9,6 +9,8 @@ interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   children?: React.ReactNode;
+  /** Extra classes for the dialog box, e.g. a wider max width. */
+  className?: string;
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -16,7 +18,8 @@ export const Modal: React.FC<ModalProps> = ({
   description,
   isOpen,
   onClose,
-  children
+  children,
+  className
 }) => {
   const onChange = (open: boolean) => {
     if (!open) {
@@ -26,7 +29,7 @@ export const Modal: React.FC<ModalProps> = ({
 
   return ( 
     <Dialog open={isOpen} onOpenChange={onChange}>
-      <DialogContent>
+      <DialogContent className={className}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>

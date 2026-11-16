@@ -11,6 +11,7 @@ import { Heading } from "@/components/ui/heading";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertModal } from "@/components/modals/alert-modal";
+import { Modal } from "@/components/ui/modal";
 import {
   sectionSettingsSchemas,
   sectionTypeLabels,
@@ -101,8 +102,35 @@ export const HomeLayoutEditor = ({ initialLayout, storeUrl, billboards, categori
   return (
     <>
       <AlertModal isOpen={deleteIndex !== null} onClose={() => setDeleteIndex(null)} onConfirm={confirmDelete} loading={saving} />
+      {editing && (
+        <Modal
+          title={`Edit: ${sectionTypeLabels[layout[editing.index].type]}`}
+          description="The preview follows your changes. Save to make them live."
+          isOpen
+          onClose={cancelEdit}
+          className="max-h-[90vh] max-w-5xl overflow-y-auto"
+        >
+          <div className="space-y-4">
+            {/* While editing, the preview follows the form, before it is saved. */}
+            <SectionPreview
+              storeUrl={storeUrl}
+              section={{ ...layout[editing.index], settings: editing.settings } as HomeSection}
+            />
+            <SectionForm
+              type={layout[editing.index].type}
+              settings={layout[editing.index].settings}
+              billboards={billboards}
+              categories={categories}
+              saving={saving}
+              onChange={onDraftChange}
+              onSave={saveEdit}
+              onCancel={cancelEdit}
+            />
+          </div>
+        </Modal>
+      )}
       <div className="flex items-center justify-between">
-        <Heading title="Home page" description="Sections of the store home page, top to bottom" />
+        <Heading title="Homepage" description="Sections of the store homepage, top to bottom" />
       </div>
       <Separator />
 
@@ -111,26 +139,11 @@ export const HomeLayoutEditor = ({ initialLayout, storeUrl, billboards, categori
       )}
 
       {layout.map((section, index) => {
-        const isEditing = editing?.index === index;
-        // While editing, the preview follows the form, before it is saved.
-        const shown = isEditing ? ({ ...section, settings: editing.settings } as HomeSection) : section;
         return (
           <div key={section.id} className="flex gap-3 rounded-lg border bg-card p-3">
             <div className="min-w-0 flex-1 space-y-3">
               <p className="text-sm font-medium text-muted-foreground">{sectionTypeLabels[section.type]}</p>
-              <SectionPreview storeUrl={storeUrl} section={shown} />
-              {isEditing && (
-                <SectionForm
-                  type={section.type}
-                  settings={section.settings}
-                  billboards={billboards}
-                  categories={categories}
-                  saving={saving}
-                  onChange={onDraftChange}
-                  onSave={saveEdit}
-                  onCancel={cancelEdit}
-                />
-              )}
+              <SectionPreview storeUrl={storeUrl} section={section} />
             </div>
             <div className="flex flex-col gap-2">
               <Button size="icon" variant="outline" aria-label="Move up" disabled={saving || !!editing || index === 0} onClick={() => move(index, -1)}>
