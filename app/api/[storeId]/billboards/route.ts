@@ -102,6 +102,7 @@ export async function GET(
         storeId: resolvedParams.storeId,
       },
       select: {
+        id: true, // the store looks billboards up by id (home layout carousels)
         label: true,
         images: {
           select: {
