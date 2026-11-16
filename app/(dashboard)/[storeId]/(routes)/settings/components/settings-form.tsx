@@ -22,11 +22,10 @@ import {
 } from "@/components/ui/form"
 import { Separator } from "@/components/ui/separator"
 import { Heading } from "@/components/ui/heading"
-import { AlertModal } from "@/components/modals/alert-modal"
-import { ApiAlert } from "@/components/ui/api-alert"
-import { useOrigin } from "@/hooks/use-origin"
 import { storeUrl } from "@/lib/store-url"
 import { ChangeSlugModal } from "./change-slug-modal"
+import { DeleteStoreModal } from "./delete-store-modal"
+import { StoreUrlCard } from "./store-url-card"
 
 const formSchema = z.object({
   name: z.string().min(2),
@@ -43,7 +42,6 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
 }) => {
   const params = useParams();
   const router = useRouter();
-  const origin = useOrigin();
 
   const [open, setOpen] = useState(false);
   const [slugOpen, setSlugOpen] = useState(false);
@@ -75,7 +73,7 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
       router.push('/');
       toast.success('Store deleted.');
     } catch (error: any) {
-      toast.error('Make sure you removed all products and categories first.');
+      toast.error('The store was not deleted. Remove its products, categories, billboards, filters, customers and orders first.');
     } finally {
       setLoading(false);
       setOpen(false);
@@ -90,8 +88,10 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
       isOpen={slugOpen}
       onClose={() => setSlugOpen(false)}
     />
-    <AlertModal 
-      isOpen={open} 
+    <DeleteStoreModal
+      storeName={initialData.name}
+      storeUrl={storeUrl(initialData.slug)}
+      isOpen={open}
       onClose={() => setOpen(false)}
       onConfirm={onDelete}
       loading={loading}
@@ -104,7 +104,8 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
           size="sm"
           onClick={() => setOpen(true)}
         >
-          <Trash className="h-4 w-4" />
+          <Trash className="mr-2 h-4 w-4" />
+          Delete store
         </Button>
       </div>
       <Separator />
@@ -131,21 +132,7 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
         </form>
       </Form>
       <Separator />
-      <div className="space-y-2">
-        <ApiAlert
-          title="Store URL"
-          variant="public"
-          description={storeUrl(initialData.slug)}
-        />
-        <Button type="button" variant="outline" size="sm" onClick={() => setSlugOpen(true)}>
-          Change URL
-        </Button>
-      </div>
-      <ApiAlert
-        title="Store API"
-        variant="public"
-        description={`${origin}/api/${params.storeId}`}
-      />
+      <StoreUrlCard url={storeUrl(initialData.slug)} onChange={() => setSlugOpen(true)} />
     </>
   );
 };

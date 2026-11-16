@@ -72,7 +72,7 @@ export const ChangeSlugModal = ({ storeId, currentSlug, isOpen, onClose }: Chang
             hint={serverError ? { state: "error", error: serverError } : unchanged ? { state: "idle" } : hint}
           />
         </div>
-        <div className="flex gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+        <div className="flex gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <p>
             The old URL stops working right away. Old links, bookmarks, shared links and links in emails

@@ -22,7 +22,7 @@ export const SlugInput = ({ value, onChange, hint, ...props }: SlugInputProps) =
     />
     <p className="text-xs text-muted-foreground break-all">{storeUrl(value || "your-store")}</p>
     {hint.state === "checking" && <p className="text-xs text-muted-foreground">Checking...</p>}
-    {hint.state === "available" && <p className="text-xs text-green-600">Available</p>}
+    {hint.state === "available" && <p className="text-xs text-green-600 dark:text-green-400">Available</p>}
     {hint.state === "error" && <p className="text-xs text-destructive">{hint.error}</p>}
   </div>
 );

@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import { Heading } from "@/components/ui/heading";
 import { Separator } from "@/components/ui/separator";
-import { ApiList } from "@/components/ui/api-list";
 import {
   Accordion,
   AccordionContent,
@@ -94,9 +93,6 @@ export const ProductsClient: React.FC<ProductsClientProps> = ({
             </div>
           </AccordionContent>
           <DataTable searchKey="name" columns={dynamicColumns} data={data} />
-          <Heading title="API" description="API Calls for Products" />
-          <Separator />
-          <ApiList entityName="products" entityIdName="productId" />
         </AccordionItem>
       </Accordion>
     </>
