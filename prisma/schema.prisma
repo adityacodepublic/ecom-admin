@@ -14,6 +14,8 @@ model Store {
   userId     String
   slug       String      @unique
   homeLayout Json?
+  orderSettings Json?
+  contact       Json?
   billboards Billboard[] @relation("StoreToBillboard")
   categories Category[]  @relation("StoreToCategory")
   filters    Filter[]    @relation("StoreToFilter")
@@ -79,7 +81,7 @@ model Product {
   // variantId   String
   // variant     Variant      @relation("VariantToProduct", fields: [variantId], references: [id])
   name        String       @db.VarChar(255)
-  price       Decimal
+  price       Decimal      @db.Decimal(12, 2) // rupees, exact (2 decimals). In code: integer paise (lib/money.ts)
   isFeatured  Boolean      @default(false)
   isArchived  Boolean      @default(false)
   quantity    Int
@@ -120,10 +122,12 @@ model Image {
 
 //R
 
+// A customer (id = the store app's Clerk user id). Customers are global: a store's customers are the
+// users with orders in that store. storeId is old and unused; it is dropped in phase 2 (see NEON-STEPS).
 model Users {
   id        String    @id @unique
-  storeId   String // Foreign Key to Store
-  store     Store     @relation("StoreToUsers", fields: [storeId], references: [id])
+  storeId   String?
+  store     Store?    @relation("StoreToUsers", fields: [storeId], references: [id])
   orders    Order[]   @relation("UsersToOrder") // relation to Order model
   email     String    @default("")
   phone     String    @default("")
@@ -141,8 +145,8 @@ model Address {
   value        String  @default("")
   instructions String? @default("")
   pincode      Int     @default(0)
-  orders       Order[] @relation("AddressToOrder") // relation to Order model
-  usersId      String // Foreign Key to Users
+  orders       Order[] @relation("AddressToOrder")
+  usersId      String
   users        Users   @relation("Users-address", fields: [usersId], references: [id], onDelete: Cascade)
 
   @@index([usersId])
@@ -150,32 +154,44 @@ model Address {
 
 //R
 
+// Only what is filtered, sorted or summed is a column; the rest lives in `details` (JSON, see lib/orders/details.ts).
 model Order {
-  id         String      @id @default(uuid())
-  storeId    String // Foreign Key to Store
-  store      Store       @relation("StoreToOrder", fields: [storeId], references: [id])
-  usersId    String // Foreign Key to Users
-  users      Users       @relation("UsersToOrder", fields: [usersId], references: [id], onDelete: Cascade)
-  addressId  String // Foreign Key to Address
-  address    Address     @relation("AddressToOrder", fields: [addressId], references: [id], onDelete: Cascade)
-  orderItems OrderItem[] // Relation to OrderItem model
-  isPaid     Boolean     @default(false)
-  payment    String      @default("card")
-  status     String      @default("Order Recieved")
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+  id            String      @id @default(uuid())
+  storeId       String
+  store         Store       @relation("StoreToOrder", fields: [storeId], references: [id])
+  // Short number per store (#1042): max + 1 inside the create transaction, unique with the store.
+  orderNumber   Int
+  usersId       String
+  users         Users       @relation("UsersToOrder", fields: [usersId], references: [id], onDelete: Restrict)
+  addressId     String
+  address       Address     @relation("AddressToOrder", fields: [addressId], references: [id], onDelete: Restrict)
+  orderItems    OrderItem[]
+  total         Decimal     @db.Decimal(12, 2)
+  details       Json
+  // Old. Replaced by paymentStatus; no code reads or writes it. Dropped in phase 2.
+  isPaid        Boolean     @default(false)
+  payment       String      @default("COD")
+  paymentStatus String      @default("PENDING")
+  // The status text (the store's own list, Cancelled is reserved).
+  status        String      @default("Placed")
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
+  @@unique([storeId, orderNumber])
   @@index([storeId])
   @@index([usersId])
   @@index([addressId])
+  @@index([storeId, createdAt])
+  @@index([storeId, status])
+  @@index([storeId, paymentStatus])
 }
 
 // Intermediary for a many-to-many relationship
 model OrderItem {
   id            String  @id @default(uuid())
-  orderId       String // Foreign Key to Order
+  orderId       String
   order         Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  productId     String // Foreign Key to Product
+  productId     String
   product       Product @relation(fields: [productId], references: [id])
   orderQuantity Int
 

@@ -5,6 +5,9 @@ import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import prismadb from "@/lib/prismadb";
 
+// DORMANT: Stripe is not used (customers pay cash on delivery). Nothing creates Stripe sessions now, so this
+// never runs. It is not fixed (see lib/payments/stripe-checkout.dormant.ts). Note: stock is now taken at checkout,
+// so the stock code below would subtract it a second time if Stripe were switched back on.
 export async function POST(req: Request) {
   const body = await req.text();
   const headersList = await headers();
@@ -41,7 +44,7 @@ export async function POST(req: Request) {
         id: session?.metadata?.orderId,
       },
       data: {
-        isPaid: true,
+        paymentStatus: "PAID", // was isPaid (dropped in phase 2)
       },
       include: {
         // users: true,

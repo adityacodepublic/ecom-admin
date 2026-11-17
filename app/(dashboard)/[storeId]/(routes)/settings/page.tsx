@@ -3,7 +3,11 @@ import { auth } from "@clerk/nextjs/server";
 
 import prismadb from "@/lib/prismadb";
 
+import { getContact } from "@/lib/contact";
+import { getOrderSettings } from "@/lib/orders/settings";
 import { SettingsForm } from "./components/settings-form";
+import { ContactSection } from "./components/contact-section";
+import { OrderSettingsCard } from "./components/order-settings-card";
 
 const SettingsPage = async ({
   params,
@@ -28,10 +32,17 @@ const SettingsPage = async ({
     redirect("/");
   }
 
+  const orderSettings = (await getOrderSettings(store.id))!;
+  const contact = (await getContact(store.id))!;
+
   return (
     <div className="flex-col">
-      <div className="flex-1 space-y-4 p-8 pt-6">
-        <SettingsForm initialData={store} />
+      <div className="flex-1 space-y-4 p-4 pt-6 md:p-8">
+        <SettingsForm initialData={store}>
+          <ContactSection storeId={store.id} initial={contact} />
+        </SettingsForm>
+        <h3 className="pt-4 text-lg font-semibold tracking-tight">Orders</h3>
+        <OrderSettingsCard storeId={store.id} initial={orderSettings} />
       </div>
     </div>
   );

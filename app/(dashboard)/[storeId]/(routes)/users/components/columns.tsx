@@ -8,9 +8,10 @@ export type UserColumn = {
   email: string;
   phone: string;
   address: string;
-  totalPrice: number;
+  totalPrice: string; // rupees with paise, exact (e.g. "309.97")
   products:string;
   imgurl:string;
+  orderCount: number;
   
 }
 
@@ -26,6 +27,10 @@ export const columns: ColumnDef<UserColumn>[] = [
     ),
   },
   {
+    accessorKey: "orderCount",
+    header: "Orders",
+  },
+  {
     accessorKey: "email",
     header: "Email",
   },
@@ -39,7 +44,7 @@ export const columns: ColumnDef<UserColumn>[] = [
   },
   {
     accessorKey: "totalPrice",
-    header: "Purchase",
+    header: "Paid purchases",
     cell: ({ row }) => (
       <div className="flex items-center">
         <p>&#8377;</p>{row.original.totalPrice}

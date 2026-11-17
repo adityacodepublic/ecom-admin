@@ -1,62 +1,38 @@
-import { format } from "date-fns";
+import { requireStoreOwnerPage } from "@/lib/api/admin-auth";
+import { listAdminOrders, orderListQuerySchema } from "@/lib/orders/queries";
 
-import prismadb from "@/lib/prismadb";
-import { formatter } from "@/lib/utils";
+import { OrdersClient } from "./components/client";
 
-import { OrderColumn } from "./components/columns";
-import { OrderClient } from "./components/client";
+const PAGE_SIZE = 20;
 
 const OrdersPage = async ({
   params,
+  searchParams,
 }: {
   params: Promise<{ storeId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) => {
-  const resolvedParams = await params;
-  const orders = await prismadb.order.findMany({
-    where: {
-      storeId: resolvedParams.storeId,
-    },
-    include: {
-      users: true,
-      address: {
-        select: {
-          value: true,
-          pincode: true,
-        },
-      },
-      orderItems: {
-        include: {
-          product: true,
-        },
-      },
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
+  const { storeId } = await params;
+  await requireStoreOwnerPage(storeId);
 
-  const formattedOrders: OrderColumn[] = orders.map((item) => ({
-    email: item.users.email,
-    id: item.id,
-    phone: item.users.phone,
-    address: item.address.value + "- " + item.address.pincode,
-    products: item.orderItems
-      .map((orderItem) => orderItem.product.name.slice(0, 20))
-      .join(",  "),
-    totalPrice: formatter.format(
-      item.orderItems.reduce((total, item) => {
-        return total + Number(item.product.price) * item.orderQuantity;
-      }, 0),
-    ),
-    isPaid: item.isPaid,
-    createdAt: format(item.createdAt, "do MMM"),
-    status: item.payment.slice(0, 5),
-  }));
+  // Filters come from the URL. A bad value is simply ignored.
+  const sp = await searchParams;
+  const query: Record<string, unknown> = { pageSize: PAGE_SIZE };
+  for (const k of ["status", "paymentStatus", "q", "from", "to", "page"]) {
+    const v = sp[k];
+    if (typeof v !== "string" || v === "") continue;
+    if (orderListQuerySchema.safeParse({ [k]: v }).success) query[k] = v;
+  }
+  const q = orderListQuerySchema.parse(query);
+  const list = await listAdminOrders(storeId, q);
 
   return (
     <div className="flex-col">
-      <div className="flex-1 space-y-4 p-8 pt-6">
-        <OrderClient data={formattedOrders} />
+      <div className="flex-1 space-y-4 p-4 pt-6 md:p-8">
+        <OrdersClient
+          list={list}
+          filters={{ status: q.status ?? "", paymentStatus: q.paymentStatus ?? "", q: q.q ?? "", from: q.from ?? "", to: q.to ?? "" }}
+        />
       </div>
     </div>
   );

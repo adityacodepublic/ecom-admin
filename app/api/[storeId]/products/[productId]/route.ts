@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 
 import prismadb from "@/lib/prismadb";
+import { toPaise } from "@/lib/money";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -156,6 +157,13 @@ export async function PATCH(
 
     if (!price) {
       return new NextResponse("Price is required", { status: 400 });
+    }
+
+    // Money is exact: rupees with at most 2 decimals (the column is Decimal(12,2)).
+    try {
+      if (toPaise(price) <= 0) throw new Error();
+    } catch {
+      return new NextResponse("Price must be a positive amount with at most 2 decimals", { status: 400 });
     }
 
     if (!quantity) {

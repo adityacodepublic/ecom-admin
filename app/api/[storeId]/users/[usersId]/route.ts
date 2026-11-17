@@ -1,204 +1,38 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+
 import prismadb from "@/lib/prismadb";
-import { storeAppOrigin } from "@/lib/store-url";
+import { checkStoreOwner } from "@/lib/media-auth";
 
-const corsHeaders = {
-  // Only the store app may read a user (all stores share its origin in path mode).
-  "Access-Control-Allow-Origin": storeAppOrigin(),
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-};
+/**
+ * Owner only. A customer of THIS store (someone with an order here). Before, GET was public and returned
+ * phone, addresses and all orders to anybody (B3); the store app now uses GET /api/[storeId]/customer/me
+ * and /customer/orders instead. There is no DELETE (a customer is never deleted: orders must stay) and no
+ * PATCH (customers are global: only the customer edits their own profile, via PATCH /customer/me).
+ */
 
-export async function OPTIONS() {
-  return NextResponse.json({}, { headers: corsHeaders });
-}
+type Params = { params: Promise<{ usersId: string; storeId: string }> };
 
-export async function GET(
-  req: Request,
-  { params }: { params: Promise<{ usersId: string; storeId: string }> },
-) {
+export async function GET(req: Request, { params }: Params) {
   try {
-    const resolvedParams = await params;
-    if (!resolvedParams.usersId) {
-      return new NextResponse("User id is required", { status: 400 });
-    }
+    const { storeId, usersId } = await params;
+    const denied = await checkStoreOwner(storeId);
+    if (denied) return denied;
 
-    if (!resolvedParams.storeId) {
-      return new NextResponse("Store id is required", { status: 400 });
-    }
-    const user = await prismadb.users.findUnique({
-      where: {
-        id: resolvedParams.usersId,
-        storeId: resolvedParams.storeId,
-      },
+    const user = await prismadb.users.findFirst({
+      where: { id: usersId, orders: { some: { storeId } } },
       select: {
+        id: true,
         fname: true,
+        email: true,
         phone: true,
-        address: {
-          select: {
-            id: true,
-            value: true,
-            pincode: true,
-          },
-        },
-        orders: {
-          select: {
-            isPaid: true,
-            status: true,
-            addressId: true,
-            orderItems: {
-              select: {
-                orderQuantity: true,
-                product: {
-                  select: {
-                    id: true,
-                    name: true,
-                    price: true,
-                    filteritems: {
-                      select: {
-                        value: {
-                          select: {
-                            value: true,
-                            unit: true,
-                            filter: {
-                              select: {
-                                name: true,
-                              },
-                            },
-                          },
-                        },
-                      },
-                    },
-                    images: {
-                      select: {
-                        url: true,
-                      },
-                      orderBy: {
-                        order: "asc",
-                      },
-                      take: 1,
-                    },
-                  },
-                },
-              },
-            },
-          },
-          orderBy: {
-            createdAt: "desc",
-          },
-        },
+        imgurl: true,
+        createdAt: true,
       },
     });
-
-    return NextResponse.json({ user }, { headers: corsHeaders });
+    if (!user) return new NextResponse("Not found", { status: 404 });
+    return NextResponse.json({ user });
   } catch (error) {
     console.log("[USER_GET]", error);
-    return new NextResponse("Internal error", { status: 500 });
-  }
-}
-
-export async function DELETE(
-  req: Request,
-  { params }: { params: Promise<{ usersId: string; storeId: string }> },
-) {
-  try {
-    const resolvedParams = await params;
-    const { userId } = await auth();
-
-    if (!userId) {
-      return new NextResponse("Unauthenticated", { status: 403 });
-    }
-
-    if (!resolvedParams.usersId) {
-      return new NextResponse("User id is required", { status: 400 });
-    }
-
-    const storeByUserId = await prismadb.store.findFirst({
-      where: {
-        id: resolvedParams.storeId,
-        userId,
-      },
-    });
-
-    if (!storeByUserId) {
-      return new NextResponse("Unauthorized", { status: 405 });
-    }
-
-    const user = await prismadb.users.delete({
-      where: {
-        id: resolvedParams.usersId,
-      },
-    });
-
-    return NextResponse.json(user, { headers: corsHeaders });
-  } catch (error) {
-    console.log("[USER_DELETE]", error);
-    return new NextResponse("Internal error", { status: 500 });
-  }
-}
-
-export async function PATCH(
-  req: Request,
-  { params }: { params: Promise<{ usersId: string; storeId: string }> },
-) {
-  try {
-    const resolvedParams = await params;
-    const { userId } = await auth();
-
-    const body = await req.json();
-
-    const { email, phone, fname, imgurl } = body;
-
-    if (!userId) {
-      return new NextResponse("Unauthenticated", { status: 403 });
-    }
-
-    if (!resolvedParams.usersId) {
-      return new NextResponse("User id is required", { status: 400 });
-    }
-
-    if (!email) {
-      return new NextResponse("Email is required", { status: 400 });
-    }
-
-    if (!phone) {
-      return new NextResponse("Phone is required", { status: 400 });
-    }
-
-    if (!fname) {
-      return new NextResponse("First name is required", { status: 400 });
-    }
-
-    if (!imgurl) {
-      return new NextResponse("Image URL is required", { status: 400 });
-    }
-
-    const storeByUserId = await prismadb.store.findFirst({
-      where: {
-        id: resolvedParams.storeId,
-        userId,
-      },
-    });
-
-    if (!storeByUserId) {
-      return new NextResponse("Unauthorized", { status: 405 });
-    }
-
-    await prismadb.users.update({
-      where: {
-        id: resolvedParams.usersId,
-      },
-      data: {
-        email: email,
-        phone: phone,
-        fname: fname,
-        imgurl: imgurl,
-      },
-    });
-    return NextResponse.json({ status: 200 }, { headers: corsHeaders });
-  } catch (error) {
-    console.log("[USER_PATCH]", error);
     return new NextResponse("Internal error", { status: 500 });
   }
 }

@@ -15,7 +15,7 @@ export const UserClient: React.FC<UserClientProps> = ({
 }) => {
   return (
     <>
-      <Heading title={`Users (${data.length})`} description="See Users of your store" />
+      <Heading title={`Customers (${data.length})`} description="People who ordered from your store. Customers are never deleted." />
       <Separator />
       <DataTable searchKey="fname" columns={columns} data={data} />
     </>

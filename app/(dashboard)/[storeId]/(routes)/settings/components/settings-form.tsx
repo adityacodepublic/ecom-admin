@@ -1,9 +1,6 @@
 "use client"
 
-import * as z from "zod"
 import axios from "axios"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
 import { toast } from "react-hot-toast"
 import { Trash } from "lucide-react"
 import { Store } from "@prisma/client"
@@ -12,33 +9,24 @@ import { useState } from "react"
 
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form"
+import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Heading } from "@/components/ui/heading"
 import { storeUrl } from "@/lib/store-url"
 import { ChangeSlugModal } from "./change-slug-modal"
 import { DeleteStoreModal } from "./delete-store-modal"
 import { StoreUrlCard } from "./store-url-card"
-
-const formSchema = z.object({
-  name: z.string().min(2),
-});
-
-type SettingsFormValues = z.infer<typeof formSchema>
+import { EditButton, SettingRow, SettingsList, SettingsModal, useOpen } from "./setting-row"
 
 interface SettingsFormProps {
   initialData: Store;
+  /** More rows for the first list (for example the contact details). */
+  children?: React.ReactNode;
 };
 
 export const SettingsForm: React.FC<SettingsFormProps> = ({
   initialData,
+  children,
 }) => {
   const params = useParams();
   const router = useRouter();
@@ -47,19 +35,21 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
   const [slugOpen, setSlugOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const form = useForm<SettingsFormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: { name: initialData.name }
-  });
+  const nameModal = useOpen();
+  const [name, setName] = useState(initialData.name);
+  const [nameError, setNameError] = useState("");
 
-  const onSubmit = async (data: SettingsFormValues) => {
+  const onSaveName = async () => {
+    const next = name.trim();
+    if (next.length < 2) return setNameError("Use at least 2 characters.");
     try {
       setLoading(true);
-      await axios.patch(`/api/stores/${params.storeId}`, data);
+      await axios.patch(`/api/stores/${params.storeId}`, { name: next });
       router.refresh();
       toast.success('Store updated.');
+      nameModal.hide();
     } catch (error: any) {
-      toast.error('Something went wrong.');
+      setNameError('Something went wrong.');
     } finally {
       setLoading(false);
     }
@@ -97,7 +87,7 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
       loading={loading}
     />
      <div className="flex items-center justify-between">
-        <Heading title="Store settings" description="Manage store preferences" />
+        <Heading title="Store settings" />
         <Button
           disabled={loading}
           variant="destructive"
@@ -109,30 +99,21 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
         </Button>
       </div>
       <Separator />
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 w-full">
-          <div className="grid grid-cols-3 gap-8">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Name</FormLabel>
-                  <FormControl>
-                    <Input disabled={loading} placeholder="Store name" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-          <Button disabled={loading} className="ml-auto" type="submit">
-            Save changes
-          </Button>
-        </form>
-      </Form>
-      <Separator />
-      <StoreUrlCard url={storeUrl(initialData.slug)} onChange={() => setSlugOpen(true)} />
+      <SettingsList>
+        <SettingRow
+          title="Store name"
+          summary={initialData.name}
+          action={<EditButton onClick={() => { setName(initialData.name); setNameError(""); nameModal.show(); }} label="Edit store name" />}
+        />
+        <StoreUrlCard url={storeUrl(initialData.slug)} onChange={() => setSlugOpen(true)} />
+        {children}
+      </SettingsList>
+      <SettingsModal title="Store name" isOpen={nameModal.open} onClose={nameModal.hide} onSave={onSaveName} loading={loading} error={nameError}>
+        <div className="grid gap-1.5">
+          <Label htmlFor="store-name">Name</Label>
+          <Input id="store-name" disabled={loading} placeholder="Store name" value={name} onChange={(e) => setName(e.target.value)} />
+        </div>
+      </SettingsModal>
     </>
   );
 };

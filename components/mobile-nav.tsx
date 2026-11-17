@@ -54,11 +54,11 @@ export function MobileNav() {
     {
       href: `/${params.storeId}/orders`,
       label: "Orders",
-      active: pathname === `/${params.storeId}/orders`,
+      active: pathname.startsWith(`/${params.storeId}/orders`),
     },
     {
       href: `/${params.storeId}/users`,
-      label: "Users",
+      label: "Customers",
       active: pathname === `/${params.storeId}/users`,
     },
     {

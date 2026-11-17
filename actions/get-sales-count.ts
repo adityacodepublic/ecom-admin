@@ -1,12 +1,8 @@
 import prismadb from "@/lib/prismadb";
 
+/** Paid orders (paymentStatus PAID), cancelled orders left out. */
 export const getSalesCount = async (storeId: string) => {
-  const salesCount = await prismadb.order.count({
-    where: {
-      storeId,
-      isPaid: true
-    },
+  return prismadb.order.count({
+    where: { storeId, paymentStatus: "PAID", status: { not: "Cancelled" } },
   });
-
-  return salesCount;
 };
