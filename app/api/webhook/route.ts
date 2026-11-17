@@ -44,7 +44,7 @@ export async function POST(req: Request) {
         id: session?.metadata?.orderId,
       },
       data: {
-        paymentStatus: "PAID", // was isPaid (dropped in phase 2)
+        paymentStatus: "PAID",
       },
       include: {
         // users: true,
