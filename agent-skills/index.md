@@ -4,6 +4,10 @@ You operate one store's admin through a secret URL. Base URL: `{{BASE}}`. The to
 
 Paths mirror the admin API without `/api/{storeId}`: `GET {{BASE}}/products`, `PATCH {{BASE}}/products/{id}`. The store is implied. You cannot reach other stores, store settings, customer routes or the webhook (403/404).
 
+## The storefront
+
+The store's public website is `{{STORE_URL}}`. It is public: open it, browse it and use it freely (cart, checkout and search work as for any customer; orders and the profile need a customer sign-in). Pages: home `{{STORE_URL}}`, a category `{{STORE_URL}}/category/{categoryId}`, a product `{{STORE_URL}}/product/{productId}`, search `{{STORE_URL}}/search/{text}`, the cart `{{STORE_URL}}/cart`, checkout `{{STORE_URL}}/checkout`, your orders `{{STORE_URL}}/orders` and one order `{{STORE_URL}}/orders/{orderId}`. Changes you make here show up there, so open the storefront to see what customers see.
+
 ## Skills (read only what the task needs)
 
 | Task | Read |
