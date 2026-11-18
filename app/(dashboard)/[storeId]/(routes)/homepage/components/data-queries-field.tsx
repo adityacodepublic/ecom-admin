@@ -150,22 +150,28 @@ export const dataQueriesField = (categories: Option[]) => {
             <div key={r.key} className="space-y-3 rounded-md border p-3">
               <div className="grid gap-3 sm:grid-cols-[1fr_11rem_auto] sm:items-start">
                 <div className="grid gap-1">
-                  <Input aria-label="Data name" placeholder="name" value={r.name} className={nameError ? "border-destructive" : ""} onChange={(e) => update(r.key, { name: e.target.value })} />
+                  <Label htmlFor={`${id}-${r.key}-name`} className="text-xs">
+                    Name
+                  </Label>
+                  <Input id={`${id}-${r.key}-name`} aria-label="Data name" placeholder="e.g. deals" value={r.name} className={nameError ? "border-destructive" : ""} onChange={(e) => update(r.key, { name: e.target.value })} />
                   {nameError && <p className="text-xs text-destructive">{nameError}</p>}
                 </div>
-                <Select value={r.query.source} onValueChange={(v) => update(r.key, { query: emptyQuery(v as Source) })}>
-                  <SelectTrigger aria-label="Data source">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(Object.keys(SOURCE_LABEL) as Source[]).map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {SOURCE_LABEL[s]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button type="button" size="icon" variant="outline" aria-label="Remove data" onClick={() => commit(rows.filter((x) => x.key !== r.key))}>
+                <div className="grid gap-1">
+                  <Label className="text-xs">Source</Label>
+                  <Select value={r.query.source} onValueChange={(v) => update(r.key, { query: emptyQuery(v as Source) })}>
+                    <SelectTrigger aria-label="Data source">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(SOURCE_LABEL) as Source[]).map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {SOURCE_LABEL[s]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button type="button" size="icon" variant="outline" className="sm:mt-[1.375rem]" aria-label="Remove data" onClick={() => commit(rows.filter((x) => x.key !== r.key))}>
                   <Trash className="h-4 w-4" />
                 </Button>
               </div>
