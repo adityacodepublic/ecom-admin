@@ -48,7 +48,7 @@ export const sectionSettingsSchemas = {
   }),
   custom: z.object({
     title: z.string().optional().describe("Name (only shown in the admin)"),
-    height: z.coerce.number().int().min(80).max(2000).default(400).describe("Starting height in px. The frame then fits the content."),
+    height: z.coerce.number().int().min(80).max(2000).default(400).describe("Starting height (px)"),
     html: z
       .string()
       .min(1, "HTML is required")

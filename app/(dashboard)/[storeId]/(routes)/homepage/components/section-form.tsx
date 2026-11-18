@@ -10,12 +10,10 @@ import { AutoForm } from "@/components/ui/autoform";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { sectionSettingsSchemas, type SectionType } from "@/lib/home-layout";
-import { CustomForm } from "./custom-form";
+import { CodeField, dataQueriesField, type Option } from "./data-queries-field";
 
-export interface Option {
-  value: string;
-  label: string;
-}
+export type { Option };
+
 
 interface SectionFormProps {
   type: SectionType;
@@ -56,6 +54,18 @@ const optionsField = (options: Option[], optional: boolean) => {
 
 /** The settings schema of a type, with the id fields shown as pickers. */
 const formSchema = (type: SectionType) => {
+  if (type === "custom") {
+    // The HTML is a code box and the data is a row editor (data-queries-field.tsx).
+    const custom = sectionSettingsSchemas.custom;
+    return custom.extend({
+      title: custom.shape.title.superRefine(fieldConfig({ label: "Name", description: "Only shown here in the admin." })),
+      height: custom.shape.height.superRefine(fieldConfig({ label: "Starting height (px)", description: "The frame then fits the content on its own." })),
+      html: custom.shape.html.superRefine(
+        fieldConfig({ fieldType: "code", label: "HTML", description: "Inline <style> and <script>. Do not use vh units (the frame fits the content)." }),
+      ),
+      data: custom.shape.data.superRefine(fieldConfig({ fieldType: "dataQueries", label: "Data" })),
+    });
+  }
   const schema = sectionSettingsSchemas[type] as z.AnyZodObject;
   const picker = (key: string, fieldType: string) => {
     const field = schema.shape[key] as z.ZodTypeAny | undefined;
@@ -74,18 +84,15 @@ const ChangeListener = ({ onChange }: { onChange: SectionFormProps["onChange"] }
   return null;
 };
 
-/** The custom component has its own form (code boxes); every other type is generated from its zod schema. */
-export const SectionForm = (props: SectionFormProps) =>
-  props.type === "custom" ? (
-    <CustomForm settings={props.settings} saving={props.saving} onChange={props.onChange} onSave={props.onSave} onCancel={props.onCancel} />
-  ) : (
-    <GenericForm {...props} />
-  );
-
-const GenericForm = ({ type, settings, billboards, categories, saving, onChange, onSave, onCancel }: SectionFormProps) => {
+export const SectionForm = ({ type, settings, billboards, categories, saving, onChange, onSave, onCancel }: SectionFormProps) => {
   const schema = useMemo(() => new ZodProvider(formSchema(type)), [type]);
   const formComponents = useMemo(
-    () => ({ billboard: optionsField(billboards, false), category: optionsField(categories, true) }),
+    () => ({
+      billboard: optionsField(billboards, false),
+      category: optionsField(categories, true),
+      code: CodeField,
+      dataQueries: dataQueriesField(categories),
+    }),
     [billboards, categories],
   );
 
