@@ -17,6 +17,7 @@ model Store {
   orderSettings Json?
   contact       Json?
   agentAccess   Json? // AI agent link + pending requests + log (lib/agent/store.ts). Null = no link.
+  transfer      Json? // pending hand-over of this store to another account (lib/transfer). Null = none.
   // NOTE: an expression index "Store_agentTokenHash_idx" on (agentAccess->'link'->>'tokenHash') exists only in sql/agent-access.sql (Prisma cannot declare it).
   billboards Billboard[] @relation("StoreToBillboard")
   categories Category[]  @relation("StoreToCategory")

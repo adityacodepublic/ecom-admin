@@ -7,6 +7,7 @@ import { getContact } from "@/lib/contact";
 import { getOrderSettings } from "@/lib/orders/settings";
 import { SettingsForm } from "./components/settings-form";
 import { ContactSection } from "./components/contact-section";
+import { TransferCard } from "./components/transfer-card";
 import { AgentAccessCard } from "./components/agent-access-card";
 import { OrderSettingsCard } from "./components/order-settings-card";
 
@@ -48,6 +49,8 @@ const SettingsPage = async ({
         <OrderSettingsCard storeId={store.id} initial={orderSettings} />
         <h3 className="pt-4 text-lg font-semibold tracking-tight">Agent</h3>
         <AgentAccessCard storeId={store.id} />
+        <h3 className="pt-4 text-lg font-semibold tracking-tight">Ownership</h3>
+        <TransferCard storeId={store.id} />
       </div>
     </div>
   );
