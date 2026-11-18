@@ -75,4 +75,5 @@ Create order: billboard, then category, then (optional) filter, then product. De
 - Errors: older routes return a plain-text body (`Name is required`, `Internal error`) with 400/403/405/500. Orders, order-settings and contact return `{ "error": { "code", "message", "details" } }`. Proxy errors return `{ "error": "..." }`.
 - `405` from a feature route means the store/owner check failed, not "method not allowed".
 - Do not retry a `500 Internal error` blindly. Re-read the matching skill's failure table.
+- If you have codemode like tools, then use them to compose different requests.
 - Never delete data unless the user asked for it.

@@ -28,7 +28,7 @@ List query (all optional): `categoryId`, `searchValue` (name contains, case-inse
   "images": [ { "url": "https://...", "order": 1 } ],   // required, at least 1
   "isFeatured": false,               // optional
   "isArchived": false,               // optional
-  "description": "Markdown text",    // optional
+  "description": "Markdown text",    // optional (all markdown syntax supported, images, tables etc.)
   "filteritems": [ { "filterId": "<filter id>", "valueId": "<value id>" } ]   // optional
 }
 ```

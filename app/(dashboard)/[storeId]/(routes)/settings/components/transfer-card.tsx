@@ -62,8 +62,7 @@ const StartModal = ({ storeId, onClose, onCreated }: { storeId: string; onClose:
           onChange={(e) => setEmail(e.target.value)}
         />
         <p className="text-sm text-muted-foreground">
-          You get a link to send them. They sign in with this email and accept. Only this store moves; your other stores stay yours.
-          When they accept you lose access to it, and its agent link is removed.
+          Send the transfer link to the new owner. Only this store moves; you lose access to it, and its agent link is removed.
         </p>
       </div>
     </SettingsModal>
@@ -89,7 +88,7 @@ const CreatedModal = ({ url, email, onClose }: { url: string; email: string; onC
             </Button>
           </div>
           <p className="text-sm text-muted-foreground">
-            Only {email} can accept it, and it works for 7 days. Shown only once. Copy it now.
+            Only {email} can accept it, valid for 7 days. Shown only once. Copy it now.
           </p>
         </div>
         <div className="flex justify-end">
