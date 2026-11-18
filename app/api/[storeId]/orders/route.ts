@@ -4,12 +4,12 @@ import { listAdminOrders, parseListQuery } from "@/lib/orders/queries";
 
 export const dynamic = "force-dynamic";
 
-/** Admin: list this store's orders. ?status=&paymentStatus=&from=YYYY-MM-DD&to=YYYY-MM-DD&page=&pageSize= */
+/** Admin: list this store's orders. ?q=&status=&paymentStatus=&from=YYYY-MM-DD&to=YYYY-MM-DD&page=&pageSize= (q: order number, customer or receiver name/email/phone) */
 export async function GET(req: Request, { params }: { params: Promise<{ storeId: string }> }) {
   try {
     const { storeId } = await params;
     await requireStoreOwner(storeId);
-    const q = parseListQuery(new URL(req.url).searchParams, ["status", "paymentStatus", "from", "to", "page", "pageSize"]);
+    const q = parseListQuery(new URL(req.url).searchParams, ["q", "status", "paymentStatus", "from", "to", "page", "pageSize"]);
     return json(await listAdminOrders(storeId, q));
   } catch (error) {
     return errorResponse(error, "ADMIN_ORDERS_GET");

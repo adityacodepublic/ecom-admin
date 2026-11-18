@@ -1,4 +1,5 @@
 /**
+ * ABANDONED: Stripe is not used; orders are COD/manual. Kept for reference. Do not wire into checkout.
  * DORMANT. Not imported anywhere and never called: customers pay cash on delivery for now.
  * This is the old Stripe card checkout from the removed POST /api/[storeId]/checkout route, kept only as a
  * starting point for the payments rework (each vendor with their own account). It is NOT fixed:

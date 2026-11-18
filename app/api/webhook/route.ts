@@ -1,100 +1,11 @@
-import Stripe from "stripe";
-import { headers } from "next/headers";
+// ABANDONED: Stripe is not used; orders are COD/manual. Kept for reference. Do not wire into checkout.
+//
+// This route used to mark orders PAID and subtract stock when Stripe called it. It must never change an order or
+// stock again (stock is taken at checkout, in lib/orders/create.ts), so it only answers 410 Gone.
 import { NextResponse } from "next/server";
 
-import { stripe } from "@/lib/stripe";
-import prismadb from "@/lib/prismadb";
+export const dynamic = "force-dynamic";
 
-// DORMANT: Stripe is not used (customers pay cash on delivery). Nothing creates Stripe sessions now, so this
-// never runs. It is not fixed (see lib/payments/stripe-checkout.dormant.ts). Note: stock is now taken at checkout,
-// so the stock code below would subtract it a second time if Stripe were switched back on.
-export async function POST(req: Request) {
-  const body = await req.text();
-  const headersList = await headers();
-  const signature = headersList.get("Stripe-Signature") as string;
-
-  let event: Stripe.Event;
-
-  try {
-    event = stripe.webhooks.constructEvent(
-      body,
-      signature,
-      process.env.STRIPE_WEBHOOK_SECRET!,
-    );
-  } catch (error: any) {
-    return new NextResponse(`Webhook Error: ${error.message}`, { status: 400 });
-  }
-
-  const session = event.data.object as Stripe.Checkout.Session;
-  // const address = session?.customer_details?.address;
-
-  // const addressComponents = [
-  //   address?.line1,
-  //   address?.line2,
-  //   address?.city,
-  //   address?.state,
-  //   address?.postal_code,
-  //   address?.country
-  // ];
-  // const addressString = addressComponents.filter((c) => c !== null).join(', ');
-
-  if (event.type === "checkout.session.completed") {
-    const order = await prismadb.order.update({
-      where: {
-        id: session?.metadata?.orderId,
-      },
-      data: {
-        paymentStatus: "PAID",
-      },
-      include: {
-        // users: true,
-        orderItems: true,
-      },
-    });
-
-    // // Update the user details
-    // await prismadb.users.update({
-    //   where: {
-    //     id: order.usersId,
-    //   },
-    //   data: {
-    //     phone: session?.customer_details?.phone || '',
-    //     //email: session?.customer_details?.email || '',
-    //   },
-    // });
-
-    const productIds = order.orderItems.map((orderItem) => orderItem.productId);
-
-    // Fetch the products from the database
-    const products = await prismadb.product.findMany({
-      where: {
-        id: {
-          in: productIds,
-        },
-      },
-    });
-
-    // Update the quantities
-    for (const orderItem of order.orderItems) {
-      const product = products.find((p) => p.id === orderItem.productId);
-      if (product) {
-        // Subtract orderItem.orderQuantity from the existing quantity
-        const newQuantity = Math.max(
-          product.quantity - orderItem.orderQuantity,
-          0,
-        );
-
-        // Update the product's quantity
-        await prismadb.product.update({
-          where: { id: product.id },
-          data: {
-            quantity: newQuantity,
-            isArchived: newQuantity === 0,
-          },
-        });
-      }
-    }
-  }
-
-  return new NextResponse(null, { status: 200 });
+export async function POST() {
+  return NextResponse.json({ error: "Stripe webhooks are not used here" }, { status: 410 });
 }

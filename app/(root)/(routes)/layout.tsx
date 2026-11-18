@@ -18,6 +18,7 @@ export default async function SetupLayout({
     where: {
       userId,
     },
+    select: { id: true },
   });
 
   if (store) {

@@ -15,7 +15,7 @@ import { formatINR } from "@/lib/money";
 import { formatDay, formatIstDateTime } from "@/lib/format-date";
 import type { AdminOrder } from "@/lib/orders/queries";
 import type { OrderEvent } from "@/lib/orders/details";
-import { isCancelled } from "@/lib/orders/status";
+import { STATUS_LOCK_MESSAGES, isCancelled } from "@/lib/orders/status";
 import { cn } from "@/lib/utils";
 
 import {
@@ -114,6 +114,10 @@ const StatusActions = ({ order, onCancel, onReplace }: { order: AdminOrder; onCa
       </div>
     );
   }
+  if (order.statusLock) {
+    // Frozen: a complete order (final stage) or an order with a return cannot be moved, back or cancelled any more.
+    return <p className="text-sm text-muted-foreground">{STATUS_LOCK_MESSAGES[order.statusLock]}</p>;
+  }
   return (
     <div className="flex flex-wrap items-center gap-2">
       {!order.statusKnown && (
@@ -209,6 +213,8 @@ const ReturnCard = ({ order, onReject, onReplace }: { order: AdminOrder; onRejec
         <div className="space-y-1 border-t pt-3">
           {ret.restocked ? (
             <p className="text-muted-foreground">Stock: the items were put back into stock.</p>
+          ) : !ret.canRestock ? (
+            <p className="text-muted-foreground">Stock: nothing to put back (it was already put back, or this order never took stock).</p>
           ) : (
             <>
               <Button size="sm" variant="outline" disabled={loading} onClick={() => save({ restock: true })}>

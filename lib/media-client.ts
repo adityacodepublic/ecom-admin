@@ -6,7 +6,15 @@ import type { MediaItem } from "@/lib/media";
 
 export const MAX_FILE_MB = 10;
 
-type Signed = { signature: string; timestamp: number; apiKey: string; cloudName: string; folder: string };
+type Signed = {
+  signature: string;
+  timestamp: number;
+  apiKey: string;
+  cloudName: string;
+  folder: string;
+  allowed_formats: string;
+  max_file_size: number;
+};
 
 type CloudinaryResult = { secure_url: string; public_id: string };
 
@@ -22,6 +30,8 @@ async function uploadToCloudinary(
   body.append("api_key", s.apiKey);
   body.append("timestamp", String(s.timestamp));
   body.append("folder", s.folder);
+  body.append("allowed_formats", s.allowed_formats); // signed: must be sent exactly as given
+  body.append("max_file_size", String(s.max_file_size));
   body.append("signature", s.signature);
   const res = await axios.post<CloudinaryResult>(
     `https://api.cloudinary.com/v1_1/${s.cloudName}/image/upload`,

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
-
+import { getUserId } from "@/lib/agent/context";
 import prismadb from "@/lib/prismadb";
 
 /**
@@ -8,7 +7,7 @@ import prismadb from "@/lib/prismadb";
  * the user must be signed in and must own the store. Returns an error response, or null if fine.
  */
 export async function checkStoreOwner(storeId: string): Promise<NextResponse | null> {
-  const { userId } = await auth();
+  const userId = await getUserId();
   if (!userId) return new NextResponse("Unauthenticated", { status: 403 });
   const store = await prismadb.store.findFirst({ where: { id: storeId, userId }, select: { id: true } });
   if (!store) return new NextResponse("Unauthorized", { status: 405 });

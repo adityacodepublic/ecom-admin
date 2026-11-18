@@ -67,7 +67,7 @@ export const orderReturnSchema = z.object({
   reason: z.string().max(500),
   note: z.string().max(500).nullable(), // the customer's own words (optional)
   requestedAt: isoDateTime,
-  restocked: z.boolean(), // the items were put back into stock (once)
+  restocked: z.boolean(), // display marker only: the return put the items back into stock. The guard is details.stockReserved.
 });
 
 export const orderDetailsSchema = z.object({
@@ -82,7 +82,11 @@ export const orderDetailsSchema = z.object({
   items: z.array(orderItemSnapshotSchema),
   // True when this order took stock at checkout (all new orders). Old backfilled orders never did, so
   // cancelling them must not add stock. Set to false when the stock is given back. Server-only.
+  // This one flag guards BOTH "Restore stock" (cancelled order) and "Put items back" (return): stock is added back
+  // only while it is true, then it becomes false, so stock is never added twice for one order.
   stockReserved: z.boolean().optional(),
+  // How many times the customer withdrew a return of this order (one withdrawal at most). Old orders: 0.
+  returnWithdrawals: z.number().int().min(0).default(0),
   return: orderReturnSchema.nullable().default(null),
 });
 export type OrderDetails = z.infer<typeof orderDetailsSchema>;

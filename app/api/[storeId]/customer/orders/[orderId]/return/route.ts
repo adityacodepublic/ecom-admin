@@ -4,6 +4,7 @@ import { getCustomerOrder } from "@/lib/orders/queries";
 import { customerRequestReturn, customerReturnSchema, customerWithdrawReturn, parseOrderRef } from "@/lib/orders/update";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 30; // seconds: an order write never legitimately takes this long (see lib/orders/update.ts TX_OPTIONS)
 
 const METHODS = "POST, DELETE, OPTIONS";
 type Params = { params: Promise<{ storeId: string; orderId: string }> };

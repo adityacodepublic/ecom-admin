@@ -45,7 +45,7 @@ const formSchema = z.object({
   name: z.string().min(1).max(255),
   images: z.object({ url: z.string(), order: z.number() }).array(),
   price: z.coerce.number().min(1),
-  quantity: z.coerce.number().int().min(1),
+  quantity: z.coerce.number().int().min(0),
   maxQuantity: z.coerce.number().int().min(1),
   categoryId: z.string().min(1),
   filteritems: z
@@ -180,9 +180,11 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         filteritems: data.filteritems || [],
       };
       if (initialData) {
+        // loadedQuantity = the stock this page loaded. The API writes stock only if it was edited, so saving
+        // other fields cannot overwrite sales made since the page opened.
         await axios.patch(
           `/api/${params.storeId}/products/${params.productId}`,
-          submitData
+          { ...submitData, loadedQuantity: initialData.quantity }
         );
       } else {
         await axios.post(`/api/${params.storeId}/products`, submitData);
@@ -205,7 +207,9 @@ export const ProductForm: React.FC<ProductFormProps> = ({
       router.push(`/${params.storeId}/products`);
       toast.success("Product deleted.");
     } catch (error: any) {
-      toast.error("Something went wrong.");
+      // 409 carries a plain-text reason ("in an order, archive it instead").
+      const d = axios.isAxiosError(error) && error.response?.status === 409 ? error.response.data : null;
+      toast.error(typeof d === "string" && d ? d : "Something went wrong.");
     } finally {
       setLoading(false);
       setOpen(false);
@@ -314,7 +318,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                     <Input
                       type="number"
                       disabled={loading}
-                      placeholder="1 - 1000"
+                      placeholder="0 - 1000"
                       {...field}
                     />
                   </FormControl>

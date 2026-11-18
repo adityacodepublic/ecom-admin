@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
-
+import { getUserId } from "@/lib/agent/context";
 import prismadb from "@/lib/prismadb";
 import { toPaise } from "@/lib/money";
-import { log } from "console";
+import { categoryInStore, valuesInStore, isStockQuantity, isMaxQuantity } from "@/lib/api/store-refs";
+import { isPageError, pageBody, readPage } from "@/lib/api/paginate";
+import { callerOwnsStore,checkFilterItems, checkImages } from "@/lib/api/validate";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,7 +22,7 @@ export async function POST(
 ) {
   try {
     const resolvedParams = await params;
-    const { userId } = await auth();
+    const userId = await getUserId();
 
     const body = await req.json();
 
@@ -46,8 +47,14 @@ export async function POST(
       return new NextResponse("Name is required", { status: 400 });
     }
 
-    if (!images || !images.length) {
-      return new NextResponse("Images are required", { status: 400 });
+    const checkedImages = checkImages(images);
+    if (!checkedImages.ok) {
+      return new NextResponse(checkedImages.error, { status: 400 });
+    }
+
+    const checkedItems = checkFilterItems(filteritems);
+    if (!checkedItems.ok) {
+      return new NextResponse(checkedItems.error, { status: 400 });
     }
 
     if (!price) {
@@ -61,12 +68,20 @@ export async function POST(
       return new NextResponse("Price must be a positive amount with at most 2 decimals", { status: 400 });
     }
 
-    if (!quantity) {
+    if (quantity === undefined || quantity === null || quantity === "") {
       return new NextResponse("Quantity is required", { status: 400 });
     }
 
-    if (!maxQuantity) {
+    if (!isStockQuantity(quantity)) {
+      return new NextResponse("Quantity must be a whole number, 0 or more", { status: 400 });
+    }
+
+    if (maxQuantity === undefined || maxQuantity === null || maxQuantity === "") {
       return new NextResponse("Max Quantity is required", { status: 400 });
+    }
+
+    if (!isMaxQuantity(maxQuantity)) {
+      return new NextResponse("Max Quantity must be a whole number, 1 or more", { status: 400 });
     }
 
     if (!categoryId) {
@@ -83,10 +98,19 @@ export async function POST(
         id: resolvedParams.storeId,
         userId,
       },
+      select: { id: true },
     });
 
     if (!storeByUserId) {
       return new NextResponse("Unauthorized", { status: 405 });
+    }
+
+    if (!(await categoryInStore(resolvedParams.storeId, categoryId))) {
+      return new NextResponse("Category not found in this store", { status: 400 });
+    }
+
+    if (!(await valuesInStore(resolvedParams.storeId, checkedItems.data))) {
+      return new NextResponse("Filter value not found in this store", { status: 400 });
     }
 
     const product = await prismadb.product.create({
@@ -102,29 +126,15 @@ export async function POST(
         maxQuantity,
         images: {
           createMany: {
-            data: images
-              .sort(
-                (a: { order: number }, b: { order: number }) =>
-                  a.order - b.order,
-              )
-              .map((image: { url: string; order?: number }, index: number) => ({
-                url: image.url,
-                order:
-                  typeof image.order === "number" ? image.order : index + 1,
-              })),
+            data: checkedImages.data.map((image, index) => ({
+              url: image.url,
+              order: image.order ?? index + 1,
+            })),
           },
         },
         filteritems:
-          filteritems && filteritems.length > 0
-            ? {
-                createMany: {
-                  data: filteritems.map(
-                    (item: { filterId: string; valueId: string }) => ({
-                      valueId: item.valueId,
-                    }),
-                  ),
-                },
-              }
+          checkedItems.data.length > 0
+            ? { createMany: { data: checkedItems.data.map((valueId) => ({ valueId })) } }
             : undefined,
       },
     });
@@ -182,7 +192,15 @@ export async function GET(
       return new NextResponse("StoreId is required", { status: 400 });
     }
 
+    // Archived products never appear in a public request: only the store owner (admin UI, agent) may see
+    // them or filter on isArchived. Everyone else always gets isArchived = false, whatever the query says.
+    const owner = await callerOwnsStore(resolvedParams.storeId);
+
+    const paging = readPage(searchParams);
+    if (isPageError(paging)) return new NextResponse(paging.error, { status: 400 });
+
     const products = await prismadb.product.findMany({
+      ...(paging && { orderBy: { id: "asc" as const }, skip: paging.skip, take: paging.take }),
       where: {
         storeId: resolvedParams.storeId,
         categoryId,
@@ -191,7 +209,7 @@ export async function GET(
           mode: "insensitive", // Postgres LIKE is case-sensitive, MySQL's was not
         },
         isFeatured: isFeatured ? isFeatured === "true" : undefined, // we dont pass false so it ignores this clause
-        isArchived: isArchived ? isArchived === "true" : undefined, // we dont pass false so it ignores this clause
+        isArchived: owner ? (isArchived ? isArchived === "true" : undefined) : false,
         price: priceFilter,
         ...(filterConditions.length > 0 && {
           AND: filterConditions,
@@ -237,7 +255,7 @@ export async function GET(
         },
       },
     });
-    return NextResponse.json(products, { headers: corsHeaders });
+    return NextResponse.json(paging ? pageBody(products, paging) : products, { headers: corsHeaders });
   } catch (error) {
     console.log("[PRODUCTS_GET]", error);
     return new NextResponse("Internal error", { status: 500 });

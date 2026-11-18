@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
-
+import { getUserId } from "@/lib/agent/context";
 import prismadb from "@/lib/prismadb";
+import { isPageError, pageBody, readPage } from "@/lib/api/paginate";
+import { billboardInStore } from "@/lib/api/store-refs";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,7 +20,7 @@ export async function POST(
 ) {
   try {
     const resolvedParams = await params;
-    const { userId } = await auth();
+    const userId = await getUserId();
 
     const body = await req.json();
 
@@ -51,10 +52,15 @@ export async function POST(
         id: resolvedParams.storeId,
         userId,
       },
+      select: { id: true },
     });
 
     if (!storeByUserId) {
       return new NextResponse("Unauthorized", { status: 405 });
+    }
+
+    if (!(await billboardInStore(resolvedParams.storeId, billboardId))) {
+      return new NextResponse("Billboard not found in this store", { status: 400 });
     }
 
     const category = await prismadb.category.create({
@@ -84,7 +90,11 @@ export async function GET(
       return new NextResponse("Store id is required", { status: 400 });
     }
 
+    const paging = readPage(new URL(req.url).searchParams);
+    if (isPageError(paging)) return new NextResponse(paging.error, { status: 400 });
+
     const categories = await prismadb.category.findMany({
+      ...(paging && { orderBy: { id: "asc" as const }, skip: paging.skip, take: paging.take }),
       where: {
         storeId: resolvedParams.storeId,
       },
@@ -95,7 +105,7 @@ export async function GET(
       },
     });
 
-    return NextResponse.json(categories, { headers: corsHeaders });
+    return NextResponse.json(paging ? pageBody(categories, paging) : categories, { headers: corsHeaders });
   } catch (error) {
     console.log("[CATEGORIES_GET]", error);
     return new NextResponse("Internal error", { status: 500 });

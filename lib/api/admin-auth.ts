@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
 
+import { getUserId } from "@/lib/agent/context";
 import prismadb from "@/lib/prismadb";
 import { OrderError } from "@/lib/orders/errors";
 
@@ -9,7 +10,7 @@ import { OrderError } from "@/lib/orders/errors";
  * to the ADMIN Clerk and owns this store. Returns the admin's Clerk user id. Throws OrderError.
  */
 export async function requireStoreOwner(storeId: string): Promise<string> {
-  const { userId } = await auth();
+  const userId = await getUserId();
   if (!userId) throw new OrderError("UNAUTHENTICATED", "Sign in first");
   const store = await prismadb.store.findFirst({ where: { id: storeId, userId }, select: { id: true } });
   // Same answer for "no such store" and "not yours": do not reveal other stores.

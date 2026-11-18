@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 
 import prismadb from "@/lib/prismadb";
+import { inUseResponse } from "@/lib/api/validate";
 export const revalidate = 0;
 
 export async function PATCH(
@@ -78,6 +79,11 @@ export async function DELETE(
 
     return NextResponse.json(store);
   } catch (error) {
+    const inUse = inUseResponse(
+      error,
+      "The store was not deleted. Remove its products, categories, billboards, filters, customers and orders first.",
+    );
+    if (inUse) return inUse;
     console.log("[STORE_DELETE]", error);
     return new NextResponse("Internal error", { status: 500 });
   }

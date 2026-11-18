@@ -1,3 +1,5 @@
+import { notFound } from "next/navigation";
+
 import prismadb from "@/lib/prismadb";
 
 import { BillboardForm } from "./components/billboard-form";
@@ -5,17 +7,21 @@ import { BillboardForm } from "./components/billboard-form";
 const BillboardPage = async ({
   params,
 }: {
-  params: Promise<{ billboardId: string }>;
+  params: Promise<{ billboardId: string; storeId: string }>;
 }) => {
   const resolvedParams = await params;
-  const billboard = await prismadb.billboard.findUnique({
+  const billboard = await prismadb.billboard.findFirst({
     where: {
       id: resolvedParams.billboardId,
+      storeId: resolvedParams.storeId,
     },
     include: {
       images: true,
     },
   });
+
+  // "new" is the create page. Any other id must be a billboard of THIS store.
+  if (!billboard && resolvedParams.billboardId !== "new") notFound();
 
   return (
     <div className="flex-col">

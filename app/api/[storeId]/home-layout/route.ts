@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { getUserId } from "@/lib/agent/context";
 import { randomUUID } from "crypto";
 
 import prismadb from "@/lib/prismadb";
@@ -27,7 +27,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ storeId
 export async function PUT(req: Request, { params }: { params: Promise<{ storeId: string }> }) {
   try {
     const { storeId } = await params;
-    const { userId } = await auth();
+    const userId = await getUserId();
     if (!userId) return new NextResponse("Unauthenticated", { status: 403 });
 
     const body = await req.json();
@@ -37,6 +37,24 @@ export async function PUT(req: Request, { params }: { params: Promise<{ storeId:
     const parsed = homeLayoutSchema.safeParse(withIds);
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid layout", issues: parsed.error.issues }, { status: 400 });
+    }
+
+    // Billboards and categories named in sections must belong to this store.
+    const billboardIds = new Set<string>();
+    const categoryIds = new Set<string>();
+    for (const s of parsed.data) {
+      if (s.type === "carousel") billboardIds.add(s.settings.billboardId);
+      if ((s.type === "productList" || s.type === "productGrid") && s.settings.categoryId) categoryIds.add(s.settings.categoryId);
+    }
+    if (billboardIds.size || categoryIds.size) {
+      const owned = await prismadb.store.findFirst({ where: { id: storeId, userId }, select: { id: true } });
+      if (!owned) return new NextResponse("Unauthorized", { status: 405 });
+      const [bCount, cCount] = await Promise.all([
+        prismadb.billboard.count({ where: { id: { in: Array.from(billboardIds) }, storeId } }),
+        prismadb.category.count({ where: { id: { in: Array.from(categoryIds) }, storeId } }),
+      ]);
+      if (bCount !== billboardIds.size) return new NextResponse("Billboard not found in this store", { status: 400 });
+      if (cCount !== categoryIds.size) return new NextResponse("Category not found in this store", { status: 400 });
     }
 
     const { count } = await prismadb.store.updateMany({

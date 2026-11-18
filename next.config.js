@@ -1,5 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // The agent skill routes read agent-skills/*.md with fs at runtime.
+  outputFileTracingIncludes: {
+    "/api/agent/[token]/skill": ["./agent-skills/**/*"],
+    "/api/agent/[token]/skill/[name]": ["./agent-skills/**/*"],
+  },
   images: {
     remotePatterns: [
       {

@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
-
+import { getUserId } from "@/lib/agent/context";
 import prismadb from "@/lib/prismadb";
 import { Decimal } from "@prisma/client/runtime/library";
+import { Prisma } from "@prisma/client";
+import { isPageError, pageBody, readPage } from "@/lib/api/paginate";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,7 +21,7 @@ export async function POST(
 ) {
   try {
     const resolvedParams = await params;
-    const { userId } = await auth();
+    const userId = await getUserId();
 
     const body = await req.json();
 
@@ -47,12 +48,21 @@ export async function POST(
         id: resolvedParams.storeId,
         userId,
       },
+      select: { id: true },
     });
 
     if (!storeByUserId) {
       return new NextResponse("Unauthorized", { status: 405 });
     }
 
+
+    const duplicate = await prismadb.filter.findFirst({
+      where: { storeId: resolvedParams.storeId, name },
+      select: { id: true },
+    });
+    if (duplicate) {
+      return new NextResponse("A filter with this name already exists", { status: 409 });
+    }
 
     const filter = await prismadb.filter.create({
       data: {
@@ -74,6 +84,9 @@ export async function POST(
 
     return NextResponse.json(filter, { headers: corsHeaders });
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return new NextResponse("A filter with this name already exists", { status: 409 });
+    }
     console.log("[FILTERS_POST]", error);
     return new NextResponse("Internal error", { status: 500 });
   }
@@ -94,9 +107,10 @@ export async function GET(
 
     if (name) {
       // Get specific filter by name
-      const filter = await prismadb.filter.findUnique({
+      const filter = await prismadb.filter.findFirst({
         where: {
           name: name,
+          storeId: resolvedParams.storeId,
         },
         select: {
           id: true,
@@ -113,8 +127,12 @@ export async function GET(
       return NextResponse.json(filter, { headers: corsHeaders });
     }
 
+    const paging = readPage(url.searchParams);
+    if (isPageError(paging)) return new NextResponse(paging.error, { status: 400 });
+
     // Get all filters for the store
     const filters = await prismadb.filter.findMany({
+      ...(paging && { orderBy: { id: "asc" as const }, skip: paging.skip, take: paging.take }),
       where: {
         storeId: resolvedParams.storeId,
       },
@@ -131,7 +149,7 @@ export async function GET(
       },
     });
 
-    return NextResponse.json(filters, { headers: corsHeaders });
+    return NextResponse.json(paging ? pageBody(filters, paging) : filters, { headers: corsHeaders });
   } catch (error) {
     console.log("[FILTERS_GET]", error);
     return new NextResponse("Internal error", { status: 500 });

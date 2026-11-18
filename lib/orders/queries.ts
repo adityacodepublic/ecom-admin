@@ -21,7 +21,9 @@ import {
   PAYMENT_STATUSES,
   PaymentStatus,
   STATUS_LABEL_MAX,
-  canWithdrawReturn,
+  StatusLock,
+  mayWithdrawReturn,
+  statusLock,
   isCancelled,
   isFinalStatus,
   isRejected,
@@ -44,7 +46,7 @@ export const orderListQuerySchema = z.object({
   q: z.string().trim().max(100).optional(), // search: order number, customer name / email / phone, receiver name / phone
   from: day.optional(), // first day included, India time
   to: day.optional(), // last day included, India time
-  page: z.coerce.number().int().min(1).default(1),
+  page: z.coerce.number().int().min(1).max(100000).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });
 export type OrderListQuery = z.infer<typeof orderListQuerySchema>;
@@ -229,9 +231,11 @@ export type AdminOrder = Omit<AdminOrderSummary, "itemNames" | "returnStatus"> &
   statuses: OrderStatus[];
   /** False when the status text is not in the list any more (renamed or removed): the admin replaces it. */
   statusKnown: boolean;
-  nextStatus: OrderStatus | null; // one step forward
-  prevStatus: OrderStatus | null; // one step back
-  canCancel: boolean; // the admin can cancel (not from the final stage, not twice)
+  /** Why the status cannot be moved at all: "FINAL" = the order is complete, "RETURN" = a return exists. Null = movable. */
+  statusLock: StatusLock | null;
+  nextStatus: OrderStatus | null; // one step forward (null when locked)
+  prevStatus: OrderStatus | null; // one step back (null when locked)
+  canCancel: boolean; // the admin can cancel (not from the final stage, not with a return, not twice)
   canRestoreStock: boolean; // cancelled, and its items were never put back into stock
   stockRestored: boolean; // cancelled, and the items were put back into stock
   returnsEnabled: boolean;
@@ -244,7 +248,8 @@ export type AdminReturn = {
   reason: string;
   note: string | null;
   requestedAt: string;
-  restocked: boolean;
+  restocked: boolean; // display marker: the return put the items back into stock
+  canRestock: boolean; // the order's stock is still taken (the shared flag), so "Put items back into stock" may be used
   statusKnown: boolean; // false: the status text is not in the return list any more
   nextStatus: string | null;
   prevStatus: string | null;
@@ -262,6 +267,7 @@ export async function getAdminOrder(storeId: string, ref: OrderRef): Promise<Adm
   const d = parseDetails(o.id, o.details);
   const images = await firstImages(d.items.map((i) => i.productId));
   const s = adminSummary(o);
+  const lock = isCancelled(s.status) ? null : statusLock(statuses, s.status, d.return !== null);
   return {
     id: s.id,
     orderNumber: s.orderNumber,
@@ -284,9 +290,10 @@ export async function getAdminOrder(storeId: string, ref: OrderRef): Promise<Adm
     events: d.events,
     statuses,
     statusKnown: statuses.includes(s.status),
-    nextStatus: nextStatus(statuses, s.status),
-    prevStatus: prevStatus(statuses, s.status),
-    canCancel: !isCancelled(s.status) && !isFinalStatus(statuses, s.status),
+    statusLock: lock,
+    nextStatus: lock ? null : nextStatus(statuses, s.status),
+    prevStatus: lock ? null : prevStatus(statuses, s.status),
+    canCancel: !lock && !isCancelled(s.status),
     canRestoreStock: isCancelled(s.status) && d.stockReserved === true,
     stockRestored: isCancelled(s.status) && d.stockReserved === false,
     returnsEnabled: returns.enabled,
@@ -298,6 +305,7 @@ export async function getAdminOrder(storeId: string, ref: OrderRef): Promise<Adm
           note: d.return.note,
           requestedAt: d.return.requestedAt,
           restocked: d.return.restocked,
+          canRestock: !d.return.restocked && d.stockReserved === true,
           statusKnown: returns.statuses.includes(d.return.status),
           nextStatus: nextStatus(returns.statuses, d.return.status),
           prevStatus: prevStatus(returns.statuses, d.return.status),
@@ -326,19 +334,28 @@ const notCancelled: Prisma.OrderWhereInput = { status: { not: CANCELLED } };
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const IST_MS = 330 * 60 * 1000;
 
-/** Paid revenue per month of the given year, India time. */
+/**
+ * Paid revenue per month of the given year, India time. The database groups the rows (one row per month comes
+ * back, not every order). "createdAt" is a UTC timestamp without time zone, so it is first read as UTC and then
+ * moved to Asia/Kolkata before the month is cut. The year bounds are passed as explicit UTC instants so the
+ * database session time zone cannot shift them.
+ */
 export async function revenueByMonth(storeId: string, year = new Date(Date.now() + IST_MS).getUTCFullYear()) {
-  const rows = await prismadb.order.findMany({
-    where: {
-      storeId,
-      paymentStatus: "PAID",
-      ...notCancelled,
-      createdAt: { gte: new Date(`${year}-01-01T00:00:00+05:30`), lt: new Date(`${year + 1}-01-01T00:00:00+05:30`) },
-    },
-    select: { total: true, createdAt: true },
-  });
+  const from = new Date(`${year}-01-01T00:00:00+05:30`);
+  const to = new Date(`${year + 1}-01-01T00:00:00+05:30`);
+  const rows = await prismadb.$queryRaw<{ month: Date; paise: bigint }[]>`
+    SELECT date_trunc('month', ("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Kolkata') AS month,
+           (SUM("total") * 100)::bigint AS paise
+    FROM "Order"
+    WHERE "storeId" = ${storeId}
+      AND "paymentStatus" = 'PAID'
+      AND "status" <> ${CANCELLED}
+      AND "createdAt" >= (${from.toISOString()}::timestamptz AT TIME ZONE 'UTC')
+      AND "createdAt" < (${to.toISOString()}::timestamptz AT TIME ZONE 'UTC')
+    GROUP BY 1`;
   const sums = MONTHS.map(() => 0);
-  for (const r of rows) sums[new Date(r.createdAt.getTime() + IST_MS).getUTCMonth()] += toPaise(r.total);
+  // month is the IST wall-clock month start (a timestamp without zone); Prisma hands it back as that same wall time in UTC.
+  for (const r of rows) sums[r.month.getUTCMonth()] += Number(r.paise);
   return MONTHS.map((month, i) => ({ month, revenuePaise: sums[i] }));
 }
 
@@ -485,7 +502,7 @@ export async function getCustomerOrder(storeId: string, customerId: string, ref:
           reason: d.return.reason,
           note: d.return.note,
           requestedAt: d.return.requestedAt,
-          canWithdraw: canWithdrawReturn((settings ?? parseOrderSettings(null)).returns.statuses, d.return.status),
+          canWithdraw: mayWithdrawReturn((settings ?? parseOrderSettings(null)).returns.statuses, d.return, d.returnWithdrawals),
           rejected: isRejected(d.return.status),
         }
       : null,

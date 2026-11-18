@@ -7,6 +7,7 @@ import { getContact } from "@/lib/contact";
 import { getOrderSettings } from "@/lib/orders/settings";
 import { SettingsForm } from "./components/settings-form";
 import { ContactSection } from "./components/contact-section";
+import { AgentAccessCard } from "./components/agent-access-card";
 import { OrderSettingsCard } from "./components/order-settings-card";
 
 const SettingsPage = async ({
@@ -26,6 +27,8 @@ const SettingsPage = async ({
       id: resolvedParams.storeId,
       userId,
     },
+    // SettingsForm is a client component: only the columns it uses (never agentAccess).
+    select: { id: true, name: true, slug: true },
   });
 
   if (!store) {
@@ -43,6 +46,8 @@ const SettingsPage = async ({
         </SettingsForm>
         <h3 className="pt-4 text-lg font-semibold tracking-tight">Orders</h3>
         <OrderSettingsCard storeId={store.id} initial={orderSettings} />
+        <h3 className="pt-4 text-lg font-semibold tracking-tight">Agent</h3>
+        <AgentAccessCard storeId={store.id} />
       </div>
     </div>
   );

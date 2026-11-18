@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
-
+import { getUserId } from "@/lib/agent/context";
 import prismadb from "@/lib/prismadb";
+import { isPageError, pageBody, readPage } from "@/lib/api/paginate";
+import { checkImages } from "@/lib/api/validate";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,7 +20,7 @@ export async function POST(
 ) {
   try {
     const resolvedParams = await params;
-    const { userId } = await auth();
+    const userId = await getUserId();
 
     const body = await req.json();
 
@@ -33,8 +34,9 @@ export async function POST(
       return new NextResponse("Label is required", { status: 400 });
     }
 
-    if (!images || !images.length) {
-      return new NextResponse("Images are required", { status: 400 });
+    const checkedImages = checkImages(images, { href: true });
+    if (!checkedImages.ok) {
+      return new NextResponse(checkedImages.error, { status: 400 });
     }
 
     if (!resolvedParams.storeId) {
@@ -47,6 +49,7 @@ export async function POST(
         id: resolvedParams.storeId,
         userId,
       },
+      select: { id: true },
     });
 
     if (!storeByUserId) {
@@ -59,13 +62,11 @@ export async function POST(
         storeId: resolvedParams.storeId,
         images: {
           createMany: {
-            data: images.map(
-              (image: { url: string; order: number; href?: string }) => ({
-                url: image.url,
-                order: image.order,
-                href: image.href ?? "",
-              }),
-            ),
+            data: checkedImages.data.map((image) => ({
+              url: image.url,
+              order: image.order,
+              href: image.href ?? "",
+            })),
           },
         },
       },
@@ -89,7 +90,11 @@ export async function GET(
       return new NextResponse("Store id is required", { status: 400 });
     }
 
+    const paging = readPage(new URL(req.url).searchParams);
+    if (isPageError(paging)) return new NextResponse(paging.error, { status: 400 });
+
     const billboards = await prismadb.billboard.findMany({
+      ...(paging && { orderBy: { id: "asc" as const }, skip: paging.skip, take: paging.take }),
       where: {
         storeId: resolvedParams.storeId,
       },
@@ -106,7 +111,7 @@ export async function GET(
       },
     });
 
-    return NextResponse.json(billboards, { headers: corsHeaders });
+    return NextResponse.json(paging ? pageBody(billboards, paging) : billboards, { headers: corsHeaders });
   } catch (error) {
     console.log("[BILLBOARDS_GET]", error);
     return new NextResponse("Internal error", { status: 500 });

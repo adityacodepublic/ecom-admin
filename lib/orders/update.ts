@@ -5,14 +5,16 @@ import { z } from "zod";
 import prismadb from "@/lib/prismadb";
 import { MARKDOWN_MAX, OrderDetails, detailsToJson, OrderEvent, orderDetailsSchema, parseDetails, expectedDeliverySchema, PRIVATE_NOTE_MAX } from "./details";
 import { OrderError } from "./errors";
-import { getOrderSettingsTx } from "./settings";
+import { OrderSettings, getOrderSettingsTx } from "./settings";
 import {
   CANCELLED,
   PAYMENT_STATUSES,
   REJECTED,
   canMoveReturn,
-  canWithdrawReturn,
+  STATUS_LOCK_MESSAGES,
   isFinalStatus,
+  mayWithdrawReturn,
+  statusLock,
   isRejected,
   PAYMENT_STATUS_LABELS,
   STATUS_LABEL_MAX,
@@ -30,7 +32,9 @@ import {
  * Cancelling does NOT give the stock back (the parcel may still be on its way): the admin restores it with a button.
  */
 
-export const TX_OPTIONS = { maxWait: 15000, timeout: 20000 } as const;
+// A checkout is 7 statements (scripts/profile-checkout.ts), an update 3-5: tens of milliseconds locally and a few seconds even
+// at 300 ms per round trip. 10 s is far above that; if a transaction ever needs more, something is wrong and failing beats hanging.
+export const TX_OPTIONS = { maxWait: 5000, timeout: 10000 } as const;
 
 /** An order is addressed by its id (uuid) or by its per-store number ("1042"). */
 export type OrderRef = { id: string } | { orderNumber: number };
@@ -135,8 +139,13 @@ export async function adminUpdateOrder(storeId: string, ref: OrderRef, adminUser
 
     const from = order.status;
     let current = order.status; // the status after this update
+    let settings: OrderSettings | null = null; // read once, only when a status or a return changes
+    const loadSettings = async () => (settings ??= await getOrderSettingsTx(tx, storeId));
     if (input.status && input.status !== from) {
-      const { statuses } = await getOrderSettingsTx(tx, storeId);
+      const { statuses } = await loadSettings();
+      // Frozen: complete orders (final stage) and orders with a return (any return state) cannot be moved any more.
+      const lock = statusLock(statuses, from, details.return !== null);
+      if (lock) throw new OrderError("STATUS_LOCKED", STATUS_LOCK_MESSAGES[lock], { status: from, reason: lock });
       if (!canMoveStatus(statuses, from, input.status)) {
         throw new OrderError("INVALID_TRANSITION", `Cannot move an order from ${from} to ${input.status}`, { from, to: input.status });
       }
@@ -157,7 +166,7 @@ export async function adminUpdateOrder(storeId: string, ref: OrderRef, adminUser
     if (input.returnStatus !== undefined || input.restock) {
       const ret = details.return;
       if (!ret) throw new OrderError("NO_RETURN", "This order has no return");
-      const { returns } = await getOrderSettingsTx(tx, storeId);
+      const { returns } = await loadSettings();
       if (input.returnStatus !== undefined && input.returnStatus !== ret.status) {
         if (!canMoveReturn(returns.statuses, ret.status, input.returnStatus)) {
           throw new OrderError("INVALID_TRANSITION", `Cannot move a return from ${ret.status} to ${input.returnStatus}`, { from: ret.status, to: input.returnStatus });
@@ -167,7 +176,10 @@ export async function adminUpdateOrder(storeId: string, ref: OrderRef, adminUser
         ret.status = to;
       }
       if (input.restock && !ret.restocked) {
+        // One shared flag with "Restore stock" of a cancelled order: stock goes back only while stockReserved is true.
+        if (details.stockReserved !== true) throw new OrderError("VALIDATION", "The stock of this order was already put back (or never taken)");
         await restoreStock(tx, order.id, order.storeId);
+        details.stockReserved = false;
         ret.restocked = true;
         events.push(newEvent({ type: "system", message: `${stockNote(details)} (return)`, actor: "system", customerVisible: false, meta }));
       }
@@ -262,11 +274,11 @@ export async function customerCancelOrder(storeId: string, customerId: string, r
     if (!cancellation.enabled || !cancellation.allowedAt.includes(order.status)) {
       throw new OrderError("NOT_CANCELLABLE", "This order can no longer be cancelled here. Please contact the store.", { status: order.status });
     }
+    const details = parseDetails(order.id, order.details);
     const why = reason?.trim() ?? "";
     if (cancellation.askReason) {
       if (!why) throw new OrderError("VALIDATION", "Please choose a reason");
     }
-    const details = parseDetails(order.id, order.details);
     details.events.push(
       newEvent({
         type: "status",
@@ -327,10 +339,11 @@ export async function customerWithdrawReturn(storeId: string, customerId: string
     const { returns } = await getOrderSettingsTx(tx, storeId);
     const details = parseDetails(order.id, order.details);
     if (!details.return) throw new OrderError("NO_RETURN", "This order has no return");
-    if (!canWithdrawReturn(returns.statuses, details.return.status)) {
+    if (!mayWithdrawReturn(returns.statuses, details.return, details.returnWithdrawals)) {
       throw new OrderError("NOT_WITHDRAWABLE", "This return is already being handled and can no longer be cancelled here. Please contact the store.");
     }
     details.return = null;
+    details.returnWithdrawals += 1; // one withdrawal per order: a second return cannot be withdrawn
     details.events.push(newEvent({ type: "return", message: "Customer cancelled the return request", actor: "customer", customerVisible: true }));
     await saveOrder(tx, order.id, details, {});
     return { id: order.id };

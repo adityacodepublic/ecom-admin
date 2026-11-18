@@ -4,6 +4,7 @@ import { checkoutSchema, createOrder } from "@/lib/orders/create";
 import { listCustomerOrders, parseListQuery } from "@/lib/orders/queries";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 30; // seconds: an order write never legitimately takes this long (see lib/orders/update.ts TX_OPTIONS)
 
 type Params = { params: Promise<{ storeId: string }> };
 

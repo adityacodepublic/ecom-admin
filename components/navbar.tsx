@@ -19,6 +19,8 @@ const Navbar = async () => {
     where: {
       userId,
     },
+    // Client component below: send only what the switcher shows (never the whole row, e.g. agentAccess).
+    select: { id: true, name: true },
   });
 
   return (

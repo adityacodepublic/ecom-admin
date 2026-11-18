@@ -30,6 +30,8 @@ const formSchema = z.object({
   name: z.string().trim().min(2, "Name too short"),
   value: z
     .object({
+      // db id of an existing Value: sent back so the row keeps its identity (rename); absent = new value
+      id: z.string().optional(),
       value: z.coerce.number().optional(),
       unit: z.string().trim().min(1, "Value should be more than one chracter."),
     })
@@ -42,7 +44,7 @@ type FilterFormValues = z.infer<typeof formSchema>;
 interface FilterFormProps {
   initialData: {
     name: string;
-    value: { value: Decimal | null; unit: string }[];
+    value: { id: string; value: Decimal | null; unit: string }[];
     id: string;
   } | null;
 }
@@ -65,7 +67,8 @@ export const FilterForm: React.FC<FilterFormProps> = ({ initialData }) => {
     return {
       name: data?.name || "",
       value: data?.value.map((v: any) => ({
-        value: v?.value ? Number(v.value) : undefined,
+        id: v.id as string,
+        value: v?.value != null ? Number(v.value) : undefined,
         unit: v.unit,
       })) || [{ value: 0, unit: "" }],
     };
@@ -110,6 +113,8 @@ export const FilterForm: React.FC<FilterFormProps> = ({ initialData }) => {
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "value",
+    // "id" is the db id of the Value and must survive in the form state, so use another key internally
+    keyName: "rowKey",
   });
 
   const handleInputChange = (index: number, input: string) => {
@@ -120,6 +125,7 @@ export const FilterForm: React.FC<FilterFormProps> = ({ initialData }) => {
       form.setValue(`value.${index}.value`, number);
       form.setValue(`value.${index}.unit`, sanitize(text));
     } else {
+      form.setValue(`value.${index}.value`, undefined);
       form.setValue(`value.${index}.unit`, sanitize(input));
     }
   };
@@ -193,7 +199,7 @@ export const FilterForm: React.FC<FilterFormProps> = ({ initialData }) => {
         !event.altKey &&
         !event.shiftKey
       ) {
-        remove(fields.flatMap((item) => item.id).length);
+        remove(fields.length);
       }
     };
     document.addEventListener("keydown", handleKeydown);
@@ -262,7 +268,7 @@ export const FilterForm: React.FC<FilterFormProps> = ({ initialData }) => {
             </FormItem>
 
             {fields.map((field, index) => (
-              <div key={field.id + index}>
+              <div key={field.rowKey}>
                 <FormField
                   control={form.control}
                   name={`value.${index}`}

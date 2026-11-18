@@ -1,3 +1,5 @@
+import { notFound } from "next/navigation";
+
 import prismadb from "@/lib/prismadb";
 
 import { ProductForm } from "./components/product-form";
@@ -8,9 +10,10 @@ const ProductPage = async ({
   params: Promise<{ productId: string; storeId: string }>;
 }) => {
   const resolvedParams = await params;
-  const product = await prismadb.product.findUnique({
+  const product = await prismadb.product.findFirst({
     where: {
       id: resolvedParams.productId,
+      storeId: resolvedParams.storeId,
     },
     include: {
       images: true,
@@ -34,6 +37,9 @@ const ProductPage = async ({
       },
     },
   });
+
+  // "new" is the create page. Any other id must be a product of THIS store.
+  if (!product && resolvedParams.productId !== "new") notFound();
 
   const categories = await prismadb.category.findMany({
     where: {

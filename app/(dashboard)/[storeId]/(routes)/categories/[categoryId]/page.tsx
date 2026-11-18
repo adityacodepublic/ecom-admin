@@ -1,3 +1,5 @@
+import { notFound } from "next/navigation";
+
 import prismadb from "@/lib/prismadb";
 
 import { CategoryForm } from "./components/category-form";
@@ -8,11 +10,15 @@ const CategoryPage = async ({
   params: Promise<{ categoryId: string; storeId: string }>;
 }) => {
   const resolvedParams = await params;
-  const category = await prismadb.category.findUnique({
+  const category = await prismadb.category.findFirst({
     where: {
       id: resolvedParams.categoryId,
+      storeId: resolvedParams.storeId,
     },
   });
+
+  // "new" is the create page. Any other id must be a category of THIS store.
+  if (!category && resolvedParams.categoryId !== "new") notFound();
 
   const billboards = await prismadb.billboard.findMany({
     where: {

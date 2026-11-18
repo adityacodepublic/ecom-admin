@@ -1,5 +1,5 @@
 /**
- * Proves the order safety rules on the LOCAL database. No Cloudinary, no Stripe, no emails.
+ * Proves the order safety rules on the LOCAL database. No Cloudinary, no emails, no payment gateway.
  * Customer routes are called through their real route handlers (so the checks are on the real JSON
  * response); admin actions through lib/orders (the routes only add the Clerk owner check on top).
  * It creates throw-away stores (slug zz-ord-test-*) and removes everything it created at the end.
@@ -15,8 +15,8 @@ import { adminUpdateOrder, appendOrderEvent } from "@/lib/orders/update";
 import { getAdminOrder, getOrderStats, listAdminOrders } from "@/lib/orders/queries";
 import { updateContact } from "@/lib/contact";
 import { updateOrderSettings } from "@/lib/orders/settings";
-import { isOrderError } from "@/lib/orders/errors";
-import { orderNumberRetries } from "@/lib/orders/create";
+import { OrderError, isOrderError } from "@/lib/orders/errors";
+import { duplicateOrders, orderNumberRetries } from "@/lib/orders/create";
 import * as ordersRoute from "@/app/api/[storeId]/customer/orders/route";
 import * as orderRoute from "@/app/api/[storeId]/customer/orders/[orderId]/route";
 import * as cancelRoute from "@/app/api/[storeId]/customer/orders/[orderId]/cancel/route";
@@ -80,6 +80,9 @@ async function makeStore(name: string, settings?: object) {
 const stockOf = async (id: string) => (await prismadb.product.findUniqueOrThrow({ where: { id } })).quantity;
 const contact = (n: string) => ({ fname: `Test ${n}`, email: `${n}@example.com`, phone: "+91 98765 43210" });
 const newAddress = { new: { value: "12 MG Road, Pune", pincode: "411001", instructions: "Ring bell" } };
+
+/** Makes an order older than the 60 s duplicate window (so a repeat of the same cart is a new order). */
+const age = (orderId: string, seconds = 120) => prismadb.order.update({ where: { id: orderId }, data: { createdAt: new Date(Date.now() - seconds * 1000) } });
 
 const checkout = (storeId: string, customer: string, body: object) =>
   call(ordersRoute.POST, { method: "POST", params: { storeId }, customer, body });
@@ -177,6 +180,7 @@ async function main() {
   });
   const profile = await prismadb.users.findUniqueOrThrow({ where: { id: C1 } });
   check("checkout: existing profile not overwritten", o2res.status === 201 && profile.fname === "Test c1" && profile.email === "c1@example.com");
+  await age(o2res.body.order.id);
   check("checkout: receiver for that order is the one typed", parseDetails(o2res.body.order.id, (await prismadb.order.findUniqueOrThrow({ where: { id: o2res.body.order.id } })).details).shipTo.name === "Someone Else");
 
   // Someone else's address
@@ -250,6 +254,7 @@ async function main() {
 
   // ------------------------------------------------------------ 7. status machine
   const sm = (await checkout(A.store.id, C1, { items: [{ productId: shirt.id, quantity: 1 }], address: { addressId: c1Address }, paymentMethod: "COD" })).body.order;
+  await age(sm.id);
   const tryUpdate = async (body: Parameters<typeof adminUpdateOrder>[3]) => {
     try {
       await adminUpdateOrder(A.store.id, { id: sm.id }, OWNER, body);
@@ -274,7 +279,10 @@ async function main() {
   check("notes: admin can save a note", (await tryUpdate({ privateNote: "NOTES-secret-do-not-show" })) === "ok");
   check("status: Shipped -> Delivered refused (Out for delivery first)", (await tryUpdate({ status: "Delivered" })) === "INVALID_TRANSITION");
   check("status: Out for delivery -> Delivered + COD paid", (await tryUpdate({ status: "Out for delivery" })) === "ok" && (await tryUpdate({ status: "Delivered", paymentStatus: "PAID" })) === "ok");
-  check("status: Delivered -> Cancelled refused (final stage)", (await tryUpdate({ status: "Cancelled" })) === "INVALID_TRANSITION");
+  check("freeze: Delivered (final) -> Cancelled refused STATUS_LOCKED", (await tryUpdate({ status: "Cancelled" })) === "STATUS_LOCKED");
+  check("freeze: Delivered (final) -> back to Out for delivery refused STATUS_LOCKED", (await tryUpdate({ status: "Out for delivery" })) === "STATUS_LOCKED");
+  const frozen = (await getAdminOrder(A.store.id, { id: sm.id }))!;
+  check("freeze: admin view says FINAL, no next/prev, cannot cancel", frozen.statusLock === "FINAL" && frozen.nextStatus === null && frozen.prevStatus === null && frozen.canCancel === false, frozen.statusLock);
 
   // ------------------------------------------------------------ 7b. returns (sm is Delivered = the final stage)
   const retCall = (method: "POST" | "DELETE", customer: string, body?: unknown) =>
@@ -298,7 +306,12 @@ async function main() {
   check("return: a second request is refused", (await retCall("POST", C1, { reason: "Damaged" })).body?.error?.code === "RETURN_EXISTS");
   const w = await retCall("DELETE", C1);
   check("return: customer withdraws while Requested", w.status === 200 && w.body.order.return === null && w.body.order.canReturn === true, w.body);
-  check("return: asks again", (await retCall("POST", C1, { reason: "Wrong item" })).status === 200);
+  const r2 = await retCall("POST", C1, { reason: "Wrong item" });
+  check("return: asks again (one more return is allowed after one withdrawal)", r2.status === 200);
+  check("return: first return was withdrawable (canWithdraw true), the second is not (false)", r1.body.order.return?.canWithdraw === true && r2.body.order.return?.canWithdraw === false, [r1.body.order.return, r2.body.order.return]);
+  check("return: the second return cannot be withdrawn even at Requested -> NOT_WITHDRAWABLE", (await retCall("DELETE", C1)).body?.error?.code === "NOT_WITHDRAWABLE");
+  check("return: details.returnWithdrawals counts the one withdrawal", parseDetails(sm.id, (await prismadb.order.findUniqueOrThrow({ where: { id: sm.id } })).details).returnWithdrawals === 1);
+  check("freeze: an order with a return cannot be moved (STATUS_LOCKED)", (await tryUpdate({ status: "Out for delivery" })) === "STATUS_LOCKED");
 
   check("return: Requested -> Received refused (one step at a time)", (await tryUpdate({ returnStatus: "Received" })) === "INVALID_TRANSITION");
   check("return: Requested -> Approved allowed", (await tryUpdate({ returnStatus: "Approved" })) === "ok");
@@ -306,6 +319,9 @@ async function main() {
   const stockBeforeRestock = await stockOf(shirt.id);
   check("return: admin puts the items back into stock", (await tryUpdate({ restock: true })) === "ok" && (await stockOf(shirt.id)) === stockBeforeRestock + 1);
   check("return: restock happens only once", (await tryUpdate({ restock: true })) === "ok" && (await stockOf(shirt.id)) === stockBeforeRestock + 1);
+  const afterRestock = parseDetails(sm.id, (await prismadb.order.findUniqueOrThrow({ where: { id: sm.id } })).details);
+  check("stock flag: after the return restock stockReserved is false and return.restocked is true (marker)", afterRestock.stockReserved === false && afterRestock.return?.restocked === true);
+  check("stock flag: the admin view offers no second restock", (await getAdminOrder(A.store.id, { id: sm.id }))!.return?.canRestock === false);
   check("return: payment is not changed by a return", (await prismadb.order.findUniqueOrThrow({ where: { id: sm.id } })).paymentStatus === "PAID");
   check("return: admin rejects it", (await tryUpdate({ returnStatus: "Rejected" })) === "ok");
   check("return: a rejected return cannot move again", (await tryUpdate({ returnStatus: "Approved" })) === "INVALID_TRANSITION");
@@ -379,6 +395,7 @@ async function main() {
 
   await updateOrderSettings(A.store.id, { checkoutPaymentStep: false, autoEmails: true });
   await updateContact(A.store.id, { phone: "+91 98765 00000", email: "owner@example.com" });
+  await age(sm.id);
   const noStep = await checkout(A.store.id, C1, { items: [{ productId: shirt.id, quantity: 1 }], address: { addressId: c1Address } });
   check("settings: payment step off -> order placed with no method (seller agrees later)", noStep.status === 201 && noStep.body.order.payment === "");
   const pub = await call(settingsRoute.GET, { params: { storeId: A.store.id }, secret: null });
@@ -388,6 +405,152 @@ async function main() {
   const good = await call(ordersRoute.GET, { params: { storeId: A.store.id }, customer: C1, origin: "http://localhost:3001" });
   check("cors: other origins get no Allow-Origin", evil.headers.get("access-control-allow-origin") === null);
   check("cors: the store origin is allowed", good.headers.get("access-control-allow-origin") === "http://localhost:3001");
+
+  // ------------------------------------------------------------ 10b. freeze rules, shared stock flag, withdrawal rules (own store)
+  const F = await makeStore("F");
+  await updateOrderSettings(F.store.id, { returns: { enabled: true } });
+  const fp = await F.product("Frozen thing", "10.00", 100, 20);
+  const fOrder = async (customer: string, quantity: number, first = false) => {
+    const r = await checkout(F.store.id, customer, { items: [{ productId: fp.id, quantity }], address: newAddress, ...(first ? { contact: contact(customer) } : {}), paymentMethod: "COD" });
+    if (r.status !== 201) throw new Error(`fOrder failed ${JSON.stringify(r.body)}`);
+    await age(r.body.order.id);
+    return r.body.order.id as string;
+  };
+  const fTry = async (orderId: string, body: Parameters<typeof adminUpdateOrder>[3]) => {
+    try {
+      await adminUpdateOrder(F.store.id, { id: orderId }, OWNER, body);
+      return "ok";
+    } catch (e) {
+      return isOrderError(e) ? `${e.code}:${e.message}` : String(e);
+    }
+  };
+  const walkToDelivered = async (orderId: string) => {
+    for (const st of ["Confirmed", "Packed", "Shipped", "Out for delivery", "Delivered"]) if ((await fTry(orderId, { status: st })) !== "ok") throw new Error(`walk failed at ${st}`);
+  };
+  const fCustomer = `zz_ord_f1_${Date.now()}`;
+  createdUsers.push(fCustomer);
+  const fRet = (orderId: string, method: "POST" | "DELETE", body?: unknown) =>
+    call(returnRoute[method], { method, params: { storeId: F.store.id, orderId }, customer: fCustomer, body });
+  const detailsOf = async (id: string) => parseDetails(id, (await prismadb.order.findUniqueOrThrow({ where: { id } })).details);
+  const setDetails = (id: string, d: unknown) => prismadb.order.update({ where: { id }, data: { details: d as Prisma.InputJsonValue } });
+  const fakeReturn = { status: "Requested", reason: "x", note: null, requestedAt: new Date().toISOString(), restocked: false };
+
+  // freeze messages
+  const fz = await fOrder(fCustomer, 1, true);
+  await walkToDelivered(fz);
+  check("freeze: final stage message", (await fTry(fz, { status: "Out for delivery" })) === "STATUS_LOCKED:This order is complete and can't be moved.");
+  check("freeze: STATUS_LOCKED is HTTP 409", new OrderError("STATUS_LOCKED", "x").status === 409);
+  check("freeze: no way out of the final stage (cancel refused too)", (await fTry(fz, { status: "Cancelled" })).startsWith("STATUS_LOCKED"));
+
+  // a return exists on an order that is NOT at the final stage (final list changed later): still frozen, with its own message
+  const fr = await fOrder(fCustomer, 2);
+  const frDetails = await detailsOf(fr);
+  frDetails.return = { ...fakeReturn, reason: "Damaged" };
+  await setDetails(fr, frDetails);
+  check("freeze: an order with a return (not final) -> A return is in progress.", (await fTry(fr, { status: "Confirmed" })) === "STATUS_LOCKED:A return is in progress.");
+  const frView = (await getAdminOrder(F.store.id, { id: fr }))!;
+  check("freeze: admin view says RETURN, no next/prev, cannot cancel", frView.statusLock === "RETURN" && frView.nextStatus === null && frView.prevStatus === null && frView.canCancel === false);
+  check("freeze: the status did not change", (await prismadb.order.findUniqueOrThrow({ where: { id: fr } })).status === "Placed");
+
+  // an old (unlisted) status may still move to a listed one, when not final and without a return
+  const old1 = await fOrder(fCustomer, 3);
+  await prismadb.order.update({ where: { id: old1 }, data: { status: "Legacy status" } });
+  check("freeze: an old unlisted status can move to a listed status (no return, not final)", (await fTry(old1, { status: "Packed" })) === "ok");
+  const old2 = await fOrder(fCustomer, 4);
+  await prismadb.order.update({ where: { id: old2 }, data: { status: "Legacy status" } });
+  const old2Details = await detailsOf(old2);
+  old2Details.return = { ...fakeReturn };
+  await setDetails(old2, old2Details);
+  check("freeze: an old unlisted status WITH a return cannot move", (await fTry(old2, { status: "Packed" })).startsWith("STATUS_LOCKED"));
+
+  // shared stock flag (a): return restock first, then "Restore stock" of a (forced) cancelled order adds nothing
+  const sa = await fOrder(fCustomer, 5);
+  await walkToDelivered(sa);
+  check("stock flag: customer asks for a return", (await fRet(sa, "POST", { reason: "Damaged" })).status === 200);
+  const stockA0 = await stockOf(fp.id);
+  check("stock flag: return restock adds the 5 items", (await fTry(sa, { restock: true })) === "ok" && (await stockOf(fp.id)) === stockA0 + 5);
+  await prismadb.order.update({ where: { id: sa }, data: { status: "Cancelled" } }); // cannot happen through the app; forced to prove the flag
+  check("stock flag: then cancel-restore adds nothing (flag already false)", (await fTry(sa, { restoreStock: true })) === "ok" && (await stockOf(fp.id)) === stockA0 + 5);
+
+  // shared stock flag (b): cancel-restore first, then a return restock is refused and adds nothing
+  const sb = await fOrder(fCustomer, 6);
+  check("stock flag: cancel order", (await fTry(sb, { status: "Cancelled" })) === "ok");
+  const stockB0 = await stockOf(fp.id);
+  check("stock flag: Restore stock adds the 6 items", (await fTry(sb, { restoreStock: true })) === "ok" && (await stockOf(fp.id)) === stockB0 + 6);
+  const sbDetails = await detailsOf(sb);
+  sbDetails.return = { ...fakeReturn };
+  await setDetails(sb, sbDetails);
+  check("stock flag: then a return restock is refused (VALIDATION) and adds nothing", (await fTry(sb, { restock: true })).startsWith("VALIDATION") && (await stockOf(fp.id)) === stockB0 + 6);
+  const sbView = (await getAdminOrder(F.store.id, { id: sb }))!;
+  check("stock flag: the admin view offers neither button", sbView.canRestoreStock === false && sbView.return?.canRestock === false);
+
+  // shared stock flag (c): 6 parallel restock clicks add once
+  const sc = await fOrder(fCustomer, 7);
+  await walkToDelivered(sc);
+  await fRet(sc, "POST", { reason: "Damaged" });
+  const stockC0 = await stockOf(fp.id);
+  await Promise.all(Array.from({ length: 6 }, () => fTry(sc, { restock: true })));
+  check("stock flag: 6 parallel restock clicks add the stock exactly once", (await stockOf(fp.id)) === stockC0 + 7);
+
+  // withdrawal rules
+  const wo = await fOrder(fCustomer, 8);
+  await walkToDelivered(wo);
+  const w1 = await fRet(wo, "POST", { reason: "Damaged" });
+  check("withdraw: first return can be withdrawn (canWithdraw true)", w1.status === 200 && w1.body.order.return.canWithdraw === true);
+  check("withdraw: the first withdrawal works", (await fRet(wo, "DELETE")).status === 200);
+  const w2 = await fRet(wo, "POST", { reason: "Again" });
+  check("withdraw: a second return can be filed after one withdrawal, canWithdraw false", w2.status === 200 && w2.body.order.return.canWithdraw === false);
+  check("withdraw: the second return cannot be withdrawn", (await fRet(wo, "DELETE")).body?.error?.code === "NOT_WITHDRAWABLE");
+  const woDetails = await detailsOf(wo);
+  check("withdraw: still there after the refused withdrawal", woDetails.return?.status === "Requested" && woDetails.returnWithdrawals === 1);
+  const wr = await fOrder(fCustomer, 9);
+  await walkToDelivered(wr);
+  await fRet(wr, "POST", { reason: "Damaged" });
+  check("withdraw: restocked -> cannot be withdrawn even at Requested", (await fTry(wr, { restock: true })) === "ok" && (await fRet(wr, "DELETE")).body?.error?.code === "NOT_WITHDRAWABLE");
+  check("withdraw: and the customer view says canWithdraw false", (await call(orderRoute.GET, { params: { storeId: F.store.id, orderId: wr }, customer: fCustomer })).body.order.return.canWithdraw === false);
+  const raw = JSON.parse(JSON.stringify(woDetails));
+  delete raw.returnWithdrawals;
+  check("withdraw: old details without returnWithdrawals read as 0", orderDetailsSchema.parse(raw).returnWithdrawals === 0);
+
+  // ------------------------------------------------------------ 10c. duplicate order protection
+  const D = await makeStore("D");
+  const dp = await D.product("Dup thing", "12.50", 200, 20);
+  const dq = await D.product("Dup other", "3.00", 200, 20);
+  const dx = `zz_ord_dx_${Date.now()}`;
+  const dy = `zz_ord_dy_${Date.now()}`;
+  const dz = `zz_ord_dz_${Date.now()}`;
+  createdUsers.push(dx, dy, dz);
+  const dCart = (qty: number) => ({ items: [{ productId: dp.id, quantity: qty }, { productId: dq.id, quantity: 1 }], address: newAddress, contact: contact("dx"), paymentMethod: "COD" });
+  const dCount = () => prismadb.order.count({ where: { storeId: D.store.id } });
+  const dupBefore = duplicateOrders.count;
+  const dd1 = await checkout(D.store.id, dx, dCart(2));
+  const dd2 = await checkout(D.store.id, dx, dCart(2));
+  check("duplicate: sequential retry returns the SAME order (201, same id and number)", dd1.status === 201 && dd2.status === 201 && dd1.body.order.id === dd2.body.order.id && dd1.body.order.orderNumber === dd2.body.order.orderNumber, [dd1.body, dd2.body]);
+  check("duplicate: one order, one stock decrement", (await dCount()) === 1 && (await stockOf(dp.id)) === 198 && (await stockOf(dq.id)) === 199);
+  check("duplicate: same response shape as a fresh order", JSON.stringify(Object.keys(dd2.body.order).sort()) === JSON.stringify(Object.keys(dd1.body.order).sort()) && dd2.body.order.totalPaise === dd1.body.order.totalPaise);
+  check("duplicate: the same cart in another item order is still the same order", (await checkout(D.store.id, dx, { ...dCart(2), items: [...dCart(2).items].reverse() })).body.order.id === dd1.body.order.id);
+  check("duplicate: only one address was saved for the retries", (await prismadb.address.count({ where: { usersId: dx } })) === 1);
+  const dc = await checkout(D.store.id, dx, dCart(3));
+  check("duplicate: a different cart (other quantity) creates a new order", dc.status === 201 && dc.body.order.id !== dd1.body.order.id && (await dCount()) === 2 && (await stockOf(dp.id)) === 195);
+  const dOther = await checkout(D.store.id, dy, { ...dCart(2), contact: contact("dy") });
+  check("duplicate: a different customer with the same cart creates a new order", dOther.status === 201 && dOther.body.order.id !== dd1.body.order.id && (await dCount()) === 3);
+  await age(dd1.body.order.id, 61);
+  const dOld = await checkout(D.store.id, dx, dCart(2));
+  check("duplicate: an order older than 60 s does not count -> new order", dOld.status === 201 && dOld.body.order.id !== dd1.body.order.id && (await dCount()) === 4);
+  await adminUpdateOrder(D.store.id, { id: dOld.body.order.id }, OWNER, { status: "Cancelled" });
+  const dCancelled = await checkout(D.store.id, dx, dCart(2));
+  check("duplicate: a Cancelled order does not count -> new order", dCancelled.status === 201 && dCancelled.body.order.id !== dOld.body.order.id);
+  await prismadb.product.update({ where: { id: dp.id }, data: { price: "13.00" } });
+  const dPrice = await checkout(D.store.id, dx, dCart(2));
+  check("duplicate: same cart but another total (price changed) -> new order", dPrice.status === 201 && dPrice.body.order.id !== dCancelled.body.order.id);
+
+  const stockPre = await stockOf(dp.id);
+  const countPre = await dCount();
+  const par = await Promise.all(Array.from({ length: 5 }, () => checkout(D.store.id, dz, { ...dCart(4), contact: contact("dz") })));
+  const parIds = new Set(par.map((r) => r.body?.order?.id));
+  check("duplicate: 5 concurrent identical requests -> all 201 with ONE order id", par.every((r) => r.status === 201) && parIds.size === 1, par.map((r) => r.body));
+  check("duplicate: 5 concurrent -> exactly one new order and one stock decrement (4)", (await dCount()) === countPre + 1 && (await stockOf(dp.id)) === stockPre - 4);
+  check(`duplicate: the protection answered ${duplicateOrders.count - dupBefore} repeats`, duplicateOrders.count - dupBefore >= 6);
 
   // ------------------------------------------------------------ 11. every order in the database matches the details schema
   const all = await prismadb.order.findMany({ select: { id: true, details: true } });

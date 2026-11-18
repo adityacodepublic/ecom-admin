@@ -35,7 +35,9 @@ export const CellAction: React.FC<CellActionProps> = ({ data }) => {
       toast.success("Product deleted.");
       router.refresh();
     } catch (error) {
-      toast.error("Something went wrong");
+      // 409 carries a plain-text reason ("in an order, archive it instead").
+      const d = axios.isAxiosError(error) && error.response?.status === 409 ? error.response.data : null;
+      toast.error(typeof d === "string" && d ? d : "Something went wrong");
     } finally {
       setLoading(false);
       setOpen(false);

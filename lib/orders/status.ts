@@ -47,14 +47,27 @@ export const prevStatus = (list: readonly string[], cur: string): string | null 
 };
 export const isFinalStatus = (list: readonly string[], cur: string) => list.length > 0 && cur === list[list.length - 1];
 
+/** Why the admin cannot move the order status at all: it is complete (final stage), or a return exists. Null = movable. */
+export type StatusLock = "FINAL" | "RETURN";
+export function statusLock(list: readonly string[], status: string, hasReturn: boolean): StatusLock | null {
+  if (isFinalStatus(list, status)) return "FINAL";
+  if (hasReturn) return "RETURN";
+  return null;
+}
+export const STATUS_LOCK_MESSAGES: Record<StatusLock, string> = {
+  FINAL: "This order is complete and can't be moved.",
+  RETURN: "A return is in progress.",
+};
+
 /**
  * Admin moves: one step forward, one step back (to fix a mistake), or Cancelled.
  * An old status (not in the list) may move to any status of the list. Cancelled is final (stock goes back once).
- * Cancelling is not possible from the final stage (that is a return).
+ * The FINAL stage is frozen: no step back, no cancel (that is a return). While a return exists the status is frozen too
+ * (see statusLock, which adminUpdateOrder checks first because it also knows about the return).
  */
 export function canMoveStatus(list: readonly string[], from: string, to: string): boolean {
-  if (from === to || isCancelled(from)) return false;
-  if (isCancelled(to)) return !isFinalStatus(list, from);
+  if (from === to || isCancelled(from) || isFinalStatus(list, from)) return false;
+  if (isCancelled(to)) return true;
   if (!list.includes(to)) return false;
   if (!list.includes(from)) return true;
   return to === nextStatus(list, from) || to === prevStatus(list, from);
@@ -91,6 +104,11 @@ export function canMoveReturn(list: readonly string[], from: string, to: string)
 
 /** The customer may withdraw the request only while it is at the first return status. */
 export const canWithdrawReturn = (list: readonly string[], status: string) => list.length > 0 && status === list[0];
+
+/** One withdrawal per order at most (details.returnWithdrawals), and never after the items were put back into stock. */
+export const MAX_RETURN_WITHDRAWALS = 1;
+export const mayWithdrawReturn = (list: readonly string[], ret: { status: string; restocked: boolean }, withdrawals: number) =>
+  canWithdrawReturn(list, ret.status) && !ret.restocked && withdrawals < MAX_RETURN_WITHDRAWALS;
 
 // ---------------------------------------------------------------- payment
 

@@ -23,6 +23,7 @@ export default async function DashboardLayout({
       id: resolvedParams.storeId,
       userId,
     },
+    select: { id: true },
   });
 
   if (!store) {

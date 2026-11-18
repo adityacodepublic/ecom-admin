@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
-
+import { getUserId } from "@/lib/agent/context";
 import prismadb from "@/lib/prismadb";
+import { inUseResponse } from "@/lib/api/validate";
+import { billboardInStore } from "@/lib/api/store-refs";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -23,9 +24,10 @@ export async function GET(
       return new NextResponse("Category id is required", { status: 400 });
     }
 
-    const category = await prismadb.category.findUnique({
+    const category = await prismadb.category.findFirst({
       where: {
         id: resolvedParams.categoryId,
+        storeId: resolvedParams.storeId,
       },
       select: {
         billboard: {
@@ -57,7 +59,7 @@ export async function DELETE(
 ) {
   try {
     const resolvedParams = await params;
-    const { userId } = await auth();
+    const userId = await getUserId();
 
     if (!userId) {
       return new NextResponse("Unauthenticated", { status: 403 });
@@ -73,10 +75,20 @@ export async function DELETE(
         id: resolvedParams.storeId,
         userId,
       },
+      select: { id: true },
     });
 
     if (!storeByUserId) {
       return new NextResponse("Unauthorized", { status: 405 });
+    }
+
+    // The record must belong to THIS store (ids alone are not enough).
+    const inStore = await prismadb.category.findFirst({
+      where: { id: resolvedParams.categoryId, storeId: resolvedParams.storeId },
+      select: { id: true },
+    });
+    if (!inStore) {
+      return new NextResponse("Not found", { status: 404 });
     }
 
     const category = await prismadb.category.delete({
@@ -88,6 +100,8 @@ export async function DELETE(
 
     return NextResponse.json(category, { headers: corsHeaders });
   } catch (error) {
+    const inUse = inUseResponse(error, "Make sure you removed all products using this category first.", corsHeaders);
+    if (inUse) return inUse;
     console.log("[CATEGORY_DELETE]", error);
     return new NextResponse("Internal error", { status: 500 });
   }
@@ -99,7 +113,7 @@ export async function PATCH(
 ) {
   try {
     const resolvedParams = await params;
-    const { userId } = await auth();
+    const userId = await getUserId();
 
     const body = await req.json();
 
@@ -131,10 +145,24 @@ export async function PATCH(
         id: resolvedParams.storeId,
         userId,
       },
+      select: { id: true },
     });
 
     if (!storeByUserId) {
       return new NextResponse("Unauthorized", { status: 405 });
+    }
+
+    // The record must belong to THIS store (ids alone are not enough).
+    const inStore = await prismadb.category.findFirst({
+      where: { id: resolvedParams.categoryId, storeId: resolvedParams.storeId },
+      select: { id: true },
+    });
+    if (!inStore) {
+      return new NextResponse("Not found", { status: 404 });
+    }
+
+    if (!(await billboardInStore(resolvedParams.storeId, billboardId))) {
+      return new NextResponse("Billboard not found in this store", { status: 400 });
     }
 
     const category = await prismadb.category.update({

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
-
+import { getUserId } from "@/lib/agent/context";
 import prismadb from "@/lib/prismadb";
+import { checkImages, inUseResponse } from "@/lib/api/validate";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": `*`,
@@ -23,9 +23,10 @@ export async function GET(
       return new NextResponse("Billboard id is required", { status: 400 });
     }
 
-    const billboard = await prismadb.billboard.findUnique({
+    const billboard = await prismadb.billboard.findFirst({
       where: {
         id: resolvedParams.billboardId,
+        storeId: resolvedParams.storeId,
       },
       select: {
         label: true,
@@ -52,7 +53,7 @@ export async function DELETE(
 ) {
   try {
     const resolvedParams = await params;
-    const { userId } = await auth();
+    const userId = await getUserId();
 
     if (!userId) {
       return new NextResponse("Unauthenticated", { status: 403 });
@@ -68,10 +69,20 @@ export async function DELETE(
         id: resolvedParams.storeId,
         userId,
       },
+      select: { id: true },
     });
 
     if (!storeByUserId) {
       return new NextResponse("Unauthorized", { status: 405 });
+    }
+
+    // The record must belong to THIS store (ids alone are not enough).
+    const inStore = await prismadb.billboard.findFirst({
+      where: { id: resolvedParams.billboardId, storeId: resolvedParams.storeId },
+      select: { id: true },
+    });
+    if (!inStore) {
+      return new NextResponse("Not found", { status: 404 });
     }
 
     const billboard = await prismadb.billboard.delete({
@@ -90,6 +101,12 @@ export async function DELETE(
       headers: corsHeaders,
     });
   } catch (error) {
+    const inUse = inUseResponse(
+      error,
+      "Make sure you removed all categories using this billboard first.",
+      corsHeaders,
+    );
+    if (inUse) return inUse;
     console.log("[BILLBOARD_DELETE]", error);
     return new NextResponse("Internal error", { status: 500 });
   }
@@ -101,7 +118,7 @@ export async function PATCH(
 ) {
   try {
     const resolvedParams = await params;
-    const { userId } = await auth();
+    const userId = await getUserId();
 
     const body = await req.json();
 
@@ -115,8 +132,9 @@ export async function PATCH(
       return new NextResponse("Label is required", { status: 400 });
     }
 
-    if (!images || !images.length) {
-      return new NextResponse("Images are required", { status: 400 });
+    const checkedImages = checkImages(images, { href: true });
+    if (!checkedImages.ok) {
+      return new NextResponse(checkedImages.error, { status: 400 });
     }
 
     if (!resolvedParams.billboardId) {
@@ -129,45 +147,44 @@ export async function PATCH(
         id: resolvedParams.storeId,
         userId,
       },
+      select: { id: true },
     });
 
     if (!storeByUserId) {
       return new NextResponse("Unauthorized", { status: 405 });
     }
 
-    await prismadb.billboard.update({
-      where: {
-        id: resolvedParams.billboardId,
-      },
-      data: {
-        label,
-        images: {
-          deleteMany: {},
-        },
-      },
+    // The record must belong to THIS store (ids alone are not enough).
+    const inStore = await prismadb.billboard.findFirst({
+      where: { id: resolvedParams.billboardId, storeId: resolvedParams.storeId },
+      select: { id: true },
     });
+    if (!inStore) {
+      return new NextResponse("Not found", { status: 404 });
+    }
 
-    const billboard = await prismadb.billboard.update({
-      where: {
-        id: resolvedParams.billboardId,
-      },
-      data: {
-        images: {
-          createMany: {
-            data: images.map(
-              (image: { url: string; order: number; href?: string }) => ({
-                url: image.url,
-                order: image.order,
-                href: image.href ?? "",
-              }),
-            ),
+    // One transaction: label and images change together or not at all. The row lock makes concurrent edits
+    // of the same billboard take turns (no duplicated images).
+    const billboard = await prismadb.$transaction(async (tx) => {
+      const locked = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM "Billboard" WHERE id = ${resolvedParams.billboardId} AND "storeId" = ${resolvedParams.storeId} FOR UPDATE`;
+      if (locked.length === 0) return null;
+      return tx.billboard.update({
+        where: { id: resolvedParams.billboardId },
+        data: {
+          label,
+          images: {
+            deleteMany: {},
+            createMany: {
+              data: checkedImages.data.map((image) => ({ url: image.url, order: image.order, href: image.href ?? "" })),
+            },
           },
         },
-      },
-      include: {
-        categories: true,
-      },
+        include: { categories: true },
+      });
     });
+    if (!billboard) {
+      return new NextResponse("Not found", { status: 404 });
+    }
 
     const paths = billboard.categories.map((item) => `/category/${item.id}`);
     if (paths && paths.length === 0) {

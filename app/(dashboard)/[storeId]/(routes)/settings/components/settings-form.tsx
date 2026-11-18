@@ -19,7 +19,7 @@ import { StoreUrlCard } from "./store-url-card"
 import { EditButton, SettingRow, SettingsList, SettingsModal, useOpen } from "./setting-row"
 
 interface SettingsFormProps {
-  initialData: Store;
+  initialData: Pick<Store, "id" | "name" | "slug">;
   /** More rows for the first list (for example the contact details). */
   children?: React.ReactNode;
 };

@@ -5,6 +5,7 @@ import { getAdminOrder } from "@/lib/orders/queries";
 import { adminOrderUpdateSchema, adminUpdateOrder, parseOrderRef } from "@/lib/orders/update";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 30; // seconds: an order write never legitimately takes this long (see lib/orders/update.ts TX_OPTIONS)
 
 type Params = { params: Promise<{ storeId: string; orderId: string }> };
 

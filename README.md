@@ -25,8 +25,8 @@ Key Features:
 - You will be able to see graphs of your revenue etc.
 - You will learn Clerk Authentication!
 - Order creation
-- Stripe checkout
-- Stripe webhooks
+- Stripe checkout (abandoned, unused: orders are COD/manual)
+- Stripe webhooks (abandoned: the route answers 410)
 - MySQL + Prisma + PlanetScale
 
 ### Prerequisites
@@ -65,14 +65,14 @@ NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/
 
 DATABASE_URL=''
 NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=""
-STRIPE_API_KEY=
+STRIPE_API_KEY= # unused (Stripe is abandoned)
 # Store URLs (lib/store-url.ts): "path" -> <NEXT_PUBLIC_STORE_URL>/s/<slug>
 NEXT_PUBLIC_TENANT_MODE=path
 NEXT_PUBLIC_STORE_URL=http://localhost:3001
 # "subdomain" -> <NEXT_PUBLIC_STORE_PROTOCOL>://<slug>.<NEXT_PUBLIC_ROOT_DOMAIN> (needs an owned wildcard domain)
 # NEXT_PUBLIC_ROOT_DOMAIN=
 # NEXT_PUBLIC_STORE_PROTOCOL=https
-STRIPE_WEBHOOK_SECRET=
+STRIPE_WEBHOOK_SECRET= # unused (Stripe is abandoned)
 ```
 
 ### Connect to PlanetScale and Push Prisma
