@@ -30,6 +30,7 @@ const ROUTES: Route[] = [
   { pattern: ["products", ":productId"], load: () => import("@/app/api/[storeId]/products/[productId]/route") },
   { pattern: ["filters"], load: () => import("@/app/api/[storeId]/filters/route") },
   { pattern: ["filters", ":filterId"], load: () => import("@/app/api/[storeId]/filters/[filterId]/route") },
+  { pattern: ["home-layout", "data"], load: () => import("@/app/api/[storeId]/home-layout/data/route"), only: ["GET"] },
   { pattern: ["orders"], load: () => import("@/app/api/[storeId]/orders/route") },
   { pattern: ["orders", "stats"], load: () => import("@/app/api/[storeId]/orders/stats/route") },
   { pattern: ["orders", ":orderId"], load: () => import("@/app/api/[storeId]/orders/[orderId]/route") },

@@ -10,6 +10,7 @@ import { AutoForm } from "@/components/ui/autoform";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { sectionSettingsSchemas, type SectionType } from "@/lib/home-layout";
+import { CustomForm } from "./custom-form";
 
 export interface Option {
   value: string;
@@ -73,7 +74,15 @@ const ChangeListener = ({ onChange }: { onChange: SectionFormProps["onChange"] }
   return null;
 };
 
-export const SectionForm = ({ type, settings, billboards, categories, saving, onChange, onSave, onCancel }: SectionFormProps) => {
+/** The custom component has its own form (code boxes); every other type is generated from its zod schema. */
+export const SectionForm = (props: SectionFormProps) =>
+  props.type === "custom" ? (
+    <CustomForm settings={props.settings} saving={props.saving} onChange={props.onChange} onSave={props.onSave} onCancel={props.onCancel} />
+  ) : (
+    <GenericForm {...props} />
+  );
+
+const GenericForm = ({ type, settings, billboards, categories, saving, onChange, onSave, onCancel }: SectionFormProps) => {
   const schema = useMemo(() => new ZodProvider(formSchema(type)), [type]);
   const formComponents = useMemo(
     () => ({ billboard: optionsField(billboards, false), category: optionsField(categories, true) }),

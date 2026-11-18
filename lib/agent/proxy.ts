@@ -12,7 +12,7 @@ import {
 } from "@/lib/agent/store";
 import { newRequestId } from "@/lib/agent/token";
 
-export const MAX_BODY_BYTES = 200_000;
+export const MAX_BODY_BYTES = 400_000;
 /** Vercel caps responses at 4.5 MB; refuse anything bigger than this (serialized) before it gets that far. */
 export const MAX_RESPONSE_BYTES = 3_500_000;
 

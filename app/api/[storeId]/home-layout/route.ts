@@ -45,6 +45,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ storeId:
     for (const s of parsed.data) {
       if (s.type === "carousel") billboardIds.add(s.settings.billboardId);
       if ((s.type === "productList" || s.type === "productGrid") && s.settings.categoryId) categoryIds.add(s.settings.categoryId);
+      if (s.type === "custom") {
+        for (const q of Object.values(s.settings.data)) if (q.source === "products" && q.categoryId) categoryIds.add(q.categoryId);
+      }
     }
     if (billboardIds.size || categoryIds.size) {
       const owned = await prismadb.store.findFirst({ where: { id: storeId, userId }, select: { id: true } });

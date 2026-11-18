@@ -22,6 +22,10 @@ import {
 import { SectionForm, type Option } from "./section-form";
 import { SectionPreview } from "./section-preview";
 
+// A new custom component starts as a working example (it reads the store name from STORE_DATA).
+const STARTER_HTML =
+  '<div style="padding:32px 16px;text-align:center;font-size:22px">Welcome to <b id="name"></b></div><script>document.getElementById("name").textContent = STORE_DATA.store.name;</script>';
+
 interface HomeLayoutEditorProps {
   initialLayout: HomeLayout;
   storeUrl: string;
@@ -70,7 +74,7 @@ export const HomeLayoutEditor = ({ initialLayout, storeUrl, billboards, categori
 
   const add = () => {
     // Zod fills the defaults; the first billboard and a title make the new section valid at once.
-    const settings = sectionSettingsSchemas[newType].parse({ title: "New section", billboardId: billboards[0]?.value });
+    const settings = sectionSettingsSchemas[newType].parse({ title: "New section", billboardId: billboards[0]?.value, html: STARTER_HTML });
     setLayout([...layout, { id: crypto.randomUUID(), type: newType, settings } as HomeSection]);
     setEditing({ index: layout.length, settings, isNew: true });
   };

@@ -11,6 +11,27 @@ const productQuery = {
   search: z.string().optional().describe("Search words (optional, like the store search)"),
 };
 
+// ---- Custom component: the agent's own HTML, shown on the store in a sandboxed frame (opaque origin, so it can
+// never read the shopper's session or cart). It cannot call any API, so the data it needs is declared in `data`
+// and injected as window.STORE_DATA. Same shape as T3 Code's html_render: a self-contained page + a height.
+export const CUSTOM_HTML_MAX = 300_000;
+/** Injected data above this many bytes is refused (the page would get slow): lower the limits. */
+export const CUSTOM_DATA_MAX_BYTES = 200_000;
+export const CUSTOM_DATA_NAME = /^[A-Za-z_][A-Za-z0-9_]{0,31}$/;
+// The frame is sized to its content, so a viewport unit (vh) would make the page grow with its own frame.
+const VIEWPORT_UNIT = /\d\s*(?:[sld]?vh)\b/i;
+
+export const dataQuerySchema = z.discriminatedUnion("source", [
+  z.object({
+    source: z.literal("products"),
+    ...productQuery,
+    limit: z.coerce.number().int().min(1).max(50).default(12).describe("Number of products (1-50)"),
+  }),
+  z.object({ source: z.literal("categories") }),
+  z.object({ source: z.literal("billboards") }),
+]);
+export type DataQuery = z.infer<typeof dataQuerySchema>;
+
 export const sectionSettingsSchemas = {
   categories: z.object({}),
   carousel: z.object({
@@ -24,6 +45,21 @@ export const sectionSettingsSchemas = {
     title: z.string().min(1, "Title is required").describe("Title"),
     ...productQuery,
     limit: z.coerce.number().int().min(1).max(24).default(8).describe("Number of products"),
+  }),
+  custom: z.object({
+    title: z.string().optional().describe("Name (only shown in the admin)"),
+    height: z.coerce.number().int().min(80).max(2000).default(400).describe("Starting height in px. The frame then fits the content."),
+    html: z
+      .string()
+      .min(1, "HTML is required")
+      .max(CUSTOM_HTML_MAX, "HTML is too large (300,000 characters at most; an agent request is capped at 400 KB)")
+      .refine((h) => !VIEWPORT_UNIT.test(h), "Do not use vh units: the frame is sized to the content. Use px, rem or %.")
+      .describe("HTML, with inline <style> and <script>"),
+    data: z
+      .record(z.string().regex(CUSTOM_DATA_NAME, "Data names: letters, digits, _ (start with a letter, 32 at most)"), dataQuerySchema)
+      .default({})
+      .refine((d) => !("store" in d), 'The data name "store" is reserved')
+      .describe("Named data queries, available as STORE_DATA.<name>"),
   }),
   productGrid: z.object({
     title: z.string().min(1, "Title is required").describe("Title"),
@@ -42,6 +78,7 @@ export const sectionTypeLabels: Record<SectionType, string> = {
   carousel: "Billboard carousel",
   productList: "Product list",
   productGrid: "Product grid",
+  custom: "Custom component",
 };
 
 const sectionSchema = <T extends SectionType>(type: T) =>
@@ -56,6 +93,7 @@ export const homeSectionSchema = z.discriminatedUnion("type", [
   sectionSchema("carousel"),
   sectionSchema("productList"),
   sectionSchema("productGrid"),
+  sectionSchema("custom"),
 ]);
 
 export const homeLayoutSchema = z.array(homeSectionSchema);
