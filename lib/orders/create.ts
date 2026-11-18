@@ -1,3 +1,4 @@
+import { revalidateStoreCatalog } from "@/lib/store-revalidate";
 import { randomUUID } from "crypto";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
@@ -119,7 +120,10 @@ export async function createOrder(storeId: string, customerId: string, input: Ch
     try {
       const { result, duplicate } = await prismadb.$transaction((tx) => placeOrder(tx, storeId, customerId, payment, settings.statuses[0], input, profile!, address), TX_OPTIONS);
       if (duplicate) duplicateOrders.count++;
-      else if (settings.autoEmails) void notifyOrder(storeId, result.id, "placed"); // emails: off unless autoEmails (no query when off), not built yet
+      else {
+        revalidateStoreCatalog(storeId); // stock was taken
+        if (settings.autoEmails) void notifyOrder(storeId, result.id, "placed"); // emails: off unless autoEmails (no query when off), not built yet
+      }
       return result;
     } catch (error) {
       if (isOrderNumberClash(error) && attempt < MAX_ATTEMPTS) {

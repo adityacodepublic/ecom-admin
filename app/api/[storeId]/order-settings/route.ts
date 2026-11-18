@@ -1,3 +1,4 @@
+import { revalidateStoreOrderSettings } from "@/lib/store-revalidate";
 import { requireStoreOwner } from "@/lib/api/admin-auth";
 import { errorResponse, json, readBody, storeCors } from "@/lib/api/http";
 import { OrderError } from "@/lib/orders/errors";
@@ -32,6 +33,7 @@ export async function PATCH(req: Request, { params }: Params) {
     const body = await readBody(req, orderSettingsPatchSchema);
     const settings = await updateOrderSettings(storeId, body);
     if (!settings) throw new OrderError("STORE_NOT_FOUND", "Store not found");
+    revalidateStoreOrderSettings(storeId);
     return json({ settings });
   } catch (error) {
     return errorResponse(error, "ORDER_SETTINGS_PATCH");

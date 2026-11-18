@@ -1,3 +1,4 @@
+import { revalidateStoreCatalog } from "@/lib/store-revalidate";
 import { NextResponse } from "next/server";
 import { getUserId } from "@/lib/agent/context";
 import prismadb from "@/lib/prismadb";
@@ -97,6 +98,7 @@ export async function DELETE(
     // const paths = billboard.categories.map((item)=>(`/category/${item.id}`));
     // if(paths && paths.length===0) {paths.push('/');}
 
+    revalidateStoreCatalog(resolvedParams.storeId);
     return NextResponse.json(billboard, {
       headers: corsHeaders,
     });
@@ -191,6 +193,7 @@ export async function PATCH(
       paths.push("/");
     }
 
+    revalidateStoreCatalog(resolvedParams.storeId);
     return NextResponse.json(billboard, {
       headers: corsHeaders,
     });

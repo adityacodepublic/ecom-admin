@@ -1,3 +1,4 @@
+import { revalidateStoreCatalog } from "@/lib/store-revalidate";
 import { NextResponse } from "next/server";
 import { getUserId } from "@/lib/agent/context";
 import prismadb from "@/lib/prismadb";
@@ -73,6 +74,7 @@ export async function POST(
     });
 
 
+    revalidateStoreCatalog(resolvedParams.storeId);
     return NextResponse.json(category, { headers: corsHeaders });
   } catch (error) {
     console.log("[CATEGORIES_POST]", error);

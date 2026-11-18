@@ -1,3 +1,4 @@
+import { revalidateStoreCatalog } from "@/lib/store-revalidate";
 import { NextResponse } from "next/server";
 import { getUserId } from "@/lib/agent/context";
 import prismadb from "@/lib/prismadb";
@@ -124,6 +125,7 @@ export async function DELETE(
     });
 
 
+    revalidateStoreCatalog(resolvedParams.storeId);
     return NextResponse.json(product, { headers: corsHeaders });
   } catch (error) {
     const inUse = inUseResponse(error, "This product is in an order. Archive it instead of deleting it.", corsHeaders);
@@ -282,6 +284,7 @@ export async function PATCH(
       return new NextResponse("Not found", { status: 404 });
     }
 
+    revalidateStoreCatalog(resolvedParams.storeId);
     return NextResponse.json(product, { headers: corsHeaders });
   } catch (error) {
     console.log("[PRODUCT_PATCH]", error);
