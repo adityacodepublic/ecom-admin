@@ -8,10 +8,11 @@ import prismadb from "@/lib/prismadb";
 
 export type Checked<T> = { ok: true; data: T } | { ok: false; error: string };
 
-const isHttps = (u: unknown): u is string => {
+const isWebUrl = (u: unknown): u is string => {
   if (typeof u !== "string" || !u.trim()) return false;
   try {
-    return new URL(u).protocol === "https:";
+    const p = new URL(u).protocol; // http:// links exist in older data and must stay editable; javascript:, data: etc. are rejected
+    return p === "https:" || p === "http:";
   } catch {
     return false;
   }
@@ -19,7 +20,7 @@ const isHttps = (u: unknown): u is string => {
 
 export type CheckedImage = { url: string; order?: number; href?: string };
 
-/** images: a non-empty array of { url (https), order? (whole number), href? (text, billboards only) }. */
+/** images: a non-empty array of { url (http or https), order? (whole number), href? (text, billboards only) }. */
 export function checkImages(images: unknown, opts: { href?: boolean } = {}): Checked<CheckedImage[]> {
   if (images === undefined || images === null || (Array.isArray(images) && images.length === 0)) {
     return { ok: false, error: "Images are required" };
@@ -29,7 +30,7 @@ export function checkImages(images: unknown, opts: { href?: boolean } = {}): Che
   for (let i = 0; i < images.length; i++) {
     const img = images[i] as { url?: unknown; order?: unknown; href?: unknown } | null;
     if (!img || typeof img !== "object" || Array.isArray(img)) return { ok: false, error: `Image ${i + 1} must be an object` };
-    if (!isHttps(img.url)) return { ok: false, error: `Image ${i + 1}: url must be an https link` };
+    if (!isWebUrl(img.url)) return { ok: false, error: `Image ${i + 1}: url must be a web link (http or https)` };
     if (img.order !== undefined && img.order !== null && !(typeof img.order === "number" && Number.isInteger(img.order))) {
       return { ok: false, error: `Image ${i + 1}: order must be a whole number` };
     }

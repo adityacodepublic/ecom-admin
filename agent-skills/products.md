@@ -64,5 +64,5 @@ Only `valueId` is used from each filteritem. `images[].order` defaults to the po
 | 409 on DELETE (`This product is in an order. Archive it instead of deleting it.`) | The product appears in an order. Archive it instead: PATCH with the full body and `"isArchived": true`. |
 | 400 `Quantity must be a whole number, 0 or more` / `Max Quantity must be a whole number, 1 or more` | Send whole numbers (JSON numbers, not text). |
 | 400 `Category not found in this store` / `Filter value not found in this store` | Use ids from this store's `GET /categories` and `GET /filters`. |
-| 400 `Image N: url must be an https link` / `order must be a whole number` / `Images must be an array` | Fix the image list; nothing was changed. |
+| 400 `Image N: url must be a web link (http or https)` / `order must be a whole number` / `Images must be an array` | Fix the image list; nothing was changed. |
 | Product vanished from filters after editing | `filteritems` was omitted on PATCH. Re-send it. |

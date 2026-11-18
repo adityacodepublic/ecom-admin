@@ -102,7 +102,7 @@ async function main() {
   const bad: [string, unknown][] = [
     ["images not an array", goodBody({ name: "CHANGED", images: "https://x.test/a.png" })],
     ["image without url", goodBody({ name: "CHANGED", images: [{ order: 1 }] })],
-    ["image url not https", goodBody({ name: "CHANGED", images: [{ url: "http://x.test/a.png", order: 1 }] })],
+    ["image url not a web link", goodBody({ name: "CHANGED", images: [{ url: "javascript:alert(1)", order: 1 }] })],
     ["image url empty", goodBody({ name: "CHANGED", images: [{ url: "", order: 1 }] })],
     ["image order not an integer", goodBody({ name: "CHANGED", images: [{ url: "https://x.test/a.png", order: 1.5 }] })],
     ["image order text", goodBody({ name: "CHANGED", images: [{ url: "https://x.test/a.png", order: "1" }] })],
@@ -148,7 +148,7 @@ async function main() {
     run(() => billboardRoute.PATCH(req("PATCH", `/api/${S}/billboards/${billboard.id}`, body), { params: Promise.resolve({ billboardId: billboard.id, storeId: S }) }), OWNER, S);
   for (const [label, images] of [
     ["images not an array", "nope"],
-    ["image url http", [{ url: "http://x.test/a.png", order: 1 }]],
+    ["image url not a web link", [{ url: "ftp://x.test/a.png", order: 1 }]],
     ["image order fractional", [{ url: "https://x.test/a.png", order: 0.5 }]],
     ["href not text", [{ url: "https://x.test/a.png", order: 1, href: 5 }]],
   ] as [string, unknown][]) {
