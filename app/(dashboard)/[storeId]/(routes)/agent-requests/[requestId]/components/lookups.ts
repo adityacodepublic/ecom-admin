@@ -8,7 +8,6 @@ export type Lookups = {
   /** Order number when the path points to an order. */
   orderNumber?: number;
   categoryName?: string;
-  billboardName?: string;
 };
 
 const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
@@ -25,8 +24,6 @@ export async function loadLookups(storeId: string, r: AgentRequest): Promise<Loo
         out.targetName = (await prismadb.product.findFirst({ where: { id, storeId }, select: { name: true } }))?.name;
       } else if (feature === "categories") {
         out.targetName = (await prismadb.category.findFirst({ where: { id, storeId }, select: { name: true } }))?.name;
-      } else if (feature === "billboards") {
-        out.targetName = (await prismadb.billboard.findFirst({ where: { id, storeId }, select: { label: true } }))?.label;
       } else if (feature === "filters") {
         out.targetName = (await prismadb.filter.findFirst({ where: { id, storeId }, select: { name: true } }))?.name;
       } else if (feature === "media") {
@@ -44,10 +41,6 @@ export async function loadLookups(storeId: string, r: AgentRequest): Promise<Loo
     const categoryId = str(body.categoryId);
     if (categoryId) {
       out.categoryName = (await prismadb.category.findFirst({ where: { id: categoryId, storeId }, select: { name: true } }))?.name;
-    }
-    const billboardId = str(body.billboardId);
-    if (billboardId) {
-      out.billboardName = (await prismadb.billboard.findFirst({ where: { id: billboardId, storeId }, select: { label: true } }))?.label;
     }
   } catch (error) {
     // Lookups are only a convenience; the screen falls back to ids.

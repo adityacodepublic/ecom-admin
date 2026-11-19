@@ -9,6 +9,7 @@ import type { AutoFormFieldProps } from "@autoform/react";
 import { AutoForm } from "@/components/ui/autoform";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { BillboardImagesField } from "@/components/billboard-images-field";
 import { CURRENT_CATEGORY, sectionSettingsSchemas, type PageName, type SectionType } from "@/lib/home-layout";
 import { CodeField, dataQueriesField, type Option } from "./data-queries-field";
 
@@ -20,7 +21,6 @@ interface SectionFormProps {
   page: PageName;
   type: SectionType;
   settings: Record<string, unknown>;
-  billboards: Option[];
   categories: Option[];
   saving: boolean;
   /** Every change, so the preview can follow the form before it is saved. */
@@ -54,6 +54,12 @@ const optionsField = (options: Option[], optional: boolean) => {
   return OptionsField;
 };
 
+/** The images of a Billboard block: a strip and a button that opens the billboard image editor. */
+const ImagesField = ({ id, error }: AutoFormFieldProps) => {
+  const { field } = useController({ name: id });
+  return <BillboardImagesField value={field.value ?? []} onChange={field.onChange} invalid={!!error} />;
+};
+
 /** The settings schema of a type, with the id fields shown as pickers. */
 const formSchema = (type: SectionType) => {
   if (type === "custom") {
@@ -69,12 +75,33 @@ const formSchema = (type: SectionType) => {
     });
   }
   const schema = sectionSettingsSchemas[type] as z.AnyZodObject;
-  const picker = (key: string, fieldType: string) => {
-    const field = schema.shape[key] as z.ZodTypeAny | undefined;
-    return field ? { [key]: field.superRefine(fieldConfig({ fieldType, label: field.description })) } : {};
-  };
-  return schema.extend({ ...picker("billboardId", "billboard"), ...picker("categoryId", "category") });
+  const fields = Object.fromEntries(
+    Object.entries(schema.shape as Record<string, z.ZodTypeAny>).map(([key, field]) => {
+      const { label, description } = FIELD_TEXT[key] ?? { label: field.description ?? key };
+      return [key, field.superRefine(fieldConfig({ label, description, ...(FIELD_TYPE[key] && { fieldType: FIELD_TYPE[key] }) }))];
+    }),
+  );
+  return schema.extend(fields);
 };
+
+/** Labels and help of the block settings (Billboard, Product list, Related products). */
+const FIELD_TEXT: Record<string, { label: string; description?: string }> = {
+  title: { label: "Title" },
+  images: { label: "Images", description: "In order. Each image can link to a store page or a website." },
+  slides: { label: "Slides shown at once", description: "1 to 3." },
+  contain: { label: "Show the whole image (no crop)" },
+  autoplay: { label: "Play automatically" },
+  categoryId: { label: "Category" },
+  featuredOnly: { label: "Featured products only" },
+  search: { label: "Search words", description: "Optional. Works like the store search box, e.g. “phone under 20000”." },
+  limit: { label: "Number of products", description: "1 to 24." },
+  grid: { label: "Grid style", description: "Big image tiles instead of product cards. The three settings below apply only to the grid style." },
+  columns: { label: "Grid: columns", description: "2 or 3." },
+  showName: { label: "Grid: show the product name" },
+  showPrice: { label: "Grid: show the price" },
+};
+/** Fields shown with their own editor. */
+const FIELD_TYPE: Record<string, string> = { images: "billboardImages", categoryId: "category" };
 
 /** Reports every form change to the parent. Lives inside AutoForm to reach its form context. */
 const ChangeListener = ({ onChange }: { onChange: SectionFormProps["onChange"] }) => {
@@ -86,18 +113,18 @@ const ChangeListener = ({ onChange }: { onChange: SectionFormProps["onChange"] }
   return null;
 };
 
-export const SectionForm = ({ page, type, settings, billboards, categories, saving, onChange, onSave, onCancel }: SectionFormProps) => {
+export const SectionForm = ({ page, type, settings, categories, saving, onChange, onSave, onCancel }: SectionFormProps) => {
   const schema = useMemo(() => new ZodProvider(formSchema(type)), [type]);
-  const formComponents = useMemo(
-    () => ({
-      billboard: optionsField(billboards, false),
-      category: optionsField(categories, true),
+  const formComponents = useMemo(() => {
+    // On the category and product pages a products query can use "this page's category".
+    const withCurrent = page === "home" ? categories : [{ value: CURRENT_CATEGORY, label: "This page's category" }, ...categories];
+    return {
+      billboardImages: ImagesField,
+      category: optionsField(withCurrent, true),
       code: CodeField,
-      // On the category and product pages a products query can use "this page's category".
-      dataQueries: dataQueriesField(page === "home" ? categories : [{ value: CURRENT_CATEGORY, label: "This page's category" }, ...categories], page),
-    }),
-    [billboards, categories, page],
-  );
+      dataQueries: dataQueriesField(withCurrent, page),
+    };
+  }, [categories, page]);
 
   return (
     <AutoForm schema={schema} defaultValues={settings} formComponents={formComponents} onSubmit={onSave}>

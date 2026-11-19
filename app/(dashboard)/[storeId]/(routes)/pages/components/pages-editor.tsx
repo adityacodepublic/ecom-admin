@@ -10,7 +10,6 @@ import { PageLayoutEditor } from "./page-layout-editor";
 interface PagesEditorProps {
   layouts: Record<PageName, PageLayout>;
   storeUrl: string;
-  billboards: Option[];
   categories: Option[];
   products: Option[];
 }

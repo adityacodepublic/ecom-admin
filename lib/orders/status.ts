@@ -1,7 +1,7 @@
 /**
  * Order status and payment status.
  *
- * Order statuses are an ordered list the store owner writes in Settings (orderSettings.statuses, plain text labels).
+ * Order statuses are an ordered list the store owner writes in Settings (settings.orders.statuses, plain text labels).
  * The first one is where new orders start, the last one is the final stage (returns open there).
  * "Cancelled" is the only reserved word: it is not in the list, it is where a cancelled order ends.
  * An order stores the status text itself. Text that is not in the list any more (renamed or removed) is an
@@ -83,7 +83,7 @@ export function statusOptions(list: readonly string[], used: readonly string[] =
 // ---------------------------------------------------------------- returns
 
 /**
- * Return statuses are a second ordered list (orderSettings.returns.statuses). The first is "requested" (the customer
+ * Return statuses are a second ordered list (settings.orders.returns.statuses). The first is "requested" (the customer
  * may withdraw while it is there), the last is the finished state. "Rejected" is reserved: it ends a return.
  */
 export const REJECTED = "Rejected";

@@ -13,7 +13,7 @@ import { UploadTab, UrlTab } from "@/components/media/media-add";
 interface MediaPickerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Several images (product, billboard) or just one (category, markdown image). */
+  /** Several images (product, billboard) or just one (category thumbnail, logo, markdown image). */
   multiple?: boolean;
   /** Images the field already has. They show "Added" and cannot be picked again (multiple mode). */
   existingUrls?: string[];

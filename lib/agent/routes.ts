@@ -22,8 +22,6 @@ type Route = {
 
 // Order matters: static pieces before parameters (orders/stats before orders/:orderId).
 const ROUTES: Route[] = [
-  { pattern: ["billboards"], load: () => import("@/app/api/[storeId]/billboards/route") },
-  { pattern: ["billboards", ":billboardId"], load: () => import("@/app/api/[storeId]/billboards/[billboardId]/route") },
   { pattern: ["categories"], load: () => import("@/app/api/[storeId]/categories/route") },
   { pattern: ["categories", ":categoryId"], load: () => import("@/app/api/[storeId]/categories/[categoryId]/route") },
   { pattern: ["products"], load: () => import("@/app/api/[storeId]/products/route") },
@@ -37,7 +35,7 @@ const ROUTES: Route[] = [
   { pattern: ["orders", ":orderId"], load: () => import("@/app/api/[storeId]/orders/[orderId]/route") },
   { pattern: ["order-settings"], load: () => import("@/app/api/[storeId]/order-settings/route") },
   { pattern: ["contact"], load: () => import("@/app/api/[storeId]/contact/route") },
-  { pattern: ["home-layout"], load: () => import("@/app/api/[storeId]/home-layout/route") },
+  { pattern: ["branding"], load: () => import("@/app/api/[storeId]/branding/route") },
   { pattern: ["media"], load: () => import("@/app/api/[storeId]/media/route") },
   { pattern: ["media", ":mediaId"], load: () => import("@/app/api/[storeId]/media/[mediaId]/route") },
   { pattern: ["users"], load: () => import("@/app/api/[storeId]/users/route"), only: ["GET"] },

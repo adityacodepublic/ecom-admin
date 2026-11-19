@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { getUserId } from "@/lib/agent/context";
 import prismadb from "@/lib/prismadb";
 import { inUseResponse } from "@/lib/api/validate";
-import { billboardInStore } from "@/lib/api/store-refs";
+import { readBanner } from "@/lib/api/category-banner";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,21 +30,7 @@ export async function GET(
         id: resolvedParams.categoryId,
         storeId: resolvedParams.storeId,
       },
-      select: {
-        billboard: {
-          select: {
-            label: true,
-            images: {
-              select: {
-                url: true,
-                href: true,
-              },
-            },
-          },
-        },
-        id: true,
-        name: true,
-      },
+      select: { id: true, name: true, imageUrl: true, banner: true },
     });
 
     return NextResponse.json(category, { headers: corsHeaders });
@@ -119,14 +105,10 @@ export async function PATCH(
 
     const body = await req.json();
 
-    const { name, billboardId, imageUrl } = body;
+    const { name, imageUrl } = body;
 
     if (!userId) {
       return new NextResponse("Unauthenticated", { status: 403 });
-    }
-
-    if (!billboardId) {
-      return new NextResponse("Billboard ID is required", { status: 400 });
     }
 
     if (!name) {
@@ -134,8 +116,12 @@ export async function PATCH(
     }
 
     if (!imageUrl) {
-      return new NextResponse("Image URL is required", { status: 400 });
+      return new NextResponse("Thumbnail (imageUrl) is required", { status: 400 });
     }
+
+    // banner: optional; left out = unchanged.
+    const banner = readBanner(body.banner);
+    if (!banner.ok) return new NextResponse(banner.error, { status: 400 });
 
     if (!resolvedParams.categoryId) {
       return new NextResponse("Category id is required", { status: 400 });
@@ -163,18 +149,14 @@ export async function PATCH(
       return new NextResponse("Not found", { status: 404 });
     }
 
-    if (!(await billboardInStore(resolvedParams.storeId, billboardId))) {
-      return new NextResponse("Billboard not found in this store", { status: 400 });
-    }
-
     const category = await prismadb.category.update({
       where: {
         id: resolvedParams.categoryId,
       },
       data: {
         name,
-        billboardId,
         imageUrl,
+        ...(banner.data && { banner: banner.data }),
       },
     });
 

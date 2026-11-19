@@ -5,7 +5,7 @@
  */
 import prismadb from "@/lib/prismadb";
 import { agentContext } from "@/lib/agent/context";
-import * as route from "@/app/api/[storeId]/home-layout/route";
+import * as route from "@/app/api/[storeId]/page-layouts/[page]/route";
 
 let failed = 0;
 let passed = 0;
@@ -16,7 +16,7 @@ const check = (name: string, ok: boolean, extra?: unknown) => {
 
 const put = async (storeId: string, owner: string, body: unknown) => {
   const req = new Request("http://localhost:3000/x", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-  const res = await agentContext.run({ userId: owner, storeId }, () => route.PUT(req, { params: Promise.resolve({ storeId }) }));
+  const res = await agentContext.run({ userId: owner, storeId }, () => route.PUT(req, { params: Promise.resolve({ storeId, page: "home" }) }));
   const text = await res.text();
   return { status: res.status, text };
 };
@@ -27,19 +27,18 @@ async function main() {
   if (!/localhost|127\.0\.0\.1/.test(url)) throw new Error("Local database only");
   const old = (await prismadb.store.findMany({ where: { slug: { startsWith: "zz-custom-test-" } }, select: { id: true } })).map((x) => x.id);
   await prismadb.category.deleteMany({ where: { storeId: { in: old } } });
-  await prismadb.billboard.deleteMany({ where: { storeId: { in: old } } });
   await prismadb.store.deleteMany({ where: { id: { in: old } } });
   const a = await prismadb.store.create({ data: { name: "A", userId: "user_zz_a", slug: "zz-custom-test-a" } });
   const b = await prismadb.store.create({ data: { name: "B", userId: "user_zz_b", slug: "zz-custom-test-b" } });
   try {
-    const bb = await prismadb.billboard.create({ data: { storeId: b.id, label: "bb" } });
-    const catB = await prismadb.category.create({ data: { storeId: b.id, billboardId: bb.id, name: "c", imageUrl: "https://x.test/c.png" } });
+    const catB = await prismadb.category.create({ data: { storeId: b.id, name: "c", imageUrl: "https://x.test/c.png" } });
 
-    const ok = await put(a.id, "user_zz_a", custom({ title: "T", height: 300, data: { deals: { source: "products", search: "under 20000", limit: 8 }, cats: { source: "categories" }, banners: { source: "billboards" } } }));
+    const ok = await put(a.id, "user_zz_a", custom({ title: "T", height: 300, data: { deals: { source: "products", search: "under 20000", limit: 8 }, cats: { source: "categories" } } }));
     check("valid custom section saves", ok.status === 200, ok);
     const saved = JSON.parse(ok.text)[0];
     check("id is added and defaults are filled", !!saved.id && saved.settings.data.deals.featuredOnly === false && saved.settings.height === 300, saved);
-    check("it is stored", ((await prismadb.store.findUnique({ where: { id: a.id } }))?.homeLayout as any)?.[0]?.type === "custom");
+    check("it is stored", ((await prismadb.store.findUnique({ where: { id: a.id } }))?.pageLayouts as any)?.home?.[0]?.type === "custom");
+    check('the "billboards" data source is gone', (await put(a.id, "user_zz_a", custom({ data: { b: { source: "billboards" } } }))).status === 400);
 
     check("no data block is fine (defaults to {})", JSON.parse((await put(a.id, "user_zz_a", custom({}))).text)[0].settings.data !== undefined);
     check("height defaults to 400", JSON.parse((await put(a.id, "user_zz_a", custom({}))).text)[0].settings.height === 400);
@@ -67,7 +66,6 @@ async function main() {
   } finally {
     const ids = (await prismadb.store.findMany({ where: { slug: { startsWith: "zz-custom-test-" } }, select: { id: true } })).map((x) => x.id);
     await prismadb.category.deleteMany({ where: { storeId: { in: ids } } });
-    await prismadb.billboard.deleteMany({ where: { storeId: { in: ids } } });
     await prismadb.store.deleteMany({ where: { id: { in: ids } } });
     await prismadb.$disconnect();
   }

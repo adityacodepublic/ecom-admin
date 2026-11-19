@@ -44,7 +44,7 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
     if (next.length < 2) return setNameError("Use at least 2 characters.");
     try {
       setLoading(true);
-      await axios.patch(`/api/stores/${params.storeId}`, { name: next });
+      await axios.patch(`/api/${params.storeId}/branding`, { name: next });
       router.refresh();
       toast.success('Store updated.');
       nameModal.hide();
@@ -63,7 +63,7 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
       router.push('/');
       toast.success('Store deleted.');
     } catch (error: any) {
-      toast.error('The store was not deleted. Remove its products, categories, billboards, filters, customers and orders first.');
+      toast.error('The store was not deleted. Remove its products, categories, filters, customers and orders first.');
     } finally {
       setLoading(false);
       setOpen(false);
@@ -105,8 +105,8 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
           summary={initialData.name}
           action={<EditButton onClick={() => { setName(initialData.name); setNameError(""); nameModal.show(); }} label="Edit store name" />}
         />
-        <StoreUrlCard url={storeUrl(initialData.slug)} onChange={() => setSlugOpen(true)} />
         {children}
+        <StoreUrlCard url={storeUrl(initialData.slug)} onChange={() => setSlugOpen(true)} />
       </SettingsList>
       <SettingsModal title="Store name" isOpen={nameModal.open} onClose={nameModal.hide} onSave={onSaveName} loading={loading} error={nameError}>
         <div className="grid gap-1.5">

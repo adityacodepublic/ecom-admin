@@ -44,7 +44,7 @@ export const DeleteStoreModal = ({ storeName, storeUrl, isOpen, loading, onClose
               take that name.
             </p>
             <p>
-              A store that still has products, categories, billboards, filters, customers or orders cannot be deleted:
+              A store that still has products, categories, filters, customers or orders cannot be deleted:
               remove those first. This cannot be undone.
             </p>
           </div>

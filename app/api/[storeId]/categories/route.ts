@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { getUserId } from "@/lib/agent/context";
 import prismadb from "@/lib/prismadb";
 import { isPageError, pageBody, readPage } from "@/lib/api/paginate";
-import { billboardInStore } from "@/lib/api/store-refs";
+import { readBanner } from "@/lib/api/category-banner";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -25,7 +25,7 @@ export async function POST(
 
     const body = await req.json();
 
-    const { name, billboardId, imageUrl } = body;
+    const { name, imageUrl } = body;
 
     if (!userId) {
       return new NextResponse("Unauthenticated", { status: 403 });
@@ -35,13 +35,13 @@ export async function POST(
       return new NextResponse("Name is required", { status: 400 });
     }
 
-    if (!billboardId) {
-      return new NextResponse("Billboard ID is required", { status: 400 });
+    if (!imageUrl) {
+      return new NextResponse("Thumbnail (imageUrl) is required", { status: 400 });
     }
 
-    if (!imageUrl) {
-      return new NextResponse("Image URL is required", { status: 400 });
-    }
+    // banner: optional, the category's billboard images.
+    const banner = readBanner(body.banner);
+    if (!banner.ok) return new NextResponse(banner.error, { status: 400 });
 
     if (!resolvedParams.storeId) {
       return new NextResponse("Store id is required", { status: 400 });
@@ -60,15 +60,11 @@ export async function POST(
       return new NextResponse("Unauthorized", { status: 405 });
     }
 
-    if (!(await billboardInStore(resolvedParams.storeId, billboardId))) {
-      return new NextResponse("Billboard not found in this store", { status: 400 });
-    }
-
     const category = await prismadb.category.create({
       data: {
         name,
-        billboardId,
         imageUrl,
+        banner: banner.data ?? [],
         storeId: resolvedParams.storeId,
       },
     });
@@ -104,6 +100,7 @@ export async function GET(
         id: true,
         name: true,
         imageUrl: true,
+        banner: true,
       },
     });
 

@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "react-hot-toast";
 import { Trash } from "lucide-react";
-import { Billboard, Category } from "@prisma/client";
+import { Category } from "@prisma/client";
 import { useParams, useRouter } from "next/navigation";
 
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -23,31 +24,24 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Heading } from "@/components/ui/heading";
 import { AlertModal } from "@/components/modals/alert-modal";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import ImageUpload from "@/components/ui/image-upload";
+import { BillboardImagesField } from "@/components/billboard-images-field";
+import { billboardImagesSchema } from "@/lib/home-layout";
 
 const formSchema = z.object({
   name: z.string().min(2),
-  billboardId: z.string().min(1),
-  imageUrl: z.string().min(1),
+  imageUrl: z.string().min(1, "Choose a thumbnail"),
+  banner: billboardImagesSchema,
 });
 
 type CategoryFormValues = z.infer<typeof formSchema>;
 
 interface CategoryFormProps {
   initialData: Category | null;
-  billboards: Billboard[];
 }
 
 export const CategoryForm: React.FC<CategoryFormProps> = ({
   initialData,
-  billboards,
 }) => {
   const params = useParams();
   const router = useRouter();
@@ -62,11 +56,9 @@ export const CategoryForm: React.FC<CategoryFormProps> = ({
 
   const form = useForm<CategoryFormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: initialData || {
-      name: "",
-      billboardId: "",
-      imageUrl: "",
-    },
+    defaultValues: initialData
+      ? { name: initialData.name, imageUrl: initialData.imageUrl, banner: billboardImagesSchema.catch([]).parse(initialData.banner) }
+      : { name: "", imageUrl: "", banner: [] },
   });
 
   const onSubmit = async (data: CategoryFormValues) => {
@@ -154,45 +146,28 @@ export const CategoryForm: React.FC<CategoryFormProps> = ({
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="billboardId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Billboard</FormLabel>
-                  <Select
-                    disabled={loading}
-                    onValueChange={field.onChange}
-                    value={field.value}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue
-                          defaultValue={field.value}
-                          placeholder="Select a billboard"
-                        />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {billboards.map((billboard) => (
-                        <SelectItem key={billboard.id} value={billboard.id}>
-                          {billboard.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
           </div>
+          <FormField
+            control={form.control}
+            name="banner"
+            render={({ field, fieldState }) => (
+              <FormItem className="max-w-2xl">
+                <FormLabel>Category billboard</FormLabel>
+                <FormControl>
+                  <BillboardImagesField value={field.value} onChange={field.onChange} disabled={loading} invalid={!!fieldState.error} />
+                </FormControl>
+                <FormDescription>The images at the top of this category&apos;s page (the &quot;Category billboard&quot; block in Pages).</FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
           <FormField
             control={form.control}
             name="imageUrl"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Image</FormLabel>
+                <FormLabel>Thumbnail</FormLabel>
+                <FormDescription>The small picture of this category in the home page&apos;s category icons.</FormDescription>
                 <FormControl>
                   <ImageUpload
                     disabled={loading}

@@ -1,6 +1,6 @@
 # Media (image library)
 
-Every image a store uses can be listed in its image library. Products, billboards and categories store only the image URL. Router: `{{BASE}}/skill/index`.
+Every image a store uses can be listed in its image library. Products, categories, page blocks and the logo store only the image URL. Router: `{{BASE}}/skill/index`.
 
 ## Get an image URL (two ways)
 
@@ -27,7 +27,7 @@ Every image a store uses can be listed in its image library. Products, billboard
    { "url": "<secure_url>", "publicId": "<public_id>", "source": "upload", "bytes": <bytes>, "name": "optional label" }
    -> { "id": "<media id>", "url": "...", ... }
    ```
-   Use `url` in product `images[].url`, billboard `images[].url` or category `imageUrl`. The server checks the real file size with Cloudinary when you register: an image over 6 MB is deleted and refused (400).
+   Use `url` in product `images[].url`, category `imageUrl`, `banner[].url`, a Billboard's `images[].url`, or the `logo`. The server checks the real file size with Cloudinary when you register: an image over 6 MB is deleted and refused (400).
    How long the signed data lasts: Cloudinary accepts the signature for about 1 hour from `timestamp`. It is time limited, NOT single use within that hour, but the folder, the one `public_id` and the formats are locked into it, so one `/upload-url` call can only ever produce one image. Call `/upload-url` again for each further image. After an hour, call it again.
 2. Use an existing public `https://` image URL, optionally registered so it shows in the library:
    ```
@@ -43,7 +43,7 @@ Do not use `POST {{BASE}}/media/sign` (403). Use `/upload-url`.
 
 | Method and path | Notes |
 | --- | --- |
-| `GET {{BASE}}/media` | Query: `q` (name search, max 100), `sort` (`newest` default, `oldest`, `name`), `filter=unused` (images used nowhere), `page` (from 0, 40 per page). Returns `{ items: [{ id, url, publicId, source, name, createdAt, usedIn: [{type, id, label}] }], hasMore }`. `usedIn.type` is `product`, `billboard`, `category` or `description`. |
+| `GET {{BASE}}/media` | Query: `q` (name search, max 100), `sort` (`newest` default, `oldest`, `name`), `filter=unused` (images used nowhere), `page` (from 0, 40 per page). Returns `{ items: [{ id, url, publicId, source, name, createdAt, usedIn: [{type, id, label}] }], hasMore }`. `usedIn.type` is `product`, `category` (thumbnail), `categoryBanner`, `page` (a block of that page, `id` = home, category or product), `logo` or `description`. |
 | `DELETE {{BASE}}/media/{id}` | Returns `{ ok: true }`. Deletes the library row, and the Cloudinary file for uploads. |
 
 ## Rules and caveats

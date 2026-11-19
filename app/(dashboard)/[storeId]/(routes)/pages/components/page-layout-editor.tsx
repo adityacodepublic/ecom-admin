@@ -1,16 +1,19 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import axios from "axios";
 import { toast } from "react-hot-toast";
-import { ArrowDown, ArrowUp, Pencil, Plus, Trash } from "lucide-react";
+import { ArrowDown, ArrowUp, ExternalLink, Pencil, Plus, Trash } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertModal } from "@/components/modals/alert-modal";
 import { Modal } from "@/components/ui/modal";
 import {
+  isFixedType,
   pageSectionTypes,
   sectionSettingsSchemas,
   sectionTypeLabels,
@@ -21,22 +24,28 @@ import {
 } from "@/lib/home-layout";
 import { SectionForm, type Option } from "./section-form";
 import { SectionPreview } from "./section-preview";
+import { fixedBlockInfo } from "./fixed-blocks";
 
 // A new custom component starts as a working example (it reads the store name from STORE_DATA).
 const STARTER_HTML =
   '<div style="padding:32px 16px;text-align:center;font-size:22px">Welcome to <b id="name"></b></div><script>document.getElementById("name").textContent = STORE_DATA.store.name;</script>';
 
+/** The settings a new block starts with (zod fills the defaults). A new Billboard starts without images. */
+const newSettings = (type: SectionType): Record<string, unknown> => {
+  if (type === "carousel") return { images: [], slides: 1, contain: false, autoplay: true };
+  return sectionSettingsSchemas[type].parse({ title: type === "relatedProducts" ? undefined : "New block", html: STARTER_HTML });
+};
+
 interface PageLayoutEditorProps {
   page: PageName;
   initialLayout: PageLayout;
   storeUrl: string;
-  billboards: Option[];
   categories: Option[];
   /** The products to preview the product page with. */
   products: Option[];
 }
 
-/** The section being edited. `isNew`: added but not saved yet, so Cancel removes it. */
+/** The block being edited. `isNew`: added but not saved yet, so Cancel removes it. */
 interface Editing {
   index: number;
   settings: Record<string, unknown>;
@@ -44,11 +53,12 @@ interface Editing {
 }
 
 /**
- * The layout of one store page (home, category or product) as a list of cards. Each card shows the live section
+ * The layout of one store page (home, category or product) as a list of cards. Each card shows the live block
  * (store iframe) with up / down / edit / delete. Every change saves the whole layout at once.
+ * Fixed blocks show the store's own data: their edit window says where that data is edited instead of a form.
  */
-export const PageLayoutEditor = ({ page, initialLayout, storeUrl, billboards, categories, products }: PageLayoutEditorProps) => {
-  const { storeId } = useParams();
+export const PageLayoutEditor = ({ page, initialLayout, storeUrl, categories, products }: PageLayoutEditorProps) => {
+  const { storeId } = useParams<{ storeId: string }>();
   const [layout, setLayout] = useState<PageLayout>(initialLayout);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
@@ -58,10 +68,13 @@ export const PageLayoutEditor = ({ page, initialLayout, storeUrl, billboards, ca
   // The category and product pages are previewed with one real category / product.
   const previewOptions = page === "category" ? categories : page === "product" ? products : [];
   const [previewId, setPreviewId] = useState<string | undefined>(previewOptions[0]?.value);
+  const previewItem = previewOptions.find((o) => o.value === previewId);
 
-  // Built-in blocks of the category and product pages can be used once; custom components any number of times.
-  const available = pageSectionTypes[page].filter((t) => t === "custom" || page === "home" || !layout.some((s) => s.type === t));
+  // Fixed blocks can be used once per page; the others any number of times.
+  const available = pageSectionTypes[page].filter((t) => !isFixedType(t) || !layout.some((s) => s.type === t));
   const addType = available.includes(newType) ? newType : available[0];
+  const fixedAvailable = available.filter(isFixedType);
+  const otherAvailable = available.filter((t) => !isFixedType(t));
 
   const save = async (next: PageLayout) => {
     setSaving(true);
@@ -83,13 +96,16 @@ export const PageLayoutEditor = ({ page, initialLayout, storeUrl, billboards, ca
     save(next);
   };
 
-  const add = () => {
-    // Zod fills the defaults; the first billboard and a title make the new section valid at once.
-    const seed: Record<string, unknown> = { billboardId: billboards[0]?.value, html: STARTER_HTML };
-    if (addType !== "relatedProducts") seed.title = "New section";
-    const settings = sectionSettingsSchemas[addType].parse(seed);
-    setLayout([...layout, { id: crypto.randomUUID(), type: addType, settings } as PageSection]);
-    setEditing({ index: layout.length, settings, isNew: true });
+  const add = async () => {
+    if (!addType) return;
+    const section = { id: crypto.randomUUID(), type: addType, settings: newSettings(addType) } as PageSection;
+    // A fixed block has nothing to fill in: it is saved at once (Related products keeps its default title).
+    if (isFixedType(addType)) {
+      if (await save([...layout, section])) toast.success(`${sectionTypeLabels[addType]} added at the bottom.`);
+      return;
+    }
+    setLayout([...layout, section]);
+    setEditing({ index: layout.length, settings: section.settings, isNew: true });
   };
 
   const cancelEdit = () => {
@@ -116,13 +132,16 @@ export const PageLayoutEditor = ({ page, initialLayout, storeUrl, billboards, ca
     [],
   );
 
+  const editingType = editing ? layout[editing.index].type : null;
+  const fixedInfo = editingType && isFixedType(editingType) ? fixedBlockInfo(editingType, storeId, previewItem && { id: previewItem.value, label: previewItem.label }) : null;
+
   return (
     <div className="space-y-4">
       <AlertModal isOpen={deleteIndex !== null} onClose={() => setDeleteIndex(null)} onConfirm={confirmDelete} loading={saving} />
-      {editing && (
+      {editing && editingType && (
         <Modal
-          title={`Edit: ${sectionTypeLabels[layout[editing.index].type]}`}
-          description="The preview follows your changes. Save to make them live."
+          title={`Edit: ${sectionTypeLabels[editingType]}`}
+          description={fixedInfo ? "A fixed block: it shows your store's own data, which is edited elsewhere." : "The preview follows your changes. Save to make them live."}
           isOpen
           onClose={cancelEdit}
           className="max-h-[90vh] max-w-5xl overflow-y-auto"
@@ -135,20 +154,83 @@ export const PageLayoutEditor = ({ page, initialLayout, storeUrl, billboards, ca
               itemId={previewId}
               section={{ ...layout[editing.index], settings: editing.settings } as PageSection}
             />
-            <SectionForm
-              page={page}
-              type={layout[editing.index].type}
-              settings={layout[editing.index].settings}
-              billboards={billboards}
-              categories={categories}
-              saving={saving}
-              onChange={onDraftChange}
-              onSave={saveEdit}
-              onCancel={cancelEdit}
-            />
+            {fixedInfo && (
+              <div className="space-y-3 rounded-md border bg-muted/40 p-3">
+                <p className="text-sm">{fixedInfo.text}</p>
+                {fixedInfo.links.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {fixedInfo.links.map((link, i) => (
+                      <Button key={link.href} asChild size="sm" variant={i === 0 ? "default" : "outline"}>
+                        <Link href={link.href}>
+                          {link.label} <ExternalLink className="ml-2 h-3.5 w-3.5" />
+                        </Link>
+                      </Button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {fixedInfo && editingType !== "relatedProducts" ? (
+              <Button type="button" variant="outline" onClick={cancelEdit}>
+                Close
+              </Button>
+            ) : (
+              <SectionForm
+                page={page}
+                type={editingType}
+                settings={layout[editing.index].settings}
+                categories={categories}
+                saving={saving}
+                onChange={onDraftChange}
+                onSave={saveEdit}
+                onCancel={cancelEdit}
+              />
+            )}
           </div>
         </Modal>
       )}
+
+      {/* Add a block: a pill that stays in the top right corner while the page scrolls. */}
+      <div className="pointer-events-none sticky top-3 z-20 flex justify-end">
+        <div className="pointer-events-auto flex min-w-0 max-w-full items-center gap-1 rounded-full border bg-background/95 p-1 shadow-lg backdrop-blur">
+          {available.length === 0 ? (
+            <span className="px-3 text-sm text-muted-foreground">Every block is on the page</span>
+          ) : (
+            <>
+              <Select value={addType} onValueChange={(v) => setNewType(v as SectionType)} disabled={!!editing}>
+                <SelectTrigger aria-label="Block to add" className="h-8 w-auto min-w-0 max-w-md rounded-full border-0 shadow-none focus:ring-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent align="end">
+                  {otherAvailable.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel>Content blocks</SelectLabel>
+                      {otherAvailable.map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {sectionTypeLabels[type]}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  )}
+                  {fixedAvailable.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel>Fixed blocks (once per page)</SelectLabel>
+                      {fixedAvailable.map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {sectionTypeLabels[type]}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  )}
+                </SelectContent>
+              </Select>
+              <Button size="sm" className="h-8 shrink-0 whitespace-nowrap rounded-full" onClick={add} disabled={!!editing || saving}>
+                <Plus className="mr-1.5 h-4 w-4" /> Add block
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
 
       {page !== "home" && (
         <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -159,7 +241,7 @@ export const PageLayoutEditor = ({ page, initialLayout, storeUrl, billboards, ca
             <span className="text-muted-foreground">(add a {page === "category" ? "category" : "product"} first)</span>
           ) : (
             <Select value={previewId} onValueChange={setPreviewId} disabled={!!editing}>
-              <SelectTrigger className="w-72 max-w-full">
+              <SelectTrigger className="w-auto min-w-48 max-w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -174,17 +256,21 @@ export const PageLayoutEditor = ({ page, initialLayout, storeUrl, billboards, ca
         </div>
       )}
 
-      {layout.length === 0 && (
-        <p className="text-sm text-muted-foreground">
-          {page === "home" ? "No sections yet. The store shows only the category icons." : "No blocks. The page shows nothing. Add a block below."}
-        </p>
-      )}
+      {layout.length === 0 && <p className="text-sm text-muted-foreground">No blocks. The page shows nothing. Add a block with the button at the top right.</p>}
 
       {layout.map((section, index) => {
+        const fixed = isFixedType(section.type);
         return (
           <div key={section.id} className="flex gap-3 rounded-lg border bg-card p-3">
             <div className="min-w-0 flex-1 space-y-3">
-              <p className="text-sm font-medium text-muted-foreground">{sectionTypeLabels[section.type]}</p>
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                {sectionTypeLabels[section.type]}
+                {fixed && (
+                  <Badge variant="secondary" title="Shows the store's own data, edited elsewhere in the admin (see Edit)">
+                    Fixed
+                  </Badge>
+                )}
+              </div>
               <SectionPreview storeUrl={storeUrl} page={page} itemId={previewId} section={section} />
             </div>
             <div className="flex flex-col gap-2">
@@ -204,24 +290,6 @@ export const PageLayoutEditor = ({ page, initialLayout, storeUrl, billboards, ca
           </div>
         );
       })}
-
-      <div className="flex items-center gap-2">
-        <Select value={addType} onValueChange={(v) => setNewType(v as SectionType)} disabled={!!editing}>
-          <SelectTrigger className="w-72 max-w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {available.map((type) => (
-              <SelectItem key={type} value={type}>
-                {sectionTypeLabels[type]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button onClick={add} disabled={!!editing || saving}>
-          <Plus className="mr-2 h-4 w-4" /> Add {page === "home" ? "section" : "block"}
-        </Button>
-      </div>
     </div>
   );
 };

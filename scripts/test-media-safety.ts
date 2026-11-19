@@ -10,6 +10,7 @@
  *  3. a url used by a product image: keep the file
  *  4. escapeLike makes % and _ literal in a real ILIKE query
  *  5. store delete + library cleanup in one transaction rolls back when the store delete fails
+ *  6. a url used only inside JSON (a page block, a category billboard, the logo): keep the file
  */
 import { Prisma, PrismaClient } from "@prisma/client";
 
@@ -57,8 +58,8 @@ async function main() {
     check("4a. search '%' finds only the name with a real %", JSON.stringify(await find("%")) === JSON.stringify(["50%_off.png"]));
     check("4b. search '_' finds only names with a real _", (await find("_")).sort().join() === ["50%_off.png", "a_b.png"].join());
 
-    // 5: transaction rollback. Store b gets a billboard, so deleting the store must fail.
-    await db.billboard.create({ data: { storeId: b.id, label: "zz" } });
+    // 5: transaction rollback. Store b gets a category, so deleting the store must fail.
+    await db.category.create({ data: { storeId: b.id, name: "zz", imageUrl: "https://example.com/zz-thumb.png" } });
     await db.mediaImage.create({ data: { storeId: b.id, url: "https://example.com/keep.png", source: "url", name: "keep" } });
     let threw = false;
     try {
@@ -70,9 +71,25 @@ async function main() {
       threw = true;
     }
     const left = await db.mediaImage.count({ where: { storeId: b.id } });
-    check("5. store delete fails (has a billboard) and library rows are still there", threw && left === 1);
+    check("5. store delete fails (has a category) and library rows are still there", threw && left === 1);
+
+    // 6: references inside JSON columns
+    const jsonRow = async (n: string) => {
+      const url = `https://res.cloudinary.com/x/image/upload/v1/ecom/${a.id}/${tag}-${n}.png`;
+      return db.mediaImage.create({ data: { storeId: a.id, url, publicId: `ecom/${a.id}/${tag}-${n}`, name: n } });
+    };
+    const inBlock = await jsonRow("block");
+    check("6a. unused file may be destroyed", (await fileStillReferenced(db, inBlock)) === null);
+    await db.store.update({ where: { id: a.id }, data: { pageLayouts: { home: [{ id: "x", type: "carousel", settings: { images: [{ url: inBlock.url, href: "" }] } }] } } });
+    check("6b. url in a page block (carousel): file is kept", (await fileStillReferenced(db, inBlock)) === "a page block uses it");
+    const inBanner = await jsonRow("banner");
+    await db.category.create({ data: { storeId: a.id, name: "zz-banner", imageUrl: "https://example.com/t.png", banner: [{ url: inBanner.url, href: "" }] } });
+    check("6c. url in a category billboard: file is kept", (await fileStillReferenced(db, inBanner)) === "a category billboard uses it");
+    const inLogo = await jsonRow("logo");
+    await db.store.update({ where: { id: b.id }, data: { settings: { logo: inLogo.url } } });
+    check("6d. url as another store's logo: file is kept", (await fileStillReferenced(db, inLogo)) === "a store logo uses it");
   } finally {
-    await db.billboard.deleteMany({ where: { storeId: { in: created } } });
+    await db.category.deleteMany({ where: { storeId: { in: created } } });
     await db.mediaImage.deleteMany({ where: { storeId: { in: created } } });
     await db.store.deleteMany({ where: { id: { in: created } } });
   }

@@ -86,12 +86,12 @@ type Address = { id: string; value: string; pincode: number; instructions: strin
 export async function createOrder(storeId: string, customerId: string, input: CheckoutInput): Promise<CheckoutResult> {
   // Everything that does not need the transaction is read before it, in parallel (one round trip of waiting, not three).
   const [store, found, savedAddress] = await Promise.all([
-    prismadb.store.findUnique({ where: { id: storeId }, select: { id: true, orderSettings: true } }),
+    prismadb.store.findUnique({ where: { id: storeId }, select: { id: true, settings: true } }),
     prismadb.users.findUnique({ where: { id: customerId }, select: { fname: true, phone: true } }),
     "addressId" in input.address ? prismadb.address.findFirst({ where: { id: input.address.addressId, usersId: customerId } }) : Promise.resolve(null),
   ]);
   if (!store) throw new OrderError("STORE_NOT_FOUND", "Store not found");
-  const settings = parseOrderSettings(store.orderSettings);
+  const settings = parseOrderSettings(store.settings);
 
   let payment = "";
   if (settings.checkoutPaymentStep) {

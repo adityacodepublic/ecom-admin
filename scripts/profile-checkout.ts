@@ -20,9 +20,8 @@ async function main() {
   const { createOrder } = await import("@/lib/orders/create");
   const OWNER = "zz-prof-owner";
   const tag = `zz-prof-${Date.now()}`;
-  const store = await client.store.create({ data: { name: "prof", userId: OWNER, slug: tag, orderSettings: Prisma.DbNull } });
-  const billboard = await client.billboard.create({ data: { storeId: store.id, label: "t" } });
-  const category = await client.category.create({ data: { storeId: store.id, billboardId: billboard.id, name: "t", imageUrl: "" } });
+  const store = await client.store.create({ data: { name: "prof", userId: OWNER, slug: tag, settings: Prisma.DbNull } });
+  const category = await client.category.create({ data: { storeId: store.id, name: "t", imageUrl: "" } });
   const products = await Promise.all(
     Array.from({ length: 10 }, (_, i) => client.product.create({ data: { storeId: store.id, categoryId: category.id, name: `P${i}`, price: "10.00", quantity: 1000, maxQuantity: 10 } })),
   );
@@ -51,8 +50,7 @@ async function main() {
   await client.$executeRaw`DELETE FROM "OrderItem" WHERE "orderId" IN (SELECT id FROM "Order" WHERE "storeId" = ${store.id})`;
   await client.$executeRaw`DELETE FROM "Order" WHERE "storeId" = ${store.id}`;
   await client.$executeRaw`DELETE FROM "Product" WHERE "storeId" = ${store.id}`;
-  await client.$executeRaw`DELETE FROM "Category" WHERE "storeId" = ${store.id}`;
-  await client.$executeRaw`DELETE FROM "Billboard" WHERE "storeId" = ${store.id}`;
+  await client.$executeRaw`DELETE FROM "Category" WHERE "storeId" = ${store.id}`;
   await client.$executeRaw`DELETE FROM "Store" WHERE id = ${store.id}`;
   await client.$executeRaw`DELETE FROM "Address" WHERE "usersId" = ${customer}`;
   await client.$executeRaw`DELETE FROM "Users" WHERE id = ${customer}`;

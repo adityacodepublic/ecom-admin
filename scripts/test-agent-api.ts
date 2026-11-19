@@ -43,15 +43,14 @@ const createdStores: string[] = [];
 async function makeStore(name: string, owner: string) {
   const store = await prismadb.store.create({ data: { name, userId: owner, slug: `${TAG}-${name}`.toLowerCase() } });
   createdStores.push(store.id);
-  const billboard = await prismadb.billboard.create({ data: { storeId: store.id, label: `bb-${name}` } });
   const category = await prismadb.category.create({
-    data: { storeId: store.id, billboardId: billboard.id, name: `cat-${name}`, imageUrl: "https://x.test/c.png" },
+    data: { storeId: store.id, name: `cat-${name}`, imageUrl: "https://x.test/c.png" },
   });
   const product = await prismadb.product.create({
     data: { storeId: store.id, categoryId: category.id, name: `prod-${name}`, price: "10.00", quantity: 5, maxQuantity: 5 },
   });
   const filter = await prismadb.filter.create({ data: { storeId: store.id, name: `${TAG}-filter-${name}` } });
-  return { store, billboard, category, product, filter };
+  return { store, category, product, filter };
 }
 
 type Res = { status: number; body: any };
@@ -74,7 +73,6 @@ async function status(token: string, id: string): Promise<Res> {
 }
 
 const exists = {
-  billboard: async (id: string) => !!(await prismadb.billboard.findUnique({ where: { id } })),
   product: async (id: string) => !!(await prismadb.product.findUnique({ where: { id } })),
   category: async (id: string) => !!(await prismadb.category.findUnique({ where: { id } })),
   filter: async (id: string) => !!(await prismadb.filter.findUnique({ where: { id } })),
@@ -170,7 +168,7 @@ async function main() {
     check(`unknown: /${p} -> 404 {error}`, r.status === 404 && typeof r.body?.error === "string", r);
   }
   check("rules: ../ and encoded slashes are not routable", resolveRoute("GET", ["products", ".."]).ok === false && resolveRoute("GET", ["products", "a/b"]).ok === false);
-  check("rules: allowed paths resolve", ["billboards", "orders", "order-settings", "contact", "home-layout", "media", "users"].every((s) => resolveRoute("GET", [s]).ok) && resolveRoute("GET", ["page-layouts", "product"]).ok && resolveRoute("GET", ["page-layouts", "data"]).ok && resolveRoute("PUT", ["page-layouts", "data"]).ok === false && resolveRoute("GET", ["orders", "stats"]).ok);
+  check("rules: allowed paths resolve", ["categories", "orders", "order-settings", "contact", "branding", "media", "users"].every((s) => resolveRoute("GET", [s]).ok) && !resolveRoute("GET", ["billboards"]).ok && !resolveRoute("GET", ["home-layout"]).ok && resolveRoute("GET", ["page-layouts", "product"]).ok && resolveRoute("GET", ["page-layouts", "data"]).ok && resolveRoute("PUT", ["page-layouts", "data"]).ok === false && resolveRoute("GET", ["orders", "stats"]).ok);
   check("rules: bad token -> 401", (await proxy(createToken(), "GET", "products")).status === 401);
   const log1 = (await readAccess(A.store.id)).log;
   check("log: blocked calls are logged as blocked", log1.some((l) => l.path === "/customer/me" && l.outcome === "blocked"));
@@ -178,13 +176,20 @@ async function main() {
   // ------------------------------------------------------------ 4. full mode
   let r = await proxy(tokenA, "GET", "products");
   check("full: GET /products lists", r.status === 200 && r.body.some((p: any) => p.id === A.product.id), r.status);
-  r = await proxy(tokenA, "POST", "billboards", { label: "Agent BB", images: [{ url: "https://x.test/b.png", order: 1 }] });
-  check("full: POST /billboards runs at once", r.status === 200 && (await prismadb.billboard.count({ where: { storeId: A.store.id, label: "Agent BB" } })) === 1, r);
-  const bbId = r.body?.id;
-  r = await proxy(tokenA, "PATCH", `billboards/${bbId}`, { label: "Agent BB 2", images: [{ url: "https://x.test/b2.png", order: 1 }] });
-  check("full: PATCH /billboards/{id}", r.status === 200 && (await prismadb.billboard.findUnique({ where: { id: bbId } }))?.label === "Agent BB 2", r);
-  r = await proxy(tokenA, "DELETE", `billboards/${bbId}`);
-  check("full: DELETE /billboards/{id}", r.status === 200 && !(await exists.billboard(bbId)), r);
+  r = await proxy(tokenA, "POST", "categories", { name: "Agent Cat", imageUrl: "https://x.test/b.png", banner: [{ url: "https://x.test/bb.png", href: "/x" }] });
+  check("full: POST /categories runs at once (with a banner)", r.status === 200 && (await prismadb.category.count({ where: { storeId: A.store.id, name: "Agent Cat" } })) === 1 && r.body?.banner?.[0]?.href === "/x", r);
+  const catId = r.body?.id;
+  r = await proxy(tokenA, "PATCH", `categories/${catId}`, { name: "Agent Cat 2", imageUrl: "https://x.test/b2.png" });
+  const patched = await prismadb.category.findUnique({ where: { id: catId } });
+  check("full: PATCH /categories/{id} (banner left out = unchanged)", r.status === 200 && patched?.name === "Agent Cat 2" && Array.isArray(patched?.banner) && patched.banner.length === 1, r);
+  r = await proxy(tokenA, "PATCH", `categories/${catId}`, { name: "Agent Cat 2", imageUrl: "https://x.test/b2.png", banner: [{ url: "javascript:alert(1)" }] });
+  check("full: PATCH /categories/{id} with a bad banner url -> 400", r.status === 400, r);
+  r = await proxy(tokenA, "DELETE", `categories/${catId}`);
+  check("full: DELETE /categories/{id}", r.status === 200 && !(await exists.category(catId)), r);
+  r = await proxy(tokenA, "PATCH", "branding", { logo: "https://x.test/logo.png" });
+  check("full: PATCH /branding sets the logo", r.status === 200 && r.body?.branding?.logo === "https://x.test/logo.png", r);
+  r = await proxy(tokenA, "PATCH", "branding", { logo: "javascript:alert(1)" });
+  check("full: PATCH /branding refuses a non-http logo", r.status === 400, r);
   r = await proxy(tokenA, "GET", "orders/stats");
   check("full: GET /orders/stats (requireStoreOwner via the agent context)", r.status === 200, r);
   r = await proxy(tokenA, "GET", `users?x=1`);
@@ -196,7 +201,7 @@ async function main() {
   check("full: DELETE /media/{id}", r.status === 200 && r.body.ok === true, r);
   r = await proxy(tokenA, "GET", "products/" + A.product.id + "?x=1");
   check("full: query string and by-id GET pass through", r.status === 200 && r.body.id === A.product.id, r);
-  r = await proxy(tokenA, "POST", "billboards");
+  r = await proxy(tokenA, "POST", "categories", {});
   check("full: a route's own validation error is returned as-is (400)", r.status === 400, r);
   check("full: log has ok entries", (await readAccess(A.store.id)).log.some((l) => l.outcome === "ok"));
 
@@ -204,19 +209,16 @@ async function main() {
   const before = {
     p: await prismadb.product.findUniqueOrThrow({ where: { id: B.product.id } }),
     c: await prismadb.category.findUniqueOrThrow({ where: { id: B.category.id } }),
-    b: await prismadb.billboard.findUniqueOrThrow({ where: { id: B.billboard.id } }),
     f: await prismadb.filter.findUniqueOrThrow({ where: { id: B.filter.id } }),
   };
   const body = {
     product: { name: "HACK", price: "1.00", quantity: 1, maxQuantity: 1, categoryId: B.category.id, images: [{ url: "https://x.test/h.png", order: 1 }] },
-    category: { name: "HACK", billboardId: B.billboard.id, imageUrl: "https://x.test/h.png" },
-    billboard: { label: "HACK", images: [{ url: "https://x.test/h.png", order: 1 }] },
+    category: { name: "HACK", imageUrl: "https://x.test/h.png" },
     filter: { name: "HACK", value: [{ value: "1", unit: "u" }] },
   };
   const targets = [
     ["products", B.product.id, body.product, "product"],
     ["categories", B.category.id, body.category, "category"],
-    ["billboards", B.billboard.id, body.billboard, "billboard"],
     ["filters", B.filter.id, body.filter, "filter"],
   ] as const;
   for (const [seg, id, patchBody, model] of targets) {
@@ -230,7 +232,6 @@ async function main() {
   const after2 = {
     p: await prismadb.product.findUniqueOrThrow({ where: { id: B.product.id } }),
     c: await prismadb.category.findUniqueOrThrow({ where: { id: B.category.id } }),
-    b: await prismadb.billboard.findUniqueOrThrow({ where: { id: B.billboard.id } }),
     f: await prismadb.filter.findUniqueOrThrow({ where: { id: B.filter.id } }),
   };
   check("isolation: the other store's records are unchanged", JSON.stringify(before) === JSON.stringify(after2));
@@ -259,28 +260,28 @@ async function main() {
   check("permission: new token differs and the old one is dead", tokenP !== tokenA && (await findByToken(tokenA)) === null && (await findByToken(tokenP))?.mode === "permission");
   r = await proxy(tokenP, "GET", "products");
   check("permission: reads run at once", r.status === 200 && Array.isArray(r.body));
-  r = await proxy(tokenP, "POST", "billboards", { label: "Pending BB", images: [{ url: "https://x.test/p.png", order: 1 }] });
+  r = await proxy(tokenP, "POST", "categories", { name: "Pending Cat", imageUrl: "https://x.test/p.png" });
   const reqId = r.body?.requestId;
   check(
     "permission: write is NOT executed, 202 with requestId + approveUrl",
     r.status === 202 && r.body.status === "pending" && r.body.expiresInMinutes === 30 &&
       r.body.approveUrl === `http://localhost:3000/${A.store.id}/agent-requests/${reqId}` && /^[A-Za-z0-9_-]{12}$/.test(reqId) &&
-      (await prismadb.billboard.count({ where: { storeId: A.store.id, label: "Pending BB" } })) === 0,
+      (await prismadb.category.count({ where: { storeId: A.store.id, name: "Pending Cat" } })) === 0,
     r,
   );
   r = await status(tokenP, reqId);
   check("permission: status is pending, no result yet", r.status === 200 && r.body.status === "pending" && r.body.result === undefined, r);
   r = await decideRequest(A.store.id, OWNER_A, reqId, "allow").then((o) => ({ status: o.ok ? 200 : o.status, body: o.ok ? o.request : o }));
-  check("permission: allow executes it", r.status === 200 && (await prismadb.billboard.count({ where: { storeId: A.store.id, label: "Pending BB" } })) === 1 && r.body.status === "approved" && r.body.result?.status === 200, r);
+  check("permission: allow executes it", r.status === 200 && (await prismadb.category.count({ where: { storeId: A.store.id, name: "Pending Cat" } })) === 1 && r.body.status === "approved" && r.body.result?.status === 200, r);
   r = await status(tokenP, reqId);
-  check("permission: agent sees approved + result", r.body.status === "approved" && r.body.result?.status === 200 && r.body.result?.body?.label === "Pending BB", r);
+  check("permission: agent sees approved + result", r.body.status === "approved" && r.body.result?.status === 200 && r.body.result?.body?.name === "Pending Cat", r);
   const again = await decideRequest(A.store.id, OWNER_A, reqId, "allow");
-  check("permission: deciding twice -> 409 and not run twice", !again.ok && again.status === 409 && (await prismadb.billboard.count({ where: { storeId: A.store.id, label: "Pending BB" } })) === 1);
+  check("permission: deciding twice -> 409 and not run twice", !again.ok && again.status === 409 && (await prismadb.category.count({ where: { storeId: A.store.id, name: "Pending Cat" } })) === 1);
 
-  r = await proxy(tokenP, "POST", "billboards", { label: "Denied BB", images: [{ url: "https://x.test/d.png", order: 1 }] });
+  r = await proxy(tokenP, "POST", "categories", { name: "Denied Cat", imageUrl: "https://x.test/d.png" });
   const denyId = r.body.requestId;
   const den = await decideRequest(A.store.id, OWNER_A, denyId, "deny");
-  check("permission: deny sets denied and runs nothing", den.ok && den.request.status === "denied" && (await prismadb.billboard.count({ where: { storeId: A.store.id, label: "Denied BB" } })) === 0);
+  check("permission: deny sets denied and runs nothing", den.ok && den.request.status === "denied" && (await prismadb.category.count({ where: { storeId: A.store.id, name: "Denied Cat" } })) === 0);
   r = await status(tokenP, denyId);
   check("permission: agent sees denied", r.body.status === "denied" && r.body.result === undefined, r);
 
@@ -294,13 +295,13 @@ async function main() {
   const bad = await decideRequest(A.store.id, OWNER_A, badId, "allow");
   check("permission: a route error is recorded as failed with its status", bad.ok && bad.request.status === "failed" && bad.request.result!.status >= 400, bad);
 
-  r = await proxy(tokenP, "POST", "billboards", { label: "Expired BB", images: [{ url: "https://x.test/e.png", order: 1 }] });
+  r = await proxy(tokenP, "POST", "categories", { name: "Expired Cat", imageUrl: "https://x.test/e.png" });
   const expId = r.body.requestId;
   await prismadb.$executeRaw`UPDATE "Store" SET "agentAccess" = jsonb_set("agentAccess", '{requests}', (SELECT COALESCE(jsonb_agg(CASE WHEN e->>'id' = ${expId} THEN jsonb_set(e, '{createdAt}', to_jsonb(${old}::text)) ELSE e END), '[]'::jsonb) FROM jsonb_array_elements("agentAccess"->'requests') e)) WHERE id = ${A.store.id}`;
   r = await status(tokenP, expId);
   check("permission: expired request -> 404 for the agent", r.status === 404 && r.body.error === "Request expired or unknown", r);
   const ex = await decideRequest(A.store.id, OWNER_A, expId, "allow");
-  check("permission: expired request cannot be approved (404) and is not run", !ex.ok && ex.status === 404 && (await prismadb.billboard.count({ where: { storeId: A.store.id, label: "Expired BB" } })) === 0);
+  check("permission: expired request cannot be approved (404) and is not run", !ex.ok && ex.status === 404 && (await prismadb.category.count({ where: { storeId: A.store.id, name: "Expired Cat" } })) === 0);
   // a decided request is kept 30 min from the decision, not from creation
   const setField = (id: string, field: "createdAt" | "decidedAt", iso: string) =>
     prismadb.$executeRaw`UPDATE "Store" SET "agentAccess" = jsonb_set("agentAccess", '{requests}', (SELECT COALESCE(jsonb_agg(CASE WHEN e->>'id' = ${id} THEN jsonb_set(e, ARRAY[${field}], to_jsonb(${iso}::text)) ELSE e END), '[]'::jsonb) FROM jsonb_array_elements("agentAccess"->'requests') e)) WHERE id = ${A.store.id}`;
@@ -390,13 +391,13 @@ async function main() {
   {
     const tokS = await createLink(A.store.id, "permission");
     let last: Res = { status: 0, body: null };
-    for (let i = 0; i < 60; i++) last = await proxy(tokS, "POST", "billboards", { label: `bulk-${i}` });
+    for (let i = 0; i < 60; i++) last = await proxy(tokS, "POST", "categories", { name: `bulk-${i}` });
     check("requests: no count cap (60 pending requests accepted)", last.status === 202 && (await readAccess(A.store.id)).requests.length === 60, last);
     const filler = "x".repeat(190_000);
     let n = 0;
     let rr: Res = { status: 0, body: null };
     for (; n < 20; n++) {
-      rr = await proxy(tokS, "POST", "billboards", { label: filler });
+      rr = await proxy(tokS, "POST", "categories", { name: filler });
       if (rr.status !== 202) break;
     }
     check("requests: size cap -> 413 { error } telling the agent to wait", rr.status === 413 && /owner|expire/.test(rr.body?.error) && n >= 8 && n <= 11, { status: rr.status, n });
@@ -408,23 +409,23 @@ async function main() {
     await proxy(tokL, "GET", "categories");
     check("log: successful reads are not logged", (await readAccess(A.store.id)).log.length === 0);
     await proxy(tokL, "GET", "customer/me");
-    await proxy(tokL, "POST", "billboards", { label: "log-bb", images: [{ url: "https://x.test/l.png", order: 1 }] });
+    await proxy(tokL, "POST", "categories", { name: "log-cat", imageUrl: "https://x.test/l.png" });
     await proxy(tokL, "GET", "products/x/y/z");
     const lg = (await readAccess(A.store.id)).log;
     check("log: blocked, unknown and writes are logged", lg.length === 3 && lg[0].outcome === "blocked" && lg[1].method === "POST" && lg[1].outcome === "ok" && lg[2].outcome === "error", lg);
 
     // response size guard
     const bigLabel = "y".repeat(1_000_000);
-    await prismadb.billboard.createMany({ data: Array.from({ length: 4 }, (_, i) => ({ storeId: A.store.id, label: `${bigLabel}${i}` })) });
-    let g = await proxy(tokL, "GET", "billboards");
+    await prismadb.category.createMany({ data: Array.from({ length: 4 }, (_, i) => ({ storeId: A.store.id, name: `${bigLabel}${i}`, imageUrl: "https://x.test/c.png" })) });
+    let g = await proxy(tokL, "GET", "categories");
     check("response guard: > 3.5 MB -> 413 with the pagination hint", g.status === 413 && g.body?.error === "Response too large. Use ?page=1&pageSize=50", { s: g.status, e: g.body?.error });
-    g = await proxy(tokL, "GET", "billboards?page=1&pageSize=2");
+    g = await proxy(tokL, "GET", "categories?page=1&pageSize=2");
     check("response guard: a small page works", g.status === 200 && g.body.items.length === 2 && g.body.hasMore === true && g.body.page === 1 && g.body.pageSize === 2, { s: g.status });
-    await prismadb.billboard.deleteMany({ where: { storeId: A.store.id, label: { startsWith: bigLabel } } });
+    await prismadb.category.deleteMany({ where: { storeId: A.store.id, name: { startsWith: bigLabel } } });
 
     // opt-in pagination on the four lists; without ?page the answer is still a plain array
     for (let i = 0; i < 3; i++) await proxy(tokL, "POST", "filters", { name: `pg-f-${i}`, value: [{ value: 1, unit: "kg" }] });
-    for (const seg of ["products", "categories", "billboards", "filters"]) {
+    for (const seg of ["products", "categories", "filters"]) {
       const plain = await proxy(tokL, "GET", seg);
       const p1 = await proxy(tokL, "GET", `${seg}?page=1&pageSize=1`);
       const p2 = await proxy(tokL, "GET", `${seg}?page=2&pageSize=1`);
@@ -483,16 +484,12 @@ async function main() {
     r = await proxy(tokenA, "POST", "products", pBody({ filteritems: [{ filterId: B.filter.id, valueId: vB.id }] }));
     check("store ids: product POST with another store's filter value -> 400", r.status === 400 && /Filter value not found/.test(r.body?.error), r);
     check("store ids: nothing was created by the refused POSTs", (await prismadb.product.count({ where: { storeId: A.store.id, name: "zz-p" } })) === 0);
-    r = await proxy(tokenA, "POST", "categories", { name: "zz-c", billboardId: B.billboard.id, imageUrl: "https://x.test/c.png" });
-    check("store ids: category POST with another store's billboard -> 400", r.status === 400 && /Billboard not found/.test(r.body?.error), r);
-    r = await proxy(tokenA, "PATCH", `categories/${A.category.id}`, { name: "zz-c", billboardId: B.billboard.id, imageUrl: "https://x.test/c.png" });
-    check("store ids: category PATCH with another store's billboard -> 400, unchanged", r.status === 400 && (await prismadb.category.findUniqueOrThrow({ where: { id: A.category.id } })).billboardId === A.billboard.id, r);
-    r = await proxy(tokenA, "PUT", "home-layout", [{ type: "carousel", settings: { billboardId: B.billboard.id } }]);
-    check("store ids: home layout with another store's billboard -> 400", r.status === 400, r);
-    r = await proxy(tokenA, "PUT", "home-layout", [{ type: "productList", settings: { title: "t", categoryId: B.category.id } }]);
+    r = await proxy(tokenA, "PUT", "page-layouts/home", [{ type: "productList", settings: { title: "t", categoryId: B.category.id } }]);
     check("store ids: home layout with another store's category -> 400", r.status === 400, r);
-    r = await proxy(tokenA, "PUT", "home-layout", [{ type: "carousel", settings: { billboardId: A.billboard.id } }]);
-    check("store ids: home layout with own billboard is saved", r.status === 200, r);
+    r = await proxy(tokenA, "PUT", "page-layouts/product", [{ type: "productList", settings: { title: "t", categoryId: B.category.id } }]);
+    check("store ids: product page list with another store's category -> 400", r.status === 400, r);
+    r = await proxy(tokenA, "PUT", "page-layouts/home", [{ type: "carousel", settings: { images: [{ url: "https://x.test/b.png" }] } }, { type: "productList", settings: { title: "t", categoryId: A.category.id } }]);
+    check("store ids: home layout with a carousel and its own category is saved", r.status === 200, r);
 
     // quantity
     r = await proxy(tokenA, "POST", "products", pBody({ name: "zz-zero", quantity: 0 }));
@@ -594,11 +591,11 @@ async function main() {
   await proxy(tokenD, "GET", "products");
   await deleteLink(A.store.id);
   check("delete: proxy -> 401 at once", (await proxy(tokenD, "GET", "products")).status === 401);
-  check("delete: writes -> 401", (await proxy(tokenD, "POST", "billboards", { label: "x", images: [{ url: "https://x.test", order: 1 }] })).status === 401);
+  check("delete: writes -> 401", (await proxy(tokenD, "POST", "categories", { name: "x", imageUrl: "https://x.test" })).status === 401);
   check("delete: request status -> 401", (await status(tokenD, reqId)).status === 401);
   check("delete: token lookup is null", (await findByToken(tokenD)) === null);
   check("delete: column cleared (no link, no requests)", (await prismadb.store.findUniqueOrThrow({ where: { id: A.store.id }, select: { agentAccess: true } })).agentAccess === null);
-  check("delete: no billboard was created after deletion", (await prismadb.billboard.count({ where: { storeId: A.store.id, label: "x" } })) === 0);
+  check("delete: no category was created after deletion", (await prismadb.category.count({ where: { storeId: A.store.id, name: "x" } })) === 0);
   check("delete: B's link is independent (B has none)", (await findByToken(tokenB)) === null);
 }
 
@@ -610,13 +607,11 @@ async function cleanup() {
     await prismadb.$executeRaw`DELETE FROM "Users" WHERE id = ${`${TAG}-user`}`;
     await prismadb.$executeRaw`DELETE FROM "filterItem" WHERE "productId" IN (SELECT id FROM "Product" WHERE "storeId" = ANY(${createdStores}))`;
     await prismadb.$executeRaw`DELETE FROM "Image" WHERE "productId" IN (SELECT id FROM "Product" WHERE "storeId" = ANY(${createdStores}))`;
-    await prismadb.$executeRaw`DELETE FROM "billboardImage" WHERE "billboardId" IN (SELECT id FROM "Billboard" WHERE "storeId" = ANY(${createdStores}))`;
     await prismadb.$executeRaw`DELETE FROM "Value" WHERE "filterId" IN (SELECT id FROM "Filter" WHERE "storeId" = ANY(${createdStores}))`;
     await prismadb.$executeRaw`DELETE FROM "Filter" WHERE "storeId" = ANY(${createdStores})`;
     await prismadb.$executeRaw`DELETE FROM "MediaImage" WHERE "storeId" = ANY(${createdStores})`;
     await prismadb.$executeRaw`DELETE FROM "Product" WHERE "storeId" = ANY(${createdStores})`;
     await prismadb.$executeRaw`DELETE FROM "Category" WHERE "storeId" = ANY(${createdStores})`;
-    await prismadb.$executeRaw`DELETE FROM "Billboard" WHERE "storeId" = ANY(${createdStores})`;
     await prismadb.$executeRaw`DELETE FROM "Store" WHERE id = ANY(${createdStores})`;
   }
 }

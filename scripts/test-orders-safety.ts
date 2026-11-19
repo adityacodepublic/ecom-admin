@@ -67,11 +67,10 @@ async function call(
 
 async function makeStore(name: string, settings?: object) {
   const store = await prismadb.store.create({
-    data: { name, userId: OWNER, slug: `${TAG}-${name}`.toLowerCase(), orderSettings: settings ?? Prisma.DbNull },
+    data: { name, userId: OWNER, slug: `${TAG}-${name}`.toLowerCase(), settings: settings ? { orders: settings } : Prisma.DbNull },
   });
   createdStores.push(store.id);
-  const billboard = await prismadb.billboard.create({ data: { storeId: store.id, label: "t" } });
-  const category = await prismadb.category.create({ data: { storeId: store.id, billboardId: billboard.id, name: "t", imageUrl: "" } });
+  const category = await prismadb.category.create({ data: { storeId: store.id, name: "t", imageUrl: "" } });
   const product = (name: string, price: string, quantity: number, maxQuantity = 10, isArchived = false) =>
     prismadb.product.create({ data: { storeId: store.id, categoryId: category.id, name, price, quantity, maxQuantity, isArchived } });
   return { store, product };
@@ -565,7 +564,6 @@ async function cleanup() {
     await prismadb.$executeRaw`DELETE FROM "Order" WHERE "storeId" = ANY(${createdStores})`;
     await prismadb.$executeRaw`DELETE FROM "Product" WHERE "storeId" = ANY(${createdStores})`;
     await prismadb.$executeRaw`DELETE FROM "Category" WHERE "storeId" = ANY(${createdStores})`;
-    await prismadb.$executeRaw`DELETE FROM "Billboard" WHERE "storeId" = ANY(${createdStores})`;
     await prismadb.$executeRaw`DELETE FROM "Store" WHERE id = ANY(${createdStores})`;
   }
   await prismadb.$executeRaw`DELETE FROM "Address" WHERE "usersId" = ANY(${createdUsers})`;

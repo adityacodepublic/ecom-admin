@@ -2,7 +2,7 @@ import { after } from "next/server";
 import { storeAppOrigin } from "@/lib/store-url";
 
 /**
- * The storefront caches public reads (products, categories, billboards, filters, order settings) by tag.
+ * The storefront caches public reads (products, categories, filters, order settings) by tag.
  * After an admin write we ask the store app to drop those tags so the change shows at once. Best effort:
  * it never fails or delays the write, and on failure the cache simply runs out by itself (30-60s).
  *
@@ -39,12 +39,17 @@ function schedule(tags: string[]) {
   }
 }
 
-/** Products, categories, billboards and filters embed each other's data, so any catalog write refreshes all four. */
+/** Products, categories and filters embed each other's data, so any catalog write refreshes all three. */
 export function revalidateStoreCatalog(storeId: string) {
-  schedule(["products", "categories", "billboards", "filters"].map((t) => `${t}-${storeId}`));
+  schedule(["products", "categories", "filters"].map((t) => `${t}-${storeId}`));
 }
 
 /** Order settings and contact details (the store reads them as one cached value). */
 export function revalidateStoreOrderSettings(storeId: string) {
   schedule([`order-settings-${storeId}`]);
+}
+
+/** The store's name and logo (the store app caches its slug -> store lookup under store-<slug>). */
+export function revalidateStoreInfo(slug: string) {
+  schedule([`store-${slug}`]);
 }

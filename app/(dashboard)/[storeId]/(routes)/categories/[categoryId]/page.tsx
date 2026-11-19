@@ -20,16 +20,10 @@ const CategoryPage = async ({
   // "new" is the create page. Any other id must be a category of THIS store.
   if (!category && resolvedParams.categoryId !== "new") notFound();
 
-  const billboards = await prismadb.billboard.findMany({
-    where: {
-      storeId: resolvedParams.storeId,
-    },
-  });
-
   return (
     <div className="flex-col">
       <div className="flex-1 space-y-4 p-8 pt-6">
-        <CategoryForm billboards={billboards} initialData={category} />
+        <CategoryForm initialData={category} />
       </div>
     </div>
   );

@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { parseContact, type StoreContact } from "@/lib/contact";
-import prismadb from "@/lib/prismadb";
+import { readSettings, readSettingsTx, settingsPart, updateSettingsPart } from "@/lib/store-settings";
 import {
   DEFAULT_ORDER_STATUSES,
   DEFAULT_RETURN_REASONS,
@@ -13,7 +13,7 @@ import {
 } from "./status";
 
 /**
- * Store.orderSettings (JSON, null = all defaults).
+ * Store.settings.orders (JSON, missing = all defaults).
  *   autoEmails           send order emails automatically (off; real sending comes later, a domain is needed)
  *   checkoutPaymentStep  true: checkout shows "Cash on delivery" and places a COD order.
  *                        false: no payment step; the order is placed with payment "" and the seller
@@ -89,9 +89,9 @@ function tidy(s: OrderSettings): OrderSettings {
   return { ...s, cancellation: { ...s.cancellation, allowedAt: s.cancellation.allowedAt.filter((x) => s.statuses.includes(x)) } };
 }
 
-/** The stored JSON -> full settings with defaults. Bad stored data falls back to the defaults. */
-export function parseOrderSettings(raw: unknown): OrderSettings {
-  const r = orderSettingsSchema.safeParse(raw ?? {});
+/** The stored settings JSON (Store.settings) -> full order settings with defaults. Bad stored data falls back to the defaults. */
+export function parseOrderSettings(settings: unknown): OrderSettings {
+  const r = orderSettingsSchema.safeParse(settingsPart(settings, "orders") ?? {});
   if (r.success) return tidy(r.data);
   console.error("[ORDER_SETTINGS] invalid stored settings, using defaults", r.error.issues);
   return tidy(orderSettingsSchema.parse({}));
@@ -116,24 +116,20 @@ export const publicOrderSettings = (s: OrderSettings, c: StoreContact): PublicOr
 
 /** Full settings of a store, or null when the store does not exist. For admin server pages. */
 export async function getOrderSettings(storeId: string): Promise<OrderSettings | null> {
-  const store = await prismadb.store.findUnique({ where: { id: storeId }, select: { orderSettings: true } });
-  return store ? parseOrderSettings(store.orderSettings) : null;
+  const settings = await readSettings(storeId);
+  return settings === null ? null : parseOrderSettings(settings);
 }
 
 /** The same, inside a transaction (the order update functions). Defaults when the store is missing. */
 export async function getOrderSettingsTx(tx: Prisma.TransactionClient, storeId: string): Promise<OrderSettings> {
-  const store = await tx.store.findUnique({ where: { id: storeId }, select: { orderSettings: true } });
-  return parseOrderSettings(store?.orderSettings);
+  return parseOrderSettings(await readSettingsTx(tx, storeId));
 }
 
 /** Merges a patch into the store's settings (owner check is the caller's job). */
 export async function updateOrderSettings(storeId: string, patch: OrderSettingsPatch): Promise<OrderSettings | null> {
-  return prismadb.$transaction(async (tx) => {
-    const rows = await tx.$queryRaw<{ orderSettings: unknown }[]>`
-      SELECT "orderSettings" FROM "Store" WHERE id = ${storeId} FOR UPDATE`;
-    if (rows.length === 0) return null;
-    const current = parseOrderSettings(rows[0].orderSettings);
-    const next = tidy(
+  return updateSettingsPart(storeId, "orders", (stored) => {
+    const current = parseOrderSettings({ orders: stored });
+    return tidy(
       orderSettingsSchema.parse({
         ...current,
         ...patch,
@@ -141,13 +137,11 @@ export async function updateOrderSettings(storeId: string, patch: OrderSettingsP
         returns: { ...current.returns, ...patch.returns },
       }),
     );
-    await tx.store.update({ where: { id: storeId }, data: { orderSettings: next } });
-    return next;
   });
 }
 
 /** The public settings of a store (settings + contact), or null when the store does not exist. */
 export async function getPublicOrderSettings(storeId: string): Promise<PublicOrderSettings | null> {
-  const store = await prismadb.store.findUnique({ where: { id: storeId }, select: { orderSettings: true, contact: true } });
-  return store ? publicOrderSettings(parseOrderSettings(store.orderSettings), parseContact(store.contact)) : null;
+  const settings = await readSettings(storeId);
+  return settings === null ? null : publicOrderSettings(parseOrderSettings(settings), parseContact(settings));
 }

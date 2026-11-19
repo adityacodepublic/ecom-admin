@@ -4,6 +4,8 @@ import { auth } from "@clerk/nextjs/server";
 import prismadb from "@/lib/prismadb";
 
 import { getContact } from "@/lib/contact";
+import { parseLogo, parseLogoOnly } from "@/lib/store-settings";
+import { LogoSection } from "./components/logo-section";
 import { getOrderSettings } from "@/lib/orders/settings";
 import { SettingsForm } from "./components/settings-form";
 import { ContactSection } from "./components/contact-section";
@@ -29,7 +31,7 @@ const SettingsPage = async ({
       userId,
     },
     // SettingsForm is a client component: only the columns it uses (never agentAccess).
-    select: { id: true, name: true, slug: true },
+    select: { id: true, name: true, slug: true, settings: true },
   });
 
   if (!store) {
@@ -42,7 +44,8 @@ const SettingsPage = async ({
   return (
     <div className="flex-col">
       <div className="flex-1 space-y-4 p-4 pt-6 md:p-8">
-        <SettingsForm initialData={store}>
+        <SettingsForm initialData={{ id: store.id, name: store.name, slug: store.slug }}>
+          <LogoSection storeId={store.id} logo={parseLogo(store.settings)} logoOnly={parseLogoOnly(store.settings)} />
           <ContactSection storeId={store.id} initial={contact} />
         </SettingsForm>
         <h3 className="pt-4 text-lg font-semibold tracking-tight">Orders</h3>

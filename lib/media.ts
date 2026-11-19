@@ -1,6 +1,7 @@
 // Shared (browser and server) helpers for the image library.
 
-export type MediaUsage = { type: "product" | "billboard" | "category" | "description"; id: string; label: string };
+/** Where an image is used. id: the product / category id, the page name (home, category, product) for "page", the store id for "logo". */
+export type MediaUsage = { type: "product" | "category" | "categoryBanner" | "page" | "logo" | "description"; id: string; label: string };
 
 export type MediaItem = {
   id: string;
@@ -46,6 +47,8 @@ export function escapeLike(text: string): string {
 
 export const usageText = (u: MediaUsage) =>
   u.type === "product" ? `Product: ${u.label}`
-  : u.type === "billboard" ? `Billboard: ${u.label}`
-  : u.type === "category" ? `Category: ${u.label}`
+  : u.type === "category" ? `Category thumbnail: ${u.label}`
+  : u.type === "categoryBanner" ? `Category billboard: ${u.label}`
+  : u.type === "page" ? `${u.label} block`
+  : u.type === "logo" ? "Store logo"
   : `Description of product: ${u.label}`;

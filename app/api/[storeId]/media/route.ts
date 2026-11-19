@@ -25,14 +25,15 @@ export async function GET(req: Request, { params }: { params: Promise<{ storeId:
     const search = q
       ? Prisma.sql`AND m."name" ILIKE ${"%" + escapeLike(q) + "%"} ESCAPE '\\'`
       : Prisma.empty;
-    // "Unused" = the url is in no product image, billboard image, category, or product description of this store.
+    // "Unused" = the url is in no product image, category (thumbnail or billboard), page block, logo or product description of this store.
     const unused = unusedOnly
       ? Prisma.sql`
         AND NOT EXISTS (SELECT 1 FROM "Image" i JOIN "Product" p ON p."id" = i."productId"
                         WHERE p."storeId" = m."storeId" AND i."url" = m."url")
-        AND NOT EXISTS (SELECT 1 FROM "billboardImage" bi JOIN "Billboard" b ON b."id" = bi."billboardId"
-                        WHERE b."storeId" = m."storeId" AND bi."url" = m."url")
-        AND NOT EXISTS (SELECT 1 FROM "Category" c WHERE c."storeId" = m."storeId" AND c."imageUrl" = m."url")
+        AND NOT EXISTS (SELECT 1 FROM "Category" c WHERE c."storeId" = m."storeId"
+                        AND (c."imageUrl" = m."url" OR strpos(c."banner"::text, m."url") > 0))
+        AND NOT EXISTS (SELECT 1 FROM "Store" s WHERE s."id" = m."storeId"
+                        AND (strpos(COALESCE(s."pageLayouts"::text, ''), m."url") > 0 OR s."settings"->>'logo' = m."url"))
         AND NOT EXISTS (SELECT 1 FROM "Product" p2 WHERE p2."storeId" = m."storeId"
                         AND p2."description" IS NOT NULL AND position(m."url" in p2."description") > 0)`
       : Prisma.empty;

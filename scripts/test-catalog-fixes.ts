@@ -14,9 +14,8 @@ import { orderListQuerySchema, revenueByMonth } from "@/lib/orders/queries";
 import { signUpload } from "@/lib/cloudinary";
 import * as productsRoute from "@/app/api/[storeId]/products/route";
 import * as productRoute from "@/app/api/[storeId]/products/[productId]/route";
-import * as billboardsRoute from "@/app/api/[storeId]/billboards/route";
-import * as billboardRoute from "@/app/api/[storeId]/billboards/[billboardId]/route";
 import * as categoryRoute from "@/app/api/[storeId]/categories/[categoryId]/route";
+import * as categoriesRoute from "@/app/api/[storeId]/categories/route";
 import * as filterRoute from "@/app/api/[storeId]/filters/[filterId]/route";
 import * as usersRoute from "@/app/api/[storeId]/users/route";
 import * as storeRoute from "@/app/api/stores/[storeId]/route";
@@ -61,10 +60,8 @@ async function main() {
   const store = await prismadb.store.create({ data: { name: "A", userId: OWNER, slug: `${TAG}-a` } });
   storeIds.push(store.id);
   const S = store.id;
-  const billboard = await prismadb.billboard.create({
-    data: { storeId: S, label: "bb", images: { create: [{ url: "https://x.test/b1.png", order: 1 }, { url: "https://x.test/b2.png", order: 2 }] } },
-  });
-  const category = await prismadb.category.create({ data: { storeId: S, billboardId: billboard.id, name: "cat", imageUrl: "https://x.test/c.png" } });
+const banner = [{ url: "https://x.test/b1.png", href: "" }, { url: "https://x.test/b2.png", href: "/a" }];
+  const category = await prismadb.category.create({ data: { storeId: S, name: "cat", imageUrl: "https://x.test/c.png", banner } });
   const filter = await prismadb.filter.create({ data: { storeId: S, name: `${TAG}-f` } });
   const value = await prismadb.value.create({ data: { filterId: filter.id, unit: "GB", value: "8" } });
   const product = await prismadb.product.create({
@@ -142,29 +139,23 @@ async function main() {
   check("product POST ok, missing order defaults to position", postOk.status === 200 && secondImgs.length === 1 && secondImgs[0].order === 1, [postOk.status, postOk.text]);
   const second = postOk.json?.id as string;
 
-  // billboards
-  const bbBefore = JSON.stringify((await prismadb.billboard.findUniqueOrThrow({ where: { id: billboard.id }, include: { images: { orderBy: { order: "asc" } } } })).images.map((i) => [i.id, i.url]));
-  const patchBb = (body: unknown) =>
-    run(() => billboardRoute.PATCH(req("PATCH", `/api/${S}/billboards/${billboard.id}`, body), { params: Promise.resolve({ billboardId: billboard.id, storeId: S }) }), OWNER, S);
-  for (const [label, images] of [
-    ["images not an array", "nope"],
-    ["image url not a web link", [{ url: "ftp://x.test/a.png", order: 1 }]],
-    ["image order fractional", [{ url: "https://x.test/a.png", order: 0.5 }]],
-    ["href not text", [{ url: "https://x.test/a.png", order: 1, href: 5 }]],
+  // category billboard (banner)
+  const patchCat = (body: unknown) =>
+    run(() => categoryRoute.PATCH(req("PATCH", `/api/${S}/categories/${category.id}`, body), { params: Promise.resolve({ categoryId: category.id, storeId: S }) }), OWNER, S);
+  for (const [label, bad] of [
+    ["banner not an array", "nope"],
+    ["banner url not a web link", [{ url: "ftp://x.test/a.png" }]],
+    ["banner url javascript:", [{ url: "javascript:alert(1)" }]],
+    ["banner href not text", [{ url: "https://x.test/a.png", href: 5 }]],
+    ["banner over 20 images", Array.from({ length: 21 }, (_, i) => ({ url: `https://x.test/${i}.png` }))],
   ] as [string, unknown][]) {
-    const r = await patchBb({ label: "CHANGED", images });
-    check(`billboard PATCH ${label} -> 400`, r.status === 400, [r.status, r.text]);
+    const r = await patchCat({ name: "CHANGED", imageUrl: "https://x.test/c.png", banner: bad });
+    check(`category PATCH ${label} -> 400`, r.status === 400, [r.status, r.text]);
   }
-  const bbNow = await prismadb.billboard.findUniqueOrThrow({ where: { id: billboard.id }, include: { images: { orderBy: { order: "asc" } } } });
-  check("billboard untouched after bad PATCHes", bbNow.label === "bb" && JSON.stringify(bbNow.images.map((i) => [i.id, i.url])) === bbBefore);
-  const bbMid = await patchBb({ label: "CHANGED", images: [{ url: "https://x.test/n.png", order: 2147483647 + 5 }] });
-  const bbMidNow = await prismadb.billboard.findUniqueOrThrow({ where: { id: billboard.id }, include: { images: true } });
-  check("billboard DB failure mid-way rolls back (label and images intact)", bbMid.status === 500 && bbMidNow.label === "bb" && bbMidNow.images.length === 2, [bbMid.status, bbMidNow.label, bbMidNow.images.length]);
-  const bbCon = await Promise.all(Array.from({ length: 5 }, (_, i) => patchBb({ label: `c${i}`, images: [{ url: "https://x.test/b1.png", order: 1, href: "/a" }, { url: "https://x.test/b2.png", order: 2 }] })));
-  const bbConNow = await prismadb.billboardImage.count({ where: { billboardId: billboard.id } });
-  check("billboard concurrent PATCHes: exactly 2 images", bbCon.every((r) => r.status === 200) && bbConNow === 2, [bbCon.map((r) => r.status), bbConNow]);
-  const bbPostBad = await run(() => billboardsRoute.POST(req("POST", `/api/${S}/billboards`, { label: "x", images: [{ url: "javascript:1" }] }), { params: Promise.resolve({ storeId: S }) }), OWNER, S);
-  check("billboard POST bad image -> 400", bbPostBad.status === 400, [bbPostBad.status, bbPostBad.text]);
+  const catNow = await prismadb.category.findUniqueOrThrow({ where: { id: category.id } });
+  check("category untouched after bad PATCHes", catNow.name === "cat" && JSON.stringify(catNow.banner) === JSON.stringify(banner));
+  const catPostBad = await run(() => categoriesRoute.POST(req("POST", `/api/${S}/categories`, { name: "x", imageUrl: "https://x.test/c.png", banner: [{ url: "javascript:1" }] }), { params: Promise.resolve({ storeId: S }) }), OWNER, S);
+  check("category POST bad banner -> 400", catPostBad.status === 400, [catPostBad.status, catPostBad.text]);
 
   // ------------------------------------------------------------ 2. stock is not overwritten
   await prismadb.product.update({ where: { id: product.id }, data: { quantity: 2 } }); // sales since the page loaded (loaded 5)
@@ -207,11 +198,9 @@ async function main() {
   check("DELETE product in an order -> 409 plain text", delProduct.status === 409 && /Archive it/.test(delProduct.text), [delProduct.status, delProduct.text]);
   const delCat = await run(() => categoryRoute.DELETE(req("DELETE", ""), { params: Promise.resolve({ categoryId: category.id, storeId: S }) }), OWNER, S);
   check("DELETE category with products -> 409 UI hint", delCat.status === 409 && delCat.text === "Make sure you removed all products using this category first.", [delCat.status, delCat.text]);
-  const delBb = await run(() => billboardRoute.DELETE(req("DELETE", ""), { params: Promise.resolve({ billboardId: billboard.id, storeId: S }) }), OWNER, S);
-  check("DELETE billboard with categories -> 409 UI hint", delBb.status === 409 && delBb.text === "Make sure you removed all categories using this billboard first.", [delBb.status, delBb.text]);
   const delStore = await run(() => storeRoute.DELETE(req("DELETE", ""), { params: Promise.resolve({ storeId: S }) }), OWNER, S).catch((e) => ({ status: -1, text: String(e), json: null }));
   console.log(`INFO  DELETE store with data (Clerk session is not available in scripts, so this only reports): ${delStore.status} ${delStore.text}`);
-  check("everything still exists after the 409s", !!(await prismadb.product.findUnique({ where: { id: product.id } })) && !!(await prismadb.category.findUnique({ where: { id: category.id } })) && !!(await prismadb.billboard.findUnique({ where: { id: billboard.id } })));
+  check("everything still exists after the 409s", !!(await prismadb.product.findUnique({ where: { id: product.id } })) && !!(await prismadb.category.findUnique({ where: { id: category.id } })));
   // A filter's values and links cascade, so deleting a filter works (and is not a 409).
   const delFilter = await run(() => filterRoute.DELETE(req("DELETE", ""), { params: Promise.resolve({ filterId: filter.id, storeId: S }) }), OWNER, S);
   check("DELETE filter still works (links cascade)", delFilter.status === 200, [delFilter.status, delFilter.text]);
@@ -300,7 +289,6 @@ async function cleanup() {
     await prismadb.order.deleteMany({ where: { storeId: id } });
     await prismadb.product.deleteMany({ where: { storeId: id } });
     await prismadb.category.deleteMany({ where: { storeId: id } });
-    await prismadb.billboard.deleteMany({ where: { storeId: id } });
     await prismadb.filter.deleteMany({ where: { storeId: id } });
     await prismadb.store.deleteMany({ where: { id } });
   }

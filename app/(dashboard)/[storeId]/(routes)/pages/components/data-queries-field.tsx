@@ -39,7 +39,7 @@ export const CodeField = ({ id, error, inputProps }: AutoFormFieldProps) => {
 // ---------------------------------------------------------------- the data editor
 
 type Source = DataQuery["source"];
-const SOURCE_LABEL: Record<Source, string> = { products: "Products", categories: "Categories", billboards: "Billboards" };
+const SOURCE_LABEL: Record<Source, string> = { products: "Products", categories: "Categories" };
 const NONE = "__none";
 
 type Row = { key: number; name: string; query: DataQuery };
@@ -87,9 +87,6 @@ const DataHelp = ({ page }: { page: PageName }) => (
       </p>
       <p>
         <b>Categories</b>: <code>id, name, image, url</code>
-      </p>
-      <p>
-        <b>Billboards</b>: <code>id, label, images [{"{"} url, href {"}"}]</code>
       </p>
       <p className="text-muted-foreground">Search works like the store search box ("under 2000", "phone"). Names: letters, digits and _ . About 200 KB of data in total.</p>
     </PopoverContent>

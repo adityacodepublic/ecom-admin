@@ -18,7 +18,6 @@ const quote = (s: string) => `“${s}”`;
 const SINGULAR: Record<string, string> = {
   products: "product",
   categories: "category",
-  billboards: "billboard",
   filters: "filter",
   media: "media image",
   orders: "order",
@@ -33,7 +32,9 @@ const LABELS: Record<string, string> = {
   isFeatured: "Featured",
   isArchived: "Archived",
   description: "Description",
-  imageUrl: "Image",
+  imageUrl: "Thumbnail",
+  logo: "Logo",
+  logoOnly: "Only the logo in the header",
   url: "Image link",
   source: "Source",
   status: "Status",
@@ -67,18 +68,17 @@ export function summarize(r: RequestLike, lookups: Lookups = {}): Summary {
   };
 
   // Whole-object features with no id.
-  if (feature === "home-layout" || feature === "page-layouts") {
-    const page = feature === "home-layout" ? "home" : id;
-    const pageName = page === "category" ? "category page" : page === "product" ? "product page" : "homepage";
+  if (feature === "page-layouts") {
+    const pageName = id === "category" ? "category page" : id === "product" ? "product page" : "home page";
     if (Array.isArray(r.body)) {
-      fields.push(["Sections", r.body.length === 0 ? "none (clears the layout)" : count(r.body.length, "section")]);
+      fields.push(["Blocks", r.body.length === 0 ? "none (empty page)" : count(r.body.length, "block")]);
       const types = r.body.map((s) => (isObject(s) && typeof s.type === "string" ? s.type : "?"));
       if (types.length) fields.push(["Order", types.join(", ")]);
     }
     return { title: r.method === "DELETE" ? `Reset ${pageName} layout` : `Replace ${pageName} layout`, subject: `${pageName[0].toUpperCase()}${pageName.slice(1)} layout`, destructive: r.method === "DELETE", fields };
   }
-  if (feature === "contact" || feature === "order-settings") {
-    const subject = feature === "contact" ? "Contact details" : "Order settings";
+  if (feature === "contact" || feature === "order-settings" || feature === "branding") {
+    const subject = feature === "contact" ? "Contact details" : feature === "branding" ? "Store name and logo" : "Order settings";
     for (const [k, v] of Object.entries(body)) add(LABELS[k] ?? k, v);
     return { title: `Change ${subject.toLowerCase()}`, subject, destructive: r.method === "DELETE", fields };
   }
@@ -112,11 +112,8 @@ export function summarize(r: RequestLike, lookups: Lookups = {}): Summary {
     if (typeof body.description === "string") fields.push(["Description", clip(body.description)]);
   } else if (feature === "categories") {
     add("Name", body.name);
-    if (body.billboardId !== undefined) add("Billboard", lookups.billboardName ?? `id ${String(body.billboardId)}`);
-    add("Image", body.imageUrl);
-  } else if (feature === "billboards") {
-    add("Label", body.label);
-    if (Array.isArray(body.images)) fields.push(["Images", count(body.images.length, "image")]);
+    add("Thumbnail", body.imageUrl);
+    if (Array.isArray(body.banner)) fields.push(["Billboard", count(body.banner.length, "image")]);
   } else if (feature === "filters") {
     add("Name", body.name);
     if (Array.isArray(body.value)) fields.push(["Values", count(body.value.length, "value")]);

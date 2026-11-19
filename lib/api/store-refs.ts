@@ -6,12 +6,6 @@ export async function categoryInStore(storeId: string, id: unknown): Promise<boo
   return !!(await prismadb.category.findFirst({ where: { id, storeId }, select: { id: true } }));
 }
 
-/** True when the id belongs to a billboard of this store. */
-export async function billboardInStore(storeId: string, id: unknown): Promise<boolean> {
-  if (typeof id !== "string" || !id) return false;
-  return !!(await prismadb.billboard.findFirst({ where: { id, storeId }, select: { id: true } }));
-}
-
 /** True when every valueId is a Value whose Filter belongs to this store. */
 export async function valuesInStore(storeId: string, valueIds: unknown[]): Promise<boolean> {
   if (valueIds.some((v) => typeof v !== "string" || !v)) return false;

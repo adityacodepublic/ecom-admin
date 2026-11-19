@@ -38,7 +38,9 @@ export const SectionPreview = ({ storeUrl, page, itemId, section }: { storeUrl: 
       src={src || undefined}
       title="Section preview"
       loading="lazy"
-      // A preview only: links inside must not navigate the frame.
+      // A preview only: links inside must not navigate the frame, and it never takes focus (an edit window would
+      // otherwise focus it first, and the first click on a select would then close that select at once).
+      tabIndex={-1}
       className="pointer-events-none w-full rounded-md border bg-white"
       style={{ height }}
     />

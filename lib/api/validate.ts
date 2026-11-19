@@ -4,7 +4,7 @@ import { Prisma } from "@prisma/client";
 import { getUserId } from "@/lib/agent/context";
 import prismadb from "@/lib/prismadb";
 
-/** Body checks shared by the product and billboard routes. They run BEFORE anything is written. */
+/** Body checks shared by the product and category routes. They run BEFORE anything is written. */
 
 export type Checked<T> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -20,7 +20,7 @@ const isWebUrl = (u: unknown): u is string => {
 
 export type CheckedImage = { url: string; order?: number; href?: string };
 
-/** images: a non-empty array of { url (http or https), order? (whole number), href? (text, billboards only) }. */
+/** images: a non-empty array of { url (http or https), order? (whole number), href? (text, only with opts.href) }. */
 export function checkImages(images: unknown, opts: { href?: boolean } = {}): Checked<CheckedImage[]> {
   if (images === undefined || images === null || (Array.isArray(images) && images.length === 0)) {
     return { ok: false, error: "Images are required" };
