@@ -2,13 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import type { HomeSection } from "@/lib/home-layout";
+import type { PageName, PageSection } from "@/lib/home-layout";
 
 /**
  * The real store component for one section, rendered by the store's /preview/section
  * route in an iframe. The frame takes the height the store page reports.
+ * The category and product pages show the block for a real category or product (`itemId`).
  */
-export const SectionPreview = ({ storeUrl, section }: { storeUrl: string; section: HomeSection }) => {
+export const SectionPreview = ({ storeUrl, page, itemId, section }: { storeUrl: string; page: PageName; itemId?: string; section: PageSection }) => {
   const frame = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(160);
   // The admin window height: the store sizes some images in vh, and the small iframe's vh would be wrong.
@@ -16,7 +17,7 @@ export const SectionPreview = ({ storeUrl, section }: { storeUrl: string; sectio
   useEffect(() => setViewportHeight(window.innerHeight), []);
   const src = useDebounced(
     viewportHeight &&
-      `${storeUrl}/preview/section?vh=${viewportHeight}&section=${encodeURIComponent(JSON.stringify(section))}`,
+      `${storeUrl}/preview/section?vh=${viewportHeight}&page=${page}${itemId ? `&${page === "product" ? "productId" : "categoryId"}=${encodeURIComponent(itemId)}` : ""}&section=${encodeURIComponent(JSON.stringify(section))}`,
     400,
   );
 

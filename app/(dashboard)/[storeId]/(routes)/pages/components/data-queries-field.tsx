@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CUSTOM_DATA_NAME, type DataQuery } from "@/lib/home-layout";
+import { CUSTOM_DATA_NAME, type DataQuery, type PageName } from "@/lib/home-layout";
 
 export interface Option {
   value: string;
@@ -55,7 +55,7 @@ const emptyQuery = (source: Source): DataQuery =>
   source === "products" ? { source, featuredOnly: false, limit: 12 } : ({ source } as DataQuery);
 
 /** Item fields of each source: what the HTML finds in STORE_DATA.<name>. */
-const DataHelp = () => (
+const DataHelp = ({ page }: { page: PageName }) => (
   <Popover>
     <PopoverTrigger asChild>
       <button
@@ -69,6 +69,18 @@ const DataHelp = () => (
     <PopoverContent align="start" className="w-[min(30rem,90vw)] space-y-2 text-xs">
       <p>
         Each name becomes a list in the HTML: <code>STORE_DATA.&lt;name&gt;</code>. <code>STORE_DATA.store</code> (name, home) is always there.
+        {page === "category" && (
+          <>
+            {" "}
+            On this page <code>STORE_DATA.category</code> is the category being shown (id, name, image, url).
+          </>
+        )}
+        {page === "product" && (
+          <>
+            {" "}
+            On this page <code>STORE_DATA.product</code> is the product being shown (same fields as a product below).
+          </>
+        )}
       </p>
       <p>
         <b>Products</b>: <code>id, name, price, priceText, image, images[], url, category {"{"}id, name{"}"}, featured, inStock, quantity, description</code>
@@ -89,7 +101,7 @@ const DataHelp = () => (
  * options that fit its source (categories come from the store, so the picker is always valid). It writes the
  * object the schema expects: { "<name>": { source, ...options } }.
  */
-export const dataQueriesField = (categories: Option[]) => {
+export const dataQueriesField = (categories: Option[], page: PageName = "home") => {
   const DataQueriesField = ({ id }: AutoFormFieldProps) => {
     const { field } = useController({ name: id });
     const nextKey = useRef(0);
@@ -138,7 +150,7 @@ export const dataQueriesField = (categories: Option[]) => {
           <span>
             Each name is available in the HTML as <code>STORE_DATA.&lt;name&gt;</code>
           </span>
-          <DataHelp />
+          <DataHelp page={page} />
         </div>
 
         {rows.length === 0 && <p className="text-sm text-muted-foreground">No data yet. The HTML can only use STORE_DATA.store.</p>}

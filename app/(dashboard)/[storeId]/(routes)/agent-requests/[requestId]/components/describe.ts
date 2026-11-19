@@ -67,13 +67,15 @@ export function summarize(r: RequestLike, lookups: Lookups = {}): Summary {
   };
 
   // Whole-object features with no id.
-  if (feature === "home-layout") {
+  if (feature === "home-layout" || feature === "page-layouts") {
+    const page = feature === "home-layout" ? "home" : id;
+    const pageName = page === "category" ? "category page" : page === "product" ? "product page" : "homepage";
     if (Array.isArray(r.body)) {
       fields.push(["Sections", r.body.length === 0 ? "none (clears the layout)" : count(r.body.length, "section")]);
       const types = r.body.map((s) => (isObject(s) && typeof s.type === "string" ? s.type : "?"));
       if (types.length) fields.push(["Order", types.join(", ")]);
     }
-    return { title: r.method === "DELETE" ? "Reset homepage layout" : "Replace homepage layout", subject: "Homepage layout", destructive: r.method === "DELETE", fields };
+    return { title: r.method === "DELETE" ? `Reset ${pageName} layout` : `Replace ${pageName} layout`, subject: `${pageName[0].toUpperCase()}${pageName.slice(1)} layout`, destructive: r.method === "DELETE", fields };
   }
   if (feature === "contact" || feature === "order-settings") {
     const subject = feature === "contact" ? "Contact details" : "Order settings";

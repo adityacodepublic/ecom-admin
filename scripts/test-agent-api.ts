@@ -170,7 +170,7 @@ async function main() {
     check(`unknown: /${p} -> 404 {error}`, r.status === 404 && typeof r.body?.error === "string", r);
   }
   check("rules: ../ and encoded slashes are not routable", resolveRoute("GET", ["products", ".."]).ok === false && resolveRoute("GET", ["products", "a/b"]).ok === false);
-  check("rules: allowed paths resolve", ["billboards", "orders", "order-settings", "contact", "home-layout", "media", "users"].every((s) => resolveRoute("GET", [s]).ok) && resolveRoute("GET", ["orders", "stats"]).ok);
+  check("rules: allowed paths resolve", ["billboards", "orders", "order-settings", "contact", "home-layout", "media", "users"].every((s) => resolveRoute("GET", [s]).ok) && resolveRoute("GET", ["page-layouts", "product"]).ok && resolveRoute("GET", ["page-layouts", "data"]).ok && resolveRoute("PUT", ["page-layouts", "data"]).ok === false && resolveRoute("GET", ["orders", "stats"]).ok);
   check("rules: bad token -> 401", (await proxy(createToken(), "GET", "products")).status === 401);
   const log1 = (await readAccess(A.store.id)).log;
   check("log: blocked calls are logged as blocked", log1.some((l) => l.path === "/customer/me" && l.outcome === "blocked"));

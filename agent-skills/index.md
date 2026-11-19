@@ -19,7 +19,7 @@ The store's public website is `{{STORE_URL}}`. It is public: open it, browse it 
 | Orders, status, payment, returns | `{{BASE}}/skill/orders` |
 | Status lists, cancellation, returns rules | `{{BASE}}/skill/order-settings` |
 | Phone, WhatsApp, email | `{{BASE}}/skill/contact` |
-| Homepage sections | `{{BASE}}/skill/home-layout` |
+| Home, category and product page layouts, custom HTML blocks | `{{BASE}}/skill/pages` |
 | Uploading or listing images | `{{BASE}}/skill/media` |
 | Customer ids | `{{BASE}}/skill/users` |
 
@@ -58,7 +58,7 @@ Product(name, price, quantity, maxQuantity, isFeatured, isArchived, description)
    -> images[{url, order}]            (at least 1)
    -> filteritems -> Value(value, unit) -> Filter(name)   (optional attributes)
 Order (read + status updates only) -> items reference Product, customer = Users
-Store JSON: orderSettings, contact, homeLayout
+Store JSON: orderSettings, contact, homeLayout, pageLayouts (category and product pages)
 MediaImage: the image library (url, source "upload" | "url")
 ```
 

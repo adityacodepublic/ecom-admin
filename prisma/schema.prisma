@@ -14,6 +14,7 @@ model Store {
   userId     String
   slug       String      @unique
   homeLayout Json?
+  pageLayouts   Json? // layouts of the category and product pages: { category: [...], product: [...] } (lib/home-layout.ts). Null = defaults.
   orderSettings Json?
   contact       Json?
   agentAccess   Json? // AI agent link + pending requests + log (lib/agent/store.ts). Null = no link.

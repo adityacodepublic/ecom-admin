@@ -46,7 +46,7 @@ export const ChangeSlugModal = ({ storeId, currentSlug, isOpen, onClose }: Chang
       await axios.patch(`/api/stores/${storeId}/slug`, { slug });
       toast.success("Store URL changed.");
       onClose();
-      router.refresh(); // Settings and the Homepage preview read the new URL from the server.
+      router.refresh(); // Settings and the Pages preview read the new URL from the server.
     } catch (error) {
       const message = slugErrorFromResponse(error);
       if (message) setServerError(message);

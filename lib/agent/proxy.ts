@@ -60,7 +60,7 @@ export async function handleProxy(req: Request, token: string, segments: string[
           body = JSON.parse(text);
         } catch {
           await log(400, "error");
-          return fail(400, "The body must be JSON");
+          return fail(400, "The body must be JSON. Files cannot be sent here: for images use POST /upload-url (see GET /skill/media).");
         }
       }
     }

@@ -37,5 +37,5 @@ POST {{BASE}}/categories
 | Symptom | Fix |
 | --- | --- |
 | 400 `Name is required` / `Billboard ID is required` / `Image URL is required` | Send all three fields. |
-| 500 `Internal error` on DELETE | Products still use the category. Move or delete them first (`{{BASE}}/skill/products`). Also check home-layout sections that filter by this `categoryId`. |
+| 500 `Internal error` on DELETE | Products still use the category. Move or delete them first (`{{BASE}}/skill/products`). Also check page-layout blocks that filter by this `categoryId` (`{{BASE}}/skill/pages`). |
 | 405 | The link no longer owns the store. |

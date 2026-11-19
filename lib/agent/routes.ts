@@ -30,7 +30,8 @@ const ROUTES: Route[] = [
   { pattern: ["products", ":productId"], load: () => import("@/app/api/[storeId]/products/[productId]/route") },
   { pattern: ["filters"], load: () => import("@/app/api/[storeId]/filters/route") },
   { pattern: ["filters", ":filterId"], load: () => import("@/app/api/[storeId]/filters/[filterId]/route") },
-  { pattern: ["home-layout", "data"], load: () => import("@/app/api/[storeId]/home-layout/data/route"), only: ["GET"] },
+  { pattern: ["page-layouts", "data"], load: () => import("@/app/api/[storeId]/page-layouts/data/route"), only: ["GET"] },
+  { pattern: ["page-layouts", ":page"], load: () => import("@/app/api/[storeId]/page-layouts/[page]/route") },
   { pattern: ["orders"], load: () => import("@/app/api/[storeId]/orders/route") },
   { pattern: ["orders", "stats"], load: () => import("@/app/api/[storeId]/orders/stats/route") },
   { pattern: ["orders", ":orderId"], load: () => import("@/app/api/[storeId]/orders/[orderId]/route") },
@@ -63,6 +64,14 @@ export function resolveRoute(method: string, segments: string[]): Resolved {
   const first = segments[0];
   if (BLOCKED_FIRST.has(first) || RESERVED_FIRST.has(first) || (first === "media" && segments[1] === "sign")) {
     return { ok: false, status: 403, error: `Agents cannot use "${segments.join("/")}"` };
+  }
+  // Agents often guess these. There is no file upload or import endpoint on this server.
+  if (first === "media" && segments.length === 2 && ["upload", "import"].includes(segments[1])) {
+    return {
+      ok: false,
+      status: 404,
+      error: `No "${segments.join("/")}" endpoint. Images are not sent to this server: call POST /upload-url, upload the file to the returned Cloudinary uploadUrl, then register it with POST /media. Read GET /skill/media.`,
+    };
   }
   if (!READ_METHODS.has(method) && !WRITE_METHODS.has(method)) {
     return { ok: false, status: 405, error: `Method ${method} is not supported` };

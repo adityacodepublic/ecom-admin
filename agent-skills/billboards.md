@@ -35,4 +35,4 @@ POST {{BASE}}/billboards
 | 500 `Internal error` on DELETE | The billboard is still used by a category. Repoint or delete those categories first (`{{BASE}}/skill/categories`). Also remove any home-layout carousel that uses it. |
 | 405 | The link no longer owns the store. Tell the user. |
 
-Deleting a billboard that a home-layout carousel references leaves a dangling `billboardId`. Update the layout (`{{BASE}}/skill/home-layout`).
+Deleting a billboard that a home-layout carousel references leaves a dangling `billboardId`. Update the layout (`{{BASE}}/skill/pages`).

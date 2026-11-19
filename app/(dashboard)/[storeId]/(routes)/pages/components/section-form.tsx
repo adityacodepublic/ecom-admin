@@ -9,13 +9,15 @@ import type { AutoFormFieldProps } from "@autoform/react";
 import { AutoForm } from "@/components/ui/autoform";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { sectionSettingsSchemas, type SectionType } from "@/lib/home-layout";
+import { CURRENT_CATEGORY, sectionSettingsSchemas, type PageName, type SectionType } from "@/lib/home-layout";
 import { CodeField, dataQueriesField, type Option } from "./data-queries-field";
 
 export type { Option };
 
 
 interface SectionFormProps {
+  /** The page the section is on (a custom component's data options depend on it). */
+  page: PageName;
   type: SectionType;
   settings: Record<string, unknown>;
   billboards: Option[];
@@ -84,16 +86,17 @@ const ChangeListener = ({ onChange }: { onChange: SectionFormProps["onChange"] }
   return null;
 };
 
-export const SectionForm = ({ type, settings, billboards, categories, saving, onChange, onSave, onCancel }: SectionFormProps) => {
+export const SectionForm = ({ page, type, settings, billboards, categories, saving, onChange, onSave, onCancel }: SectionFormProps) => {
   const schema = useMemo(() => new ZodProvider(formSchema(type)), [type]);
   const formComponents = useMemo(
     () => ({
       billboard: optionsField(billboards, false),
       category: optionsField(categories, true),
       code: CodeField,
-      dataQueries: dataQueriesField(categories),
+      // On the category and product pages a products query can use "this page's category".
+      dataQueries: dataQueriesField(page === "home" ? categories : [{ value: CURRENT_CATEGORY, label: "This page's category" }, ...categories], page),
     }),
-    [billboards, categories],
+    [billboards, categories, page],
   );
 
   return (
