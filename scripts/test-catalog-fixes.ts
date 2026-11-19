@@ -286,9 +286,9 @@ async function main() {
   const s = signUpload(S);
   const expected = crypto
     .createHash("sha1")
-    .update(`allowed_formats=jpg,jpeg,png,webp,gif,avif&folder=ecom/${S}&max_file_size=10485760&timestamp=${s.timestamp}secret`)
+    .update(`allowed_formats=jpg,jpeg,png,webp,gif,avif&folder=ecom/${S}&timestamp=${s.timestamp}secret`)
     .digest("hex");
-  check("signUpload signs folder, timestamp, allowed_formats and max_file_size", s.signature === expected && s.max_file_size === 10485760 && s.allowed_formats === "jpg,jpeg,png,webp,gif,avif", s);
+  check("signUpload signs folder, timestamp and allowed_formats", s.signature === expected && s.allowed_formats === "jpg,jpeg,png,webp,gif,avif", s);
 
   console.log(`\n${passed} passed, ${failed} failed`);
 }

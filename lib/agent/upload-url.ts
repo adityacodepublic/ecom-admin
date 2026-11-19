@@ -9,11 +9,11 @@ export const SIGNATURE_VALID_MINUTES = 60;
 
 /**
  * POST {base}/upload-url. A signature for ONE direct upload: the folder, a server-generated random public_id,
- * the formats and the size are all locked into it. The agent POSTs the file to Cloudinary itself.
+ * and the formats are locked into it (the size is checked when the image is registered). The agent POSTs the file to Cloudinary itself.
  */
 export function createUploadUrl(storeId: string, base: string) {
   const publicId = crypto.randomBytes(12).toString("hex");
-  const s = signUpload(storeId, AGENT_MAX_FILE_BYTES, publicId);
+  const s = signUpload(storeId, publicId);
   return {
     uploadUrl: `https://api.cloudinary.com/v1_1/${s.cloudName}/image/upload`,
     fields: {
@@ -21,7 +21,6 @@ export function createUploadUrl(storeId: string, base: string) {
       timestamp: s.timestamp,
       folder: s.folder,
       allowed_formats: s.allowed_formats,
-      max_file_size: s.max_file_size,
       public_id: publicId,
       signature: s.signature,
     },

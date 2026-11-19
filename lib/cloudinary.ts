@@ -21,21 +21,21 @@ function sign(params: Record<string, string | number>, secret: string) {
 /** Every store uploads into its own folder. */
 export const storeFolder = (storeId: string) => `ecom/${storeId}`;
 
-/** Upload limits, signed with every upload so Cloudinary enforces them (the browser cannot change them). */
+/** Allowed formats, signed with every upload so Cloudinary enforces them (the browser cannot change them). */
 export const ALLOWED_FORMATS = "jpg,jpeg,png,webp,gif,avif";
-export const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
 /**
- * Signed upload data for the browser (image uploads only). Signed: folder, timestamp, allowed_formats and
- * max_file_size. The client must send exactly these fields back to Cloudinary or the signature fails.
+ * Signed upload data for the browser (image uploads only). Signed: folder, timestamp, allowed_formats (and
+ * public_id). The client must send exactly these fields back to Cloudinary or the signature fails.
+ * Do NOT sign max_file_size: it is not an upload parameter, Cloudinary leaves it out of its own string to
+ * sign and answers "Invalid Signature". File size is checked in the browser and (for agents) after upload.
  */
-export function signUpload(storeId: string, maxBytes: number = MAX_FILE_BYTES, publicId?: string) {
+export function signUpload(storeId: string, publicId?: string) {
   const { apiKey, apiSecret, cloudName } = config();
   const folder = storeFolder(storeId);
   const timestamp = Math.round(Date.now() / 1000);
   const allowed_formats = ALLOWED_FORMATS;
-  const max_file_size = maxBytes;
-  const signed: Record<string, string | number> = { folder, timestamp, allowed_formats, max_file_size };
+  const signed: Record<string, string | number> = { folder, timestamp, allowed_formats };
   if (publicId) signed.public_id = publicId; // locks the upload to ONE asset id
   return {
     signature: sign(signed, apiSecret),
@@ -44,7 +44,6 @@ export function signUpload(storeId: string, maxBytes: number = MAX_FILE_BYTES, p
     cloudName,
     folder,
     allowed_formats,
-    max_file_size,
     ...(publicId ? { public_id: publicId } : {}),
   };
 }

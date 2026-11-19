@@ -9,14 +9,14 @@ Every image a store uses can be listed in its image library. Products, billboard
    ```
    POST {{BASE}}/upload-url
    -> { "uploadUrl": "https://api.cloudinary.com/v1_1/<cloud>/image/upload",
-        "fields": { "api_key", "timestamp", "folder", "allowed_formats", "max_file_size", "public_id", "signature" },
+        "fields": { "api_key", "timestamp", "folder", "allowed_formats", "public_id", "signature" },
         "expiresInMinutes": 60, "next": "..." }
    ```
    Step 2, send the file to `uploadUrl` as multipart/form-data with EVERY field from `fields` unchanged plus the `file` field (the file part must come last):
    ```
    curl -X POST "<uploadUrl>" \
      -F "api_key=<api_key>" -F "timestamp=<timestamp>" -F "folder=<folder>" \
-     -F "allowed_formats=<allowed_formats>" -F "max_file_size=<max_file_size>" \
+     -F "allowed_formats=<allowed_formats>" \
      -F "public_id=<public_id>" -F "signature=<signature>" \
      -F "file=@photo.jpg"
    -> { "secure_url": "https://res.cloudinary.com/.../photo.jpg", "public_id": "ecom/<store>/<id>", "bytes": 123456, ... }
@@ -28,7 +28,7 @@ Every image a store uses can be listed in its image library. Products, billboard
    -> { "id": "<media id>", "url": "...", ... }
    ```
    Use `url` in product `images[].url`, billboard `images[].url` or category `imageUrl`. The server checks the real file size with Cloudinary when you register: an image over 6 MB is deleted and refused (400).
-   How long the signed data lasts: Cloudinary accepts the signature for about 1 hour from `timestamp`. It is time limited, NOT single use within that hour, but the folder, the one `public_id`, the formats and the size are locked into it, so one `/upload-url` call can only ever produce one image. Call `/upload-url` again for each further image. After an hour, call it again.
+   How long the signed data lasts: Cloudinary accepts the signature for about 1 hour from `timestamp`. It is time limited, NOT single use within that hour, but the folder, the one `public_id` and the formats are locked into it, so one `/upload-url` call can only ever produce one image. Call `/upload-url` again for each further image. After an hour, call it again.
 2. Use an existing public `https://` image URL, optionally registered so it shows in the library:
    ```
    POST {{BASE}}/media

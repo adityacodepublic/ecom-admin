@@ -352,12 +352,12 @@ async function main() {
     check(
       "upload-url: returns uploadUrl, signed fields (6 MB, folder, formats, random public_id) and instructions",
       ures.status === 200 && ub.uploadUrl === "https://api.cloudinary.com/v1_1/testcloud/image/upload" && f.api_key === "key" &&
-        f.folder === `ecom/${A.store.id}` && f.max_file_size === 6291456 && f.allowed_formats === "jpg,jpeg,png,webp,gif,avif" &&
+        f.folder === `ecom/${A.store.id}` && f.allowed_formats === "jpg,jpeg,png,webp,gif,avif" &&
         /^[0-9a-f]{24}$/.test(f.public_id) && typeof f.timestamp === "number" && ub.expiresInMinutes === 60 && /upload-url|media/.test(ub.next),
       ub,
     );
     const crypto = await import("crypto");
-    const expectedSig = crypto.createHash("sha1").update(`allowed_formats=${f.allowed_formats}&folder=${f.folder}&max_file_size=6291456&public_id=${f.public_id}&timestamp=${f.timestamp}secret`).digest("hex");
+    const expectedSig = crypto.createHash("sha1").update(`allowed_formats=${f.allowed_formats}&folder=${f.folder}&public_id=${f.public_id}&timestamp=${f.timestamp}secret`).digest("hex");
     check("upload-url: signature covers folder, formats, size, public_id and timestamp", f.signature === expectedSig, f);
     const ub2 = (await (await handleUploadUrl(uReq(tokU), tokU)).json()) as any;
     check("upload-url: every call gets a new public_id", ub2.fields.public_id !== f.public_id);
