@@ -128,6 +128,12 @@ async function main() {
     );
     check("no account cannot save", anon.status === 403, anon.status);
 
+    // ---- Markdown block
+    const md = { type: "markdown", settings: { markdown: "**7 days**" } };
+    check("markdown block saves on every page", (await Promise.all(["home", "category", "product"].map((p) => put(a.id, A, p, [md, md])))).every((r) => r.status === 200));
+    const emptyMd = await put(a.id, A, "home", [{ type: "markdown", settings: { markdown: "   " } }]);
+    check("an empty markdown block is refused", emptyMd.status === 400 && emptyMd.text.includes("Write some text"), emptyMd);
+
     // ---- custom pages
     await prismadb.store.update({ where: { id: b.id }, data: { pageLayouts: undefined } });
     const B = "user_zz_b";
@@ -146,9 +152,9 @@ async function main() {
     }
     check("unknown field: 400", (await create(b.id, B, { route: "x", title: "y" })).status === 400);
     check("another account cannot create", (await create(b.id, A, { route: "mine" })).status === 405);
-    const saved = await put(b.id, B, "summer-sale", [carousel(), list({ categoryId: "current" }), custom()]);
+    const saved = await put(b.id, B, "summer-sale", [carousel(), list({ categoryId: "current" }), custom(), { type: "markdown", settings: { markdown: "hi" } }]);
     check("custom page saves Billboard, Product list and Custom component", saved.status === 200, saved);
-    check("custom page reads back", (await get(b.id, "summer-sale")).body.length === 3);
+    check("custom page reads back", (await get(b.id, "summer-sale")).body.length === 4);
     const fixed = await put(b.id, B, "summer-sale", [{ type: "categories", settings: {} }]);
     check("fixed blocks are refused on a custom page", fixed.status === 400, fixed);
     check("saving a page that does not exist: 404", (await put(b.id, B, "nope", [])).status === 404);
@@ -156,7 +162,7 @@ async function main() {
     check("built-in pages still read null", (await get(b.id, "home")).status === 200);
     await create(b.id, B, { route: "about" });
     await put(b.id, B, "home", [carousel()]);
-    check("custom pages and home do not overwrite each other", (await get(b.id, "summer-sale")).body.length === 3 && (await get(b.id, "home")).body.length === 1 && JSON.stringify((await get(b.id, "about")).body) === "[]");
+    check("custom pages and home do not overwrite each other", (await get(b.id, "summer-sale")).body.length === 4 && (await get(b.id, "home")).body.length === 1 && JSON.stringify((await get(b.id, "about")).body) === "[]");
     check("the home page cannot be deleted", (await del(b.id, B, "home")).status === 400);
     check("another account cannot delete", (await del(b.id, A, "about")).status === 405);
     check("delete a custom page", (await del(b.id, B, "about")).status === 200 && (await get(b.id, "about")).status === 404);

@@ -17,7 +17,7 @@ Each store page is a list of blocks in the order the owner chose. The store has 
 
 ## Custom pages
 
-A custom page is a store page at `{{STORE_URL}}/<route>`. It holds only the content blocks: `carousel`, `productList` and `custom`. Fixed blocks are refused there.
+A custom page is a store page at `{{STORE_URL}}/<route>`. It holds only the content blocks: `carousel`, `productList`, `markdown` and `custom`. Fixed blocks are refused there.
 
 1. `GET {{BASE}}/page-layouts` and check that the route is not in `custom`.
 2. `POST {{BASE}}/page-layouts` with `{ "route": "summer-sale" }`. The new page is empty and shows nothing yet.
@@ -36,7 +36,7 @@ To change a route, create the new page, PUT the blocks there, then delete the ol
 
 ## Two kinds of blocks
 
-Content blocks (`carousel`, `productList`, `custom`) keep everything they show in their own `settings`. Every page can use them, any number of times.
+Content blocks (`carousel`, `productList`, `markdown`, `custom`) keep everything they show in their own `settings`. Every page can use them, any number of times.
 
 Fixed blocks show the store's own data: the categories, the category being shown, or the product being shown. That data is not in the layout, so this endpoint cannot change it. You choose only whether a fixed block appears and where. Each fixed block can appear once per page, and only on its own page. A second copy, or a fixed block on another page, returns a 400 error. A fixed block you leave out is not shown. Keep `categoryProducts` and `productTop` unless the owner asks to remove them.
 
@@ -46,6 +46,7 @@ Fixed blocks show the store's own data: the categories, the category being shown
 | --- | --- | --- | --- | --- |
 | `carousel` ("Billboard") | all, custom pages too | content | Images in order, each with an optional click target. | Its settings: `images`, `title`, `slides`, `contain`, `autoplay`. |
 | `productList` ("Product list") | all, custom pages too | content | Products chosen by category, featured flag and search words, as cards or as a grid of image tiles. | Its settings (see "Block settings"). For the products themselves, see `{{BASE}}/skill/products`. |
+| `markdown` ("Markdown") | all, custom pages too | content | Formatted text: headings, lists, links, images, tables and quotes, styled like a product description. | Its setting: `markdown`. |
 | `custom` ("Custom component") | all, custom pages too | content | Your own HTML. | Its settings: `html`, `data`, `height`, `title`. |
 | `categories` ("Category icons") | home | fixed | Every category's name and Thumbnail. | Categories: `name`, `imageUrl` (the Thumbnail). `{{BASE}}/skill/categories` |
 | `categoryBanner` ("Category billboard") | category | fixed | The images of the category being shown. | That category's `banner`. `{{BASE}}/skill/categories` |
@@ -54,7 +55,7 @@ Fixed blocks show the store's own data: the categories, the category being shown
 | `productDescription` ("Product description") | product | fixed | The product's Markdown description. It shows nothing when the product has none. | That product's `description`. `{{BASE}}/skill/products` |
 | `relatedProducts` ("Related products") | product | fixed | Up to 8 other in-stock products of the same category. It shows nothing when there are none. | The block sets only `title` (default `"Related Items"`). The product's category decides which products show. |
 
-When no block can show what a design needs, write a `custom` block.
+For text, such as an announcement, a size guide or a returns policy, use a `markdown` block. When no block can show what a design needs, write a `custom` block.
 
 ### Block settings
 
@@ -64,6 +65,7 @@ Array order is page order, top to bottom. `id` is optional, and the server adds 
 | --- | --- |
 | `carousel` | `images` required: 1 to 20 `{ url, href }` in order. `url` is an `http(s)` image link. `href` is where a click goes: a store path such as `/category/<id>`, a full URL, or `""` for nowhere. `title` optional. `slides` shown at once, 1 to 3 (1). `contain` shows the whole image with no crop (false). `autoplay` (true). |
 | `productList` | `title` required, non-empty. `categoryId` optional: a category id or `"current"`. `featuredOnly` (false). `search` optional: the same words as the store search box, and it understands "under 20000". `limit` 1 to 24 (8). `grid` (false): false shows product cards (image, name, price), true shows big image tiles. Only for `grid: true`: `columns` 2 or 3 (2), `showName` (true), `showPrice` (false). |
+| `markdown` | `markdown` required: GitHub Markdown, up to 100,000 characters. Tables, task lists and strikethrough work. Raw HTML is allowed but cleaned, so scripts, iframes and event handlers are removed. Images are `![alt](https://...)` links, such as those from `GET {{BASE}}/media`. Write any heading in the text itself, such as `## Returns`. |
 | `custom` | `html` required. `title` optional (admin only). `height` 80 to 2000 (400), the starting height only. `data` optional, see "Custom component". |
 | `relatedProducts` | `title` (`"Related Items"`). |
 | other fixed blocks | None. Send `{}`. |
@@ -77,6 +79,7 @@ Shapes:
 { "type": "productList", "settings": { "title": "New arrivals", "categoryId": "<id>", "featuredOnly": false, "search": "under 20000", "limit": 8, "grid": false } }
 { "type": "productList", "settings": { "title": "Top picks", "featuredOnly": true, "limit": 6, "grid": true, "columns": 3, "showName": true, "showPrice": true } }
 { "type": "productList", "settings": { "title": "More like this", "categoryId": "current", "limit": 4 } }
+{ "type": "markdown", "settings": { "markdown": "## Returns\n\nYou can return any item within **7 days**.\n\n- Keep the box\n- Keep the bill" } }
 { "type": "custom", "settings": { "title": "Hero", "height": 400, "html": "<div>...</div>", "data": { "deals": { "source": "products", "search": "under 2000", "limit": 8 } } } }
 { "type": "categories", "settings": {} }
 { "type": "categoryBanner", "settings": {} }
@@ -99,13 +102,73 @@ To change one thing on a page with no saved layout, start from its default:
 
 A `custom` block is a small web page you write. It shows on a store page inside a sandboxed frame. Use it when the other blocks cannot make the design you want. It works on every page, custom pages too.
 
-- `html`: a self-contained fragment, up to 300,000 characters. The whole request through the agent link is capped at 400 KB. Put inline `<style>` and `<script>` in it. Do not write `<html>`, `<head>` or `<body>`. Remote scripts, stylesheets, fonts and images load as they are. Do not use `vh`, `dvh`, `svh` or `lvh` units. The frame is sized to the content, so the server refuses them. Use px, rem or %.
+- `html`: a self-contained fragment, up to 300,000 characters. The whole request through the agent link is capped at 400 KB. Do not write `<html>`, `<head>` or `<body>`. Put scripts in inline `<script>` tags. Remote scripts, stylesheets, fonts and images load as they are.
 - The frame fits your content height on its own. `height` is only the size shown before the page loads.
 - The frame is isolated. It cannot read the shopper's cart, login or cookies, and it cannot call any API. It gets its data from `data` and from the page it sits on.
-- Frame defaults: no margin, the store's font (Inter, as `font-family: var(--font-store)` on `body`), and the CSS variables `--foreground`, `--background`, `--muted`, `--border` and `--font-store`. The store's page background behind the frame is white.
-- To use another font, load it in your HTML, for example
-  `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&display=swap"><style>.title{font-family:"Playfair Display",serif}</style>`.
-  Google Fonts works as is. Serve a font file from elsewhere (`@font-face { src: url(...) }`) with `Access-Control-Allow-Origin: *`, because the frame has its own origin. Without that header, the browser falls back to the store font. Media uploads are images only, so you cannot upload a font file here.
+
+### Styling
+
+Style the block with Tailwind classes, with your own CSS, or with both. The store page behind the frame is white.
+
+#### Frame defaults
+
+The frame sets these before your styles:
+
+| Default | Value |
+| --- | --- |
+| Font | The store font, Inter, on `body`. |
+| Text colour | `#111827` on `body`. |
+| Background | Transparent, so the white store page shows. |
+| `body` margin | 0. |
+| Box sizing | `border-box` on every element. |
+| Images | `max-width: 100%`. |
+| CSS variables | `--font-store` (the Inter font stack), `--foreground` (`#111827`), `--background` (`#ffffff`), `--muted` (`#6b7280`) and `--border` (`#e5e7eb`). |
+
+Tailwind's preflight reset is not loaded. Headings, paragraphs and lists keep the browser's default margins and sizes. For example, an `<h2>` has a top and bottom margin. Set the margins and sizes with classes such as `m-0` and `text-2xl`, or with your own CSS.
+
+#### Tailwind classes
+
+The store builds CSS for every Tailwind CSS v4 class in your HTML, with the default Tailwind theme. You do not load anything.
+
+- Text: `text-xs` to `text-9xl`, `font-thin` to `font-black`, `leading-*`, `tracking-*`, `uppercase` and `text-center`. `font-sans` is the store font.
+- Colour: the full Tailwind palette, such as `text-gray-500`, `bg-amber-100` and `border-red-300`, with opacity such as `bg-black/50`.
+- Layout and spacing: `flex`, `grid`, `grid-cols-*`, `gap-*`, `p-*`, `m-*`, `w-*`, `max-w-*` and `aspect-*`.
+- Shape and effects: `rounded-*`, `border`, `shadow-*`, `opacity-*`, `transition` and `object-cover`.
+- Arbitrary values: `w-[340px]`, `text-[22px]` and `bg-[#f5e6c8]`.
+- Variants: `hover:`, `focus:`, `group-hover:`, and the screen sizes `sm:` (640 px), `md:` (768 px), `lg:` (1024 px) and `xl:` (1280 px).
+
+Rules:
+
+- The screen-size variants follow the width of the frame. The frame is as wide as the page content.
+- Only classes that appear in the HTML get CSS. Class names inside a script string count, such as `'<b class="text-base">'`. A class name that a script builds from parts at runtime does not count, such as `"text-" + size`. Write each full class name somewhere in the HTML.
+- The store's own custom classes, such as `dshadow`, do not exist in the frame. Use Tailwind classes or your own CSS.
+
+#### Your own CSS
+
+Put CSS in `<style>` tags or `style="..."` attributes. Any CSS works, including `@media`, `@keyframes`, CSS variables and `:hover`.
+
+- Your `<style>` rules win over Tailwind classes and over the frame defaults, whatever the selector.
+- A `<link rel="stylesheet">` to a remote stylesheet works.
+
+#### Fonts
+
+The store font, Inter, is already loaded. To use another font, load it in the HTML. Example:
+
+```
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&display=swap">
+<h2 class="m-0 text-4xl" style="font-family:'Playfair Display',serif">Summer sale</h2>
+```
+
+Google Fonts work as they are. A font file from another server (`@font-face { src: url(...) }`) needs the header `Access-Control-Allow-Origin: *`, because the frame has its own origin. Without that header, the browser uses the store font. Media uploads take images only, so you cannot upload a font file here.
+
+#### Sizes the server refuses
+
+The frame takes the height of its content. A height based on the window would make the frame grow with itself, so the server refuses these:
+
+- The units `vh`, `dvh`, `svh` and `lvh`, in CSS or in arbitrary values such as `h-[50vh]`.
+- The classes `h-screen`, `h-dvh`, `h-svh` and `h-lvh`, also with `min-` or `max-`, such as `min-h-screen`.
+
+Use px, rem or % instead, such as `h-[600px]` or `min-h-96`.
 
 ### Data your component asks for
 
@@ -135,7 +198,7 @@ Example for the home page:
 { "type": "custom", "settings": {
   "title": "Deals strip", "height": 360,
   "data": { "deals": { "source": "products", "search": "under 2000", "limit": 6 } },
-  "html": "<style>.row{display:flex;gap:12px;overflow-x:auto;padding:16px}.c{min-width:160px;text-decoration:none;color:inherit}.c img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px}</style><div class='row' id='row'></div><script>document.getElementById('row').innerHTML = STORE_DATA.deals.map(function(p){return '<a class=\"c\" href=\"'+p.url+'\"><img src=\"'+p.image+'\"><div>'+p.name+'</div><b>'+p.priceText+'</b></a>'}).join('')</script>"
+  "html": "<div class='flex gap-3 overflow-x-auto p-4' id='row'></div><script>document.getElementById('row').innerHTML = STORE_DATA.deals.map(function(p){return '<a class=\"min-w-40 text-inherit no-underline\" href=\"'+p.url+'\"><img class=\"aspect-square w-full rounded-xl object-cover\" src=\"'+p.image+'\"><div class=\"mt-2 text-sm\">'+p.name+'</div><b class=\"text-base\">'+p.priceText+'</b></a>'}).join('')</script>"
 } }
 ```
 
@@ -180,9 +243,10 @@ Links to the store (`/...` paths such as `p.url`) open inside the shop. Links th
 | 400 `Invalid layout`, `Image url must start with http:// or https://` | Use full image links, such as those from `GET {{BASE}}/media`. |
 | 400 `Invalid layout`, `Title is required` | Give `productList` and `relatedProducts` a title. |
 | 400 `Invalid layout`, discriminator / `invalid_union` error | `type` is not a block of that page. See "Block types and where they work". |
-| 400 `... is a fixed block and can be used once on the ... page` | Remove the duplicate. Only the content blocks (`carousel`, `productList`, `custom`) can repeat. |
+| 400 `... is a fixed block and can be used once on the ... page` | Remove the duplicate. Only the content blocks (`carousel`, `productList`, `markdown`, `custom`) can repeat. |
+| 400 `Invalid layout`, `Write some text` | Give the `markdown` block a non-empty `markdown`. |
 | 400 `The data name "product" is filled in by the product page itself` | Rename that data query. The same applies to `category` on the category page. |
-| 400 `Do not use vh units` | Replace `vh`, `dvh`, `svh` and `lvh` with px, rem or %. |
+| 400 `Do not use vh units (or the h-screen and dvh classes)` | Replace `vh`, `dvh`, `svh` and `lvh` units and the `h-screen` and `h-dvh` style classes with px, rem or % values, such as `h-[600px]`. |
 | 400 `Category not found in this store` | A `categoryId` is not this store's. |
 | A fixed block shows the wrong thing | Its content is not in the layout. Change the category or product it shows (see "Block types and where they work"). |
 | Custom component shows a blank or tiny area | Check the browser console of the preview URL. Remove any use of `vh` or of APIs, which are not available. |

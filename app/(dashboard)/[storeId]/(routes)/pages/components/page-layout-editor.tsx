@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import axios from "axios";
@@ -9,7 +9,7 @@ import { ArrowDown, ArrowUp, ExternalLink, Pencil, Plus, Trash } from "lucide-re
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertModal } from "@/components/modals/alert-modal";
 import { Modal } from "@/components/ui/modal";
 import {
@@ -33,8 +33,12 @@ const STARTER_HTML =
 /** The settings a new block starts with (zod fills the defaults). A new Billboard starts without images. */
 const newSettings = (type: SectionType): Record<string, unknown> => {
   if (type === "carousel") return { images: [], slides: 1, contain: false, autoplay: true };
+  if (type === "markdown") return { markdown:"## New section\n\nWrite your text here." };
   return sectionSettingsSchemas[type].parse({ title: type === "relatedProducts" ? undefined : "New block", html: STARTER_HTML });
 };
+
+/** A group heading in the add-block list: small, grey and in capitals, so it does not read as a choice. */
+const GROUP_LABEL = "pl-2 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground";
 
 interface PageLayoutEditorProps {
   page: PageKind;
@@ -47,7 +51,19 @@ interface PageLayoutEditorProps {
   products: Option[];
 }
 
-/** The block being edited. `isNew`: added but not saved yet, so Cancel removes it. */
+type DraftSink = (settings: Record<string, unknown>) => void;
+
+/**
+ * The preview in the edit window. It keeps the form's draft itself, so typing re-renders only this frame.
+ * (Re-rendering the whole window on every change moved the cursor of the Markdown editor while typing.)
+ */
+const DraftPreview = ({ connect, section, ...props }: { connect: (sink: DraftSink) => void; section: PageSection; storeUrl: string; page: PageKind; itemId?: string }) => {
+  const [settings, setSettings] = useState(section.settings as Record<string, unknown>);
+  useEffect(() => connect(setSettings), [connect]);
+  return <SectionPreview {...props} section={{ ...section, settings } as PageSection} />;
+};
+
+/** The block being edited. `isNew`: added but not saved yet, so Cancel removes it. `settings`: the saved ones (the draft lives in DraftPreview). */
 interface Editing {
   index: number;
   settings: Record<string, unknown>;
@@ -129,10 +145,12 @@ export const PageLayoutEditor = ({ page, route, initialLayout, storeUrl, categor
     if (await save(layout.filter((_, i) => i !== deleteIndex))) setDeleteIndex(null);
   };
 
-  const onDraftChange = useCallback(
-    (settings: Record<string, unknown>) => setEditing((e) => (e ? { ...e, settings } : e)),
-    [],
-  );
+  // The form's changes go straight to the preview (DraftPreview), not through this component's state.
+  const draftSink = useRef<DraftSink | null>(null);
+  const connectDraft = useCallback((sink: DraftSink) => {
+    draftSink.current = sink;
+  }, []);
+  const onDraftChange = useCallback((settings: Record<string, unknown>) => draftSink.current?.(settings), []);
 
   const editingType = editing ? layout[editing.index].type : null;
   const fixedInfo = editingType && isFixedType(editingType) ? fixedBlockInfo(editingType, storeId, previewItem && { id: previewItem.value, label: previewItem.label }) : null;
@@ -143,19 +161,15 @@ export const PageLayoutEditor = ({ page, route, initialLayout, storeUrl, categor
       {editing && editingType && (
         <Modal
           title={`Edit: ${sectionTypeLabels[editingType]}`}
-          description={fixedInfo ? "A fixed block: it shows your store's own data, which is edited elsewhere." : "The preview follows your changes. Save to make them live."}
+          description={fixedInfo ? "A fixed block: it shows your store's own data, which is edited elsewhere." : editingType === "markdown" ? "Write formatted text. Save to make it live." : "The preview follows your changes. Save to make them live."}
           isOpen
           onClose={cancelEdit}
           className="max-h-[90vh] max-w-5xl overflow-y-auto"
         >
           <div className="space-y-4">
             {/* While editing, the preview follows the form, before it is saved. */}
-            <SectionPreview
-              storeUrl={storeUrl}
-              page={page}
-              itemId={previewId}
-              section={{ ...layout[editing.index], settings: editing.settings } as PageSection}
-            />
+            {/* A Markdown block needs no live preview: its editor already shows the formatted text. */}
+            {editingType !== "markdown" && <DraftPreview connect={connectDraft} storeUrl={storeUrl} page={page} itemId={previewId} section={{ ...layout[editing.index], settings: editing.settings } as PageSection} />}
             {fixedInfo && (
               <div className="space-y-3 rounded-md border bg-muted/40 p-3">
                 <p className="text-sm">{fixedInfo.text}</p>
@@ -206,7 +220,7 @@ export const PageLayoutEditor = ({ page, route, initialLayout, storeUrl, categor
                 <SelectContent align="end">
                   {otherAvailable.length > 0 && (
                     <SelectGroup>
-                      <SelectLabel>Content blocks</SelectLabel>
+                      <SelectLabel className={GROUP_LABEL}>Content blocks</SelectLabel>
                       {otherAvailable.map((type) => (
                         <SelectItem key={type} value={type}>
                           {sectionTypeLabels[type]}
@@ -214,9 +228,10 @@ export const PageLayoutEditor = ({ page, route, initialLayout, storeUrl, categor
                       ))}
                     </SelectGroup>
                   )}
+                  {otherAvailable.length > 0 && fixedAvailable.length > 0 && <SelectSeparator className="my-1.5" />}
                   {fixedAvailable.length > 0 && (
                     <SelectGroup>
-                      <SelectLabel>Fixed blocks (once per page)</SelectLabel>
+                      <SelectLabel className={GROUP_LABEL}>Fixed blocks · once per page</SelectLabel>
                       {fixedAvailable.map((type) => (
                         <SelectItem key={type} value={type}>
                           {sectionTypeLabels[type]}

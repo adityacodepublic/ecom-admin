@@ -54,3 +54,23 @@
 .markdown-editor .milkdown .ProseMirror pre {
   font-size: 0.875rem;
 }
+
+/*
+  Store look: the Markdown block on the Pages screen (not the product form). The store is light mode only,
+  so the editor uses the admin's light theme here, also in dark mode. Sizes, spacing and the table, link and
+  quote styles come from the shared spec MARKDOWN_STYLE (pages/components/markdown-style.tsx).
+*/
+.markdown-store {
+  --background: 0 0% 100%;
+  --foreground: 222.2 84% 4.9%;
+  --muted: 210 40% 96.1%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+  --card: 0 0% 100%;
+  --border: 214.3 31.8% 91.4%;
+  --primary: 222.2 47.4% 11.2%;
+  --secondary: 210 40% 96.1%;
+  --secondary-foreground: 222.2 47.4% 11.2%;
+  --accent: 210 40% 96.1%;
+  --destructive: 0 84.2% 60.2%;
+  color: hsl(var(--foreground));
+}

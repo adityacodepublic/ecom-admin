@@ -32,11 +32,45 @@ export const billboardImagesSchema = z.array(billboardImageSchema).max(BILLBOARD
 // never read the shopper's session or cart). It cannot call any API, so the data it needs is declared in `data`
 // and injected as window.STORE_DATA. Same shape as T3 Code's html_render: a self-contained page + a height.
 export const CUSTOM_HTML_MAX = 300_000;
+/** The longest text of a Markdown block. */
+export const MARKDOWN_MAX = 100_000;
+
+/**
+ * How Markdown looks: one spec for both sides. The store renders Markdown with these styles
+ * (components/ui/markdown.tsx: product descriptions and Markdown blocks), and the admin's Markdown block
+ * editor builds its CSS from them (pages/components/markdown-style.tsx), so the editor looks like the store.
+ * Property names are React style names (camelCase). Change a value here, then copy this file to the other repo.
+ */
+const MD_BORDER = "#e5e5e5";
+const MD_MUTED_BG = "#f5f5f5";
+const MD_CELL = { height: "36px", padding: "8px 12px", fontSize: "14px", lineHeight: "20px", border: `1px solid ${MD_BORDER}` }; // height: a minimum, so an empty row keeps it
+export const MARKDOWN_STYLE = {
+  root: { color: "#0a0a0a" }, // the whole Markdown text (the store's text colour)
+  h1: { margin: "1.5rem 0 0.75rem", padding: 0, fontSize: "1.5rem", lineHeight: "2rem", fontWeight: 700 },
+  h2: { margin: "1.5rem 0 0.75rem", padding: 0, fontSize: "1.25rem", lineHeight: "1.75rem", fontWeight: 700 },
+  h3: { margin: "1.25rem 0 0.5rem", padding: 0, fontSize: "1.125rem", lineHeight: "1.75rem", fontWeight: 600 },
+  h4: { margin: "1rem 0 0.5rem", padding: 0, fontSize: "1rem", lineHeight: "1.5rem", fontWeight: 600 },
+  p: { margin: "0.75rem 0", padding: 0, fontSize: "1rem", lineHeight: "1.75rem" },
+  ul: { margin: "0.75rem 0", paddingLeft: "1.5rem", listStyleType: "disc" },
+  ol: { margin: "0.75rem 0", paddingLeft: "1.5rem", listStyleType: "decimal" },
+  li: { margin: "0.25rem 0", lineHeight: "1.625rem" },
+  a: { color: "#2563eb", textDecoration: "underline" },
+  blockquote: { margin: "1rem 0", padding: "0 0 0 1rem", borderLeft: `4px solid ${MD_BORDER}`, color: "#737373", lineHeight: "1.75rem" },
+  hr: { margin: "1.5rem 0", border: 0, borderTop: `1px solid ${MD_BORDER}` },
+  pre: { margin: "1rem 0", padding: "1rem", borderRadius: "0.5rem", background: MD_MUTED_BG, fontSize: "0.875rem", overflowX: "auto" },
+  code: { padding: "0.125rem 0.25rem", borderRadius: "0.25rem", background: MD_MUTED_BG, fontSize: "0.875rem" },
+  img: { margin: "1rem 0", maxWidth: "100%", height: "auto", borderRadius: "0.5rem" },
+  table: { margin: "1rem 0", width: "100%", borderCollapse: "collapse" },
+  th: { ...MD_CELL, background: MD_MUTED_BG, fontWeight: 600, textAlign: "left" },
+  td: MD_CELL,
+} as const;
 /** Injected data above this many bytes is refused (the page would get slow): lower the limits. */
 export const CUSTOM_DATA_MAX_BYTES = 200_000;
 export const CUSTOM_DATA_NAME = /^[A-Za-z_][A-Za-z0-9_]{0,31}$/;
 // The frame is sized to its content, so a viewport unit (vh) would make the page grow with its own frame.
 const VIEWPORT_UNIT = /\d\s*(?:[sld]?vh)\b/i;
+// Tailwind's screen-height classes (h-screen, min-h-dvh, ...) are vh too.
+const VIEWPORT_CLASS = /(?:^|[\s"'`:])(?:min-|max-)?h-(?:screen|[sld]vh)(?![\w-])/;
 
 export const dataQuerySchema = z.discriminatedUnion("source", [
   z.object({
@@ -66,6 +100,9 @@ export const sectionSettingsSchemas = {
     showName: z.boolean().default(true).describe("Grid style: show the product name"),
     showPrice: z.boolean().default(false).describe("Grid style: show the price"),
   }),
+  markdown: z.object({
+    markdown: z.string().trim().min(1, "Write some text").max(MARKDOWN_MAX, "The text is too long (100,000 characters at most)").describe("Markdown"),
+  }),
   custom: z.object({
     title: z.string().optional().describe("Name (only shown in the admin)"),
     height: z.coerce.number().int().min(80).max(2000).default(400).describe("Starting height (px)"),
@@ -73,8 +110,8 @@ export const sectionSettingsSchemas = {
       .string()
       .min(1, "HTML is required")
       .max(CUSTOM_HTML_MAX, "HTML is too large (300,000 characters at most; an agent request is capped at 400 KB)")
-      .refine((h) => !VIEWPORT_UNIT.test(h), "Do not use vh units: the frame is sized to the content. Use px, rem or %.")
-      .describe("HTML, with inline <style> and <script>"),
+      .refine((h) => !VIEWPORT_UNIT.test(h) && !VIEWPORT_CLASS.test(h), "Do not use vh units (or the h-screen and dvh classes): the frame is sized to the content. Use px, rem or %.")
+      .describe("HTML, with Tailwind classes or inline <style>, and <script>"),
     data: z
       .record(z.string().regex(CUSTOM_DATA_NAME, "Data names: letters, digits, _ (start with a letter, 32 at most)"), dataQuerySchema)
       .default({})
@@ -97,6 +134,7 @@ export type SectionType = keyof typeof sectionSettingsSchemas;
 export const sectionTypeLabels: Record<SectionType, string> = {
   carousel: "Billboard",
   productList: "Product list",
+  markdown: "Markdown",
   custom: "Custom component",
   categories: "Category icons",
   categoryBanner: "Category billboard",
@@ -128,16 +166,16 @@ export const pageLabels: Record<PageName, string> = { home: "Home", category: "C
 
 /** What each page can hold: its fixed blocks (once each), then the blocks any page can use (any number of times). */
 export const pageSectionTypes: Record<PageKind, SectionType[]> = {
-  home: ["categories", "carousel", "productList", "custom"],
-  category: ["categoryBanner", "categoryProducts", "carousel", "productList", "custom"],
-  product: ["productTop", "productDescription", "relatedProducts", "carousel", "productList", "custom"],
-  custom: ["carousel", "productList", "custom"],
+  home: ["categories", "carousel", "productList", "markdown", "custom"],
+  category: ["categoryBanner", "categoryProducts", "carousel", "productList", "markdown", "custom"],
+  product: ["productTop", "productDescription", "relatedProducts", "carousel", "productList", "markdown", "custom"],
+  custom: ["carousel", "productList", "markdown", "custom"],
 };
 
 /** Custom data names the page itself fills in (STORE_DATA.category on the category page, STORE_DATA.product on the product page). */
 export const pageReservedDataNames: Record<PageKind, string[]> = { home: [], category: ["category"], product: ["product"], custom: [] };
 
-const anyPageSections = [sectionSchema("carousel"), sectionSchema("productList"), sectionSchema("custom")] as const;
+const anyPageSections = [sectionSchema("carousel"), sectionSchema("productList"), sectionSchema("markdown"), sectionSchema("custom")] as const;
 export const homeSectionSchema = z.discriminatedUnion("type", [sectionSchema("categories"), ...anyPageSections]);
 export const categorySectionSchema = z.discriminatedUnion("type", [
   sectionSchema("categoryBanner"),

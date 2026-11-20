@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
+import dynamic from "next/dynamic";
 import { useController, useFormContext } from "react-hook-form";
 import { z } from "zod";
 import { ZodProvider, fieldConfig } from "@autoform/zod";
@@ -12,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { BillboardImagesField } from "@/components/billboard-images-field";
 import { CURRENT_CATEGORY, sectionSettingsSchemas, type PageKind, type SectionType } from "@/lib/home-layout";
 import { CodeField, dataQueriesField, type Option } from "./data-queries-field";
+import { MarkdownStoreStyle } from "./markdown-style";
 
 export type { Option };
 
@@ -54,6 +56,23 @@ const optionsField = (options: Option[], optional: boolean) => {
   return OptionsField;
 };
 
+// The same visual Markdown editor as the product description (browser only).
+const MarkdownEditor = dynamic(() => import("@/components/ui/markdown-editor"), {
+  ssr: false,
+  loading: () => <div className="h-40 rounded-md border bg-muted/30" />,
+});
+
+/** The text of a Markdown block, in the visual Markdown editor, styled like the store (the shared spec, see markdown-style.tsx). */
+const MarkdownField = ({ id, error }: AutoFormFieldProps) => {
+  const { field } = useController({ name: id });
+  return (
+    <div className={`markdown-store ${error ? "rounded-md ring-1 ring-destructive" : ""}`}>
+      <MarkdownStoreStyle />
+      <MarkdownEditor value={field.value ?? ""} onChange={field.onChange} />
+    </div>
+  );
+};
+
 /** The images of a Billboard block: a strip and a button that opens the billboard image editor. */
 const ImagesField = ({ id, error }: AutoFormFieldProps) => {
   const { field } = useController({ name: id });
@@ -87,6 +106,7 @@ const formSchema = (type: SectionType) => {
 /** Labels and help of the block settings (Billboard, Product list, Related products). */
 const FIELD_TEXT: Record<string, { label: string; description?: string }> = {
   title: { label: "Title" },
+  markdown: { label: "Text", description: "Headings, lists, links, images and tables. Shown on the store as formatted text." },
   images: { label: "Images", description: "In order. Each image can link to a store page or a website." },
   slides: { label: "Slides shown at once", description: "1 to 3." },
   contain: { label: "Show the whole image (no crop)" },
@@ -101,7 +121,7 @@ const FIELD_TEXT: Record<string, { label: string; description?: string }> = {
   showPrice: { label: "Grid: show the price" },
 };
 /** Fields shown with their own editor. */
-const FIELD_TYPE: Record<string, string> = { images: "billboardImages", categoryId: "category" };
+const FIELD_TYPE: Record<string, string> = { images: "billboardImages", categoryId: "category", markdown: "markdown" };
 
 /** Reports every form change to the parent. Lives inside AutoForm to reach its form context. */
 const ChangeListener = ({ onChange }: { onChange: SectionFormProps["onChange"] }) => {
@@ -120,6 +140,7 @@ export const SectionForm = ({ page, type, settings, categories, saving, onChange
     const withCurrent = page === "category" || page === "product" ? [{ value: CURRENT_CATEGORY, label: "This page's category" }, ...categories] : categories;
     return {
       billboardImages: ImagesField,
+      markdown: MarkdownField,
       category: optionsField(withCurrent, true),
       code: CodeField,
       dataQueries: dataQueriesField(withCurrent, page),
