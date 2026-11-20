@@ -17,8 +17,8 @@ import {
   pageSectionTypes,
   sectionSettingsSchemas,
   sectionTypeLabels,
+  type PageKind,
   type PageLayout,
-  type PageName,
   type PageSection,
   type SectionType,
 } from "@/lib/home-layout";
@@ -37,7 +37,9 @@ const newSettings = (type: SectionType): Record<string, unknown> => {
 };
 
 interface PageLayoutEditorProps {
-  page: PageName;
+  page: PageKind;
+  /** A custom page's route (page = "custom"). */
+  route?: string;
   initialLayout: PageLayout;
   storeUrl: string;
   categories: Option[];
@@ -57,7 +59,7 @@ interface Editing {
  * (store iframe) with up / down / edit / delete. Every change saves the whole layout at once.
  * Fixed blocks show the store's own data: their edit window says where that data is edited instead of a form.
  */
-export const PageLayoutEditor = ({ page, initialLayout, storeUrl, categories, products }: PageLayoutEditorProps) => {
+export const PageLayoutEditor = ({ page, route, initialLayout, storeUrl, categories, products }: PageLayoutEditorProps) => {
   const { storeId } = useParams<{ storeId: string }>();
   const [layout, setLayout] = useState<PageLayout>(initialLayout);
   const [editing, setEditing] = useState<Editing | null>(null);
@@ -79,7 +81,7 @@ export const PageLayoutEditor = ({ page, initialLayout, storeUrl, categories, pr
   const save = async (next: PageLayout) => {
     setSaving(true);
     try {
-      const { data } = await axios.put<PageLayout>(`/api/${storeId}/page-layouts/${page}`, next);
+      const { data } = await axios.put<PageLayout>(`/api/${storeId}/page-layouts/${route ?? page}`, next);
       setLayout(data);
       return true;
     } catch {
@@ -232,7 +234,7 @@ export const PageLayoutEditor = ({ page, initialLayout, storeUrl, categories, pr
         </div>
       </div>
 
-      {page !== "home" && (
+      {(page === "category" || page === "product") && (
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <span className="text-muted-foreground">
             This layout is used by every {page === "category" ? "category" : "product"} page. Preview with:

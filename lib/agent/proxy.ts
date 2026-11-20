@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { WRITE_METHODS, executeRequest, resolveRoute } from "@/lib/agent/routes";
 import { checkUploadedImage, createUploadUrl } from "@/lib/agent/upload-url";
+import { precheckPageLayoutsWrite } from "@/lib/page-layouts";
 import {
   MAX_REQUESTS_BYTES,
   appendLog,
@@ -74,6 +75,16 @@ export async function handleProxy(req: Request, token: string, segments: string[
       if (!checked.ok) {
         await log(checked.status, "error");
         return fail(checked.status, checked.error);
+      }
+    }
+
+    // Page writes that would fail (a taken or reserved route, a missing page, an invalid layout) fail now,
+    // not after the owner approves.
+    if (mode === "permission" && WRITE_METHODS.has(method) && segments[0] === "page-layouts") {
+      const problem = await precheckPageLayoutsWrite(storeId, method, segments, body);
+      if (problem) {
+        await log(problem.status, "error");
+        return fail(problem.status, problem.error);
       }
     }
 

@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 
 import prismadb from "@/lib/prismadb";
-import { defaultLayouts, PAGES, pageLayoutSchemas, type PageLayout, type PageName } from "@/lib/home-layout";
+import { customPageLayoutSchema, defaultLayouts, PAGES, pageLayoutSchemas, type PageLayout, type PageName } from "@/lib/home-layout";
+import { customPagesOf } from "@/lib/page-layouts";
 import { storeUrl } from "@/lib/store-url";
 import { PagesEditor } from "./components/pages-editor";
 
@@ -25,12 +26,22 @@ const PagesPage = async ({ params }: { params: Promise<{ storeId: string }> }) =
       return [page, parsed.success ? (parsed.data as PageLayout) : defaultLayouts[page]];
     }),
   ) as Record<PageName, PageLayout>;
+  // Custom pages, by route (a layout that no longer parses shows as empty; saving replaces it).
+  const customPages = Object.fromEntries(
+    Object.entries(customPagesOf(store.pageLayouts))
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([route, blocks]) => {
+        const parsed = customPageLayoutSchema.safeParse(blocks);
+        return [route, parsed.success ? (parsed.data as PageLayout) : []];
+      }),
+  );
 
   return (
     <div className="flex-col">
       <div className="flex-1 space-y-4 p-8 pt-6">
         <PagesEditor
           layouts={layouts}
+          customPages={customPages}
           storeUrl={storeUrl(store.slug)}
           categories={categories.map((c) => ({ value: c.id, label: c.name }))}
           products={products.map((p) => ({ value: p.id, label: p.name }))}

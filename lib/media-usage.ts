@@ -3,6 +3,7 @@ import { Prisma, type PrismaClient } from "@prisma/client";
 import prismadb from "@/lib/prismadb";
 import type { MediaUsage } from "@/lib/media";
 import { pageLabels, PAGES, type PageName } from "@/lib/home-layout";
+import { customPagesOf } from "@/lib/page-layouts";
 
 /**
  * Decides if the Cloudinary FILE behind a library row may be destroyed. It must not be if anything
@@ -70,9 +71,13 @@ export async function getUsage(storeId: string, urls: string[]): Promise<Map<str
   for (const p of products)
     for (const u of urls) if (p.description?.includes(u)) add(u, { type: "description", id: p.id, label: p.name });
   const layouts = (store?.pageLayouts ?? {}) as Partial<Record<PageName, unknown>>;
-  for (const page of PAGES) {
-    const text = JSON.stringify(layouts[page] ?? []);
-    for (const u of urls) if (text.includes(JSON.stringify(u).slice(1, -1))) add(u, { type: "page", id: page, label: pageLabels[page] });
+  const pages: [string, string, unknown][] = [
+    ...PAGES.map((page): [string, string, unknown] => [page, pageLabels[page], layouts[page]]),
+    ...Object.entries(customPagesOf(layouts)).map(([route, blocks]): [string, string, unknown] => [route, `Page /${route}`, blocks]),
+  ];
+  for (const [id, label, blocks] of pages) {
+    const text = JSON.stringify(blocks ?? []);
+    for (const u of urls) if (text.includes(JSON.stringify(u).slice(1, -1))) add(u, { type: "page", id, label });
   }
   const logo = (store?.settings as { logo?: unknown } | null)?.logo;
   if (typeof logo === "string" && map.has(logo)) add(logo, { type: "logo", id: storeId, label: "Store logo" });

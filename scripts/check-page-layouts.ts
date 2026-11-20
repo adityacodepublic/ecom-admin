@@ -5,7 +5,8 @@
  *   DATABASE_URL=<url> npx tsx scripts/check-page-layouts.ts
  */
 import prismadb from "@/lib/prismadb";
-import { billboardImagesSchema, PAGES, pageLayoutSchemas } from "@/lib/home-layout";
+import { billboardImagesSchema, customPageLayoutSchema, PAGES, pageLayoutSchemas, routeProblem } from "@/lib/home-layout";
+import { customPagesOf } from "@/lib/page-layouts";
 
 async function main() {
   console.log(`Database host: ${new URL(process.env.DATABASE_URL ?? "").host}`);
@@ -23,6 +24,15 @@ async function main() {
       else {
         problems++;
         console.log(`FAIL  ${s.slug} ${page}: ${JSON.stringify(r.error.issues.slice(0, 3))}`);
+      }
+    }
+    for (const [route, blocks] of Object.entries(customPagesOf(layouts))) {
+      const r = customPageLayoutSchema.safeParse(blocks);
+      const bad = routeProblem(route);
+      if (r.success && !bad) console.log(`ok    ${s.slug} /${route}: ${r.data.map((b) => b.type).join(", ") || "(no blocks)"}`);
+      else {
+        problems++;
+        console.log(`FAIL  ${s.slug} /${route}: ${bad ?? JSON.stringify(r.error?.issues.slice(0, 3))}`);
       }
     }
     if (s.settings === null) console.log(`note  ${s.slug}: no settings (defaults)`);

@@ -69,7 +69,12 @@ export function summarize(r: RequestLike, lookups: Lookups = {}): Summary {
 
   // Whole-object features with no id.
   if (feature === "page-layouts") {
-    const pageName = id === "category" ? "category page" : id === "product" ? "product page" : "home page";
+    if (!id) {
+      const route = typeof body.route === "string" ? body.route : "?";
+      return { title: `Create the custom page /${route.replace(/^\/+/, "")}`, subject: "Custom page", destructive: false, fields: [["Route", `/${route.replace(/^\/+/, "")}`]] };
+    }
+    const pageName = id === "category" ? "category page" : id === "product" ? "product page" : id === "home" ? "home page" : `custom page /${id}`;
+    if (r.method === "DELETE") return { title: `Delete the ${pageName}`, subject: "Custom page", destructive: true, fields };
     if (Array.isArray(r.body)) {
       fields.push(["Blocks", r.body.length === 0 ? "none (empty page)" : count(r.body.length, "block")]);
       const types = r.body.map((s) => (isObject(s) && typeof s.type === "string" ? s.type : "?"));

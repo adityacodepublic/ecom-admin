@@ -1,16 +1,38 @@
-# Pages: home, category and product layouts
+# Pages: layouts and custom pages
 
-Each of three store pages is a list of blocks in the order the owner chose: the home page, the category page and the product page. Router: `{{BASE}}/skill/index`.
+Each store page is a list of blocks in the order the owner chose. The store has three built-in pages: the home page, the category page and the product page. The owner can also add custom pages, each at its own route such as `/summer-sale`. Router: `{{BASE}}/skill/index`.
 
 ## Endpoints
 
 | Method and path | Returns |
 | --- | --- |
-| `GET {{BASE}}/page-layouts/{page}` | The saved array, or `null` when none was saved yet. With `null` the page shows its default (see "Defaults"). |
+| `GET {{BASE}}/page-layouts` | `{ pages: ["home", "category", "product"], custom: ["<route>", ...] }`. The routes of the custom pages, sorted. |
+| `POST {{BASE}}/page-layouts` | Body `{ "route": "summer-sale" }`. Creates an empty custom page. Returns 201 `{ route, blocks: [] }`. |
+| `GET {{BASE}}/page-layouts/{page}` | The saved array. A built-in page with no saved layout returns `null`, and the page shows its default (see "Defaults"). |
 | `PUT {{BASE}}/page-layouts/{page}` | The saved array. Replaces the whole layout of that page. |
+| `DELETE {{BASE}}/page-layouts/{route}` | Deletes a custom page and its blocks. Returns `{ deleted: "<route>" }`. |
 | `GET {{BASE}}/page-layouts/data?data=...` | Test a custom component's data (see "Try it before saving"). |
 
-`{page}` is `home`, `category` or `product`. There is one layout per page type. Every category page uses the category layout, and every product page uses the product layout. `PATCH` and `DELETE` do not exist. To change one block, GET the array, edit it, and PUT the whole array. Do not `PUT []`. It saves an empty page and does not restore the default.
+`{page}` is `home`, `category`, `product`, or the route of a custom page without the leading `/`. Every category page uses the category layout, and every product page uses the product layout. `PATCH` does not exist. To change one block, GET the array, edit it, and PUT the whole array. Do not `PUT []` on a built-in page. It saves an empty page and does not restore the default. The built-in pages cannot be deleted.
+
+## Custom pages
+
+A custom page is a store page at `{{STORE_URL}}/<route>`. It holds only the content blocks: `carousel`, `productList` and `custom`. Fixed blocks are refused there.
+
+1. `GET {{BASE}}/page-layouts` and check that the route is not in `custom`.
+2. `POST {{BASE}}/page-layouts` with `{ "route": "summer-sale" }`. The new page is empty and shows nothing yet.
+3. `PUT {{BASE}}/page-layouts/summer-sale` with the blocks.
+
+Route rules:
+
+- One part only, with no `/` inside. Use lowercase letters, digits and single hyphens, up to 40 characters. The server trims spaces and slashes and lowercases the route, so `/Summer-Sale/` becomes `summer-sale`.
+- These routes belong to the store and are refused: `home`, `cart`, `category`, `product`, `products`, `search`, `checkout`, `orders`, `user-profile`, `sign-in`, `sign-up`, `preview`, `api`, `s`, `data` and `custom`.
+- A route that another custom page has is refused with 409.
+- A store has 30 custom pages at most.
+
+In permission mode, a create, save or delete that would fail is refused at once with its error. It does not wait for the owner. A request that passes these checks still waits for the owner.
+
+To change a route, create the new page, PUT the blocks there, then delete the old page. Links to the old route stop working, so confirm with the user first. `"categoryId": "current"` on a custom page applies no category filter, as on the home page.
 
 ## Two kinds of blocks
 
@@ -22,9 +44,9 @@ Fixed blocks show the store's own data: the categories, the category being shown
 
 | Block `type` | Pages | Kind | What it shows | Change its content with |
 | --- | --- | --- | --- | --- |
-| `carousel` ("Billboard") | all | content | Images in order, each with an optional click target. | Its settings: `images`, `title`, `slides`, `contain`, `autoplay`. |
-| `productList` ("Product list") | all | content | Products chosen by category, featured flag and search words, as cards or as a grid of image tiles. | Its settings (see "Block settings"). For the products themselves, see `{{BASE}}/skill/products`. |
-| `custom` ("Custom component") | all | content | Your own HTML. | Its settings: `html`, `data`, `height`, `title`. |
+| `carousel` ("Billboard") | all, custom pages too | content | Images in order, each with an optional click target. | Its settings: `images`, `title`, `slides`, `contain`, `autoplay`. |
+| `productList` ("Product list") | all, custom pages too | content | Products chosen by category, featured flag and search words, as cards or as a grid of image tiles. | Its settings (see "Block settings"). For the products themselves, see `{{BASE}}/skill/products`. |
+| `custom` ("Custom component") | all, custom pages too | content | Your own HTML. | Its settings: `html`, `data`, `height`, `title`. |
 | `categories` ("Category icons") | home | fixed | Every category's name and Thumbnail. | Categories: `name`, `imageUrl` (the Thumbnail). `{{BASE}}/skill/categories` |
 | `categoryBanner` ("Category billboard") | category | fixed | The images of the category being shown. | That category's `banner`. `{{BASE}}/skill/categories` |
 | `categoryProducts` ("Category filters and product grid") | category | fixed | The filters and the products of the category being shown. | Products (`categoryId`, `filteritems`) and filters. `{{BASE}}/skill/products`, `{{BASE}}/skill/filters` |
@@ -46,7 +68,7 @@ Array order is page order, top to bottom. `id` is optional, and the server adds 
 | `relatedProducts` | `title` (`"Related Items"`). |
 | other fixed blocks | None. Send `{}`. |
 
-`"categoryId": "current"` in a `productList` or a custom `products` query means the category of the page the block is on. On the category page it is the category being shown. On the product page it is the product's category, and a product list leaves out the product itself. On the home page it applies no category filter.
+`"categoryId": "current"` in a `productList` or a custom `products` query means the category of the page the block is on. On the category page it is the category being shown. On the product page it is the product's category, and a product list leaves out the product itself. On the home page and on custom pages it applies no category filter.
 
 Shapes:
 
@@ -75,7 +97,7 @@ To change one thing on a page with no saved layout, start from its default:
 
 ## Custom component
 
-A `custom` block is a small web page you write. It shows on a store page inside a sandboxed frame. Use it when the other blocks cannot make the design you want. It works on all three pages.
+A `custom` block is a small web page you write. It shows on a store page inside a sandboxed frame. Use it when the other blocks cannot make the design you want. It works on every page, custom pages too.
 
 - `html`: a self-contained fragment, up to 300,000 characters. The whole request through the agent link is capped at 400 KB. Put inline `<style>` and `<script>` in it. Do not write `<html>`, `<head>` or `<body>`. Remote scripts, stylesheets, fonts and images load as they are. Do not use `vh`, `dvh`, `svh` or `lvh` units. The frame is sized to the content, so the server refuses them. Use px, rem or %.
 - The frame fits your content height on its own. `height` is only the size shown before the page loads.
@@ -127,10 +149,10 @@ Links to the store (`/...` paths such as `p.url`) open inside the shop. Links th
    `GET {{BASE}}/page-layouts/data?data=<url-encoded JSON of your data block>`
    For a block on the category page, add `&categoryId=<a category id>`. For the product page, add `&productId=<a product id>`. The answer then also has `STORE_DATA.category` or `STORE_DATA.product`, and `"categoryId": "current"` works. The request is a read, so it runs at once in both modes. Errors (bad name, limit too high, data too big, unknown id) come back as 400 or 413 with the reason.
 2. If you have a browser or screenshot tool, see the rendered result before saving. Open
-   `{{STORE_URL}}/preview/section?vh=800&page=<home|category|product>&section=<url-encoded JSON of the whole block>`
+   `{{STORE_URL}}/preview/section?vh=800&page=<home|category|product|custom>&section=<url-encoded JSON of the whole block>`
    The block is the object with `type` and `settings`. Give it any `id`. For `page=category`, add `&categoryId=<id>`. For `page=product`, add `&productId=<id>`. Any block works there, fixed ones too. A fixed block that would show nothing shows a grey note instead. Examples are a product without a description and a category without Category billboard images.
 3. Without a browser, you cannot see the result. Say so, check the data from step 1, keep the HTML simple, and ask the user to look at the page after saving. You can also render the HTML with a local tool, with the data from step 1 pasted in as `window.STORE_DATA`.
-4. `PUT` the layout. After saving, the live pages are `{{STORE_URL}}`, `{{STORE_URL}}/category/{categoryId}` and `{{STORE_URL}}/product/{productId}`.
+4. `PUT` the layout. After saving, the live pages are `{{STORE_URL}}`, `{{STORE_URL}}/category/{categoryId}`, `{{STORE_URL}}/product/{productId}` and `{{STORE_URL}}/<route>` for a custom page.
 
 ## Workflow
 
@@ -141,14 +163,19 @@ Links to the store (`/...` paths such as `p.url`) open inside the shop. Links th
 ## Caveats
 
 - Every `categoryId` in product lists and custom `products` queries must be a category of this store. Otherwise the server returns 400 `Category not found in this store`. `"current"` is allowed.
-- Deleting or replacing blocks is destructive. Confirm with the user first.
+- Deleting or replacing blocks, and deleting a custom page, is destructive. Confirm with the user first.
 - A PUT of a non-array, or of anything that fails validation, returns `400 { "error": "Invalid layout", "issues": [...] }`. Read `issues[].path` for the bad field.
 
 ## Failure and fix
 
 | Symptom | Fix |
 | --- | --- |
-| 404 `Unknown page` | `{page}` must be `home`, `category` or `product`. |
+| 404 `No page at /...` | `{page}` must be `home`, `category`, `product` or an existing custom route. Create a custom page with `POST {{BASE}}/page-layouts` first. |
+| 400 `/... is used by the store itself. Pick another route.` | The route is reserved. Choose another one. |
+| 409 `/... is already a page of this store. Pick another route.` | Choose another route, or PUT blocks to the existing page. |
+| 400 `Use lowercase letters, digits and hyphens only. For example: summer-sale` | Fix the route. Use one part, with no `/`, dots or spaces. |
+| 400 `A store can have 30 custom pages at most. Delete one first.` | Delete a custom page the owner no longer needs. Confirm with the user first. |
+| 400 `The ... page cannot be deleted. Save an empty layout instead.` | Only custom pages can be deleted. |
 | 400 `Invalid layout`, `Add at least one image` | Give the Billboard `images` (1 to 20). |
 | 400 `Invalid layout`, `Image url must start with http:// or https://` | Use full image links, such as those from `GET {{BASE}}/media`. |
 | 400 `Invalid layout`, `Title is required` | Give `productList` and `relatedProducts` a title. |

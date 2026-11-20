@@ -8,6 +8,9 @@
 import prismadb from "@/lib/prismadb";
 import { agentContext } from "@/lib/agent/context";
 import * as route from "@/app/api/[storeId]/page-layouts/[page]/route";
+import * as listRoute from "@/app/api/[storeId]/page-layouts/route";
+import { precheckPageLayoutsWrite } from "@/lib/page-layouts";
+import { CUSTOM_PAGES_MAX, RESERVED_ROUTES } from "@/lib/home-layout";
 import { defaultLayouts, pageLayoutSchemas, PAGES } from "@/lib/home-layout";
 
 let failed = 0;
@@ -26,6 +29,15 @@ const get = async (storeId: string, page: string) => {
   const res = await route.GET(new Request("http://localhost:3000/x"), { params: Promise.resolve({ storeId, page }) });
   const text = await res.text();
   return { status: res.status, body: res.status === 200 ? JSON.parse(text) : text };
+};
+const create = async (storeId: string, owner: string, body: unknown) => {
+  const req = new Request("http://localhost:3000/x", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  const res = await agentContext.run({ userId: owner, storeId }, () => listRoute.POST(req, { params: Promise.resolve({ storeId }) }));
+  return { status: res.status, text: await res.text() };
+};
+const del = async (storeId: string, owner: string, page: string) => {
+  const res = await agentContext.run({ userId: owner, storeId }, () => route.DELETE(new Request("http://x/x", { method: "DELETE" }), { params: Promise.resolve({ storeId, page }) }));
+  return { status: res.status, text: await res.text() };
 };
 const custom = (settings: Record<string, unknown> = {}) => ({ type: "custom", settings: { html: "<div>hi</div>", ...settings } });
 const carousel = (images: unknown[] = [{ url: "https://x.test/b.png", href: "/x" }]) => ({ type: "carousel", settings: { images } });
@@ -115,6 +127,58 @@ async function main() {
       route.PUT(new Request("http://x/x", { method: "PUT", body: "[]" }), { params: Promise.resolve({ storeId: a.id, page: "category" }) }),
     );
     check("no account cannot save", anon.status === 403, anon.status);
+
+    // ---- custom pages
+    await prismadb.store.update({ where: { id: b.id }, data: { pageLayouts: undefined } });
+    const B = "user_zz_b";
+    check("store with no pageLayouts at all: first create works", (await create(b.id, B, { route: "/Summer-Sale/" })).status === 201);
+    check("the route is normalized and listed", JSON.parse(await (await listRoute.GET(new Request("http://x"), { params: Promise.resolve({ storeId: b.id }) })).text()).custom.join() === "summer-sale");
+    check("a new custom page is empty", JSON.stringify((await get(b.id, "summer-sale")).body) === "[]");
+    const taken = await create(b.id, B, { route: "summer-sale" });
+    check("a taken route: 409 with a clear message", taken.status === 409 && taken.text.includes("already a page"), taken);
+    for (const r of ["cart", "product", "category", "search", "home", "checkout", "data"]) {
+      const res = await create(b.id, B, { route: r });
+      check(`reserved route /${r}: 400`, res.status === 400 && res.text.includes("used by the store"), res);
+    }
+    check("every reserved route is refused", RESERVED_ROUTES.length >= 10);
+    for (const r of ["", "a/b", "Hello World", "x".repeat(41), "a--b", "-a", "a.png"]) {
+      check(`bad route "${r.slice(0, 12)}": 400`, (await create(b.id, B, { route: r })).status === 400);
+    }
+    check("unknown field: 400", (await create(b.id, B, { route: "x", title: "y" })).status === 400);
+    check("another account cannot create", (await create(b.id, A, { route: "mine" })).status === 405);
+    const saved = await put(b.id, B, "summer-sale", [carousel(), list({ categoryId: "current" }), custom()]);
+    check("custom page saves Billboard, Product list and Custom component", saved.status === 200, saved);
+    check("custom page reads back", (await get(b.id, "summer-sale")).body.length === 3);
+    const fixed = await put(b.id, B, "summer-sale", [{ type: "categories", settings: {} }]);
+    check("fixed blocks are refused on a custom page", fixed.status === 400, fixed);
+    check("saving a page that does not exist: 404", (await put(b.id, B, "nope", [])).status === 404);
+    check("GET of a page that does not exist: 404", (await get(b.id, "nope")).status === 404);
+    check("built-in pages still read null", (await get(b.id, "home")).status === 200);
+    await create(b.id, B, { route: "about" });
+    await put(b.id, B, "home", [carousel()]);
+    check("custom pages and home do not overwrite each other", (await get(b.id, "summer-sale")).body.length === 3 && (await get(b.id, "home")).body.length === 1 && JSON.stringify((await get(b.id, "about")).body) === "[]");
+    check("the home page cannot be deleted", (await del(b.id, B, "home")).status === 400);
+    check("another account cannot delete", (await del(b.id, A, "about")).status === 405);
+    check("delete a custom page", (await del(b.id, B, "about")).status === 200 && (await get(b.id, "about")).status === 404);
+    check("delete again: 404", (await del(b.id, B, "about")).status === 404);
+    check("the route is free again after delete", (await create(b.id, B, { route: "about" })).status === 201);
+    // limit
+    for (let i = 0; i < CUSTOM_PAGES_MAX; i++) await create(b.id, B, { route: `p${i}` });
+    const over = await create(b.id, B, { route: "one-more" });
+    check(`at most ${CUSTOM_PAGES_MAX} custom pages`, over.status === 400 && over.text.includes("at most"), over);
+    // two creates of the same route at once: one wins
+    await del(b.id, B, "p0");
+    await del(b.id, B, "p1");
+    const both = await Promise.all([create(b.id, B, { route: "race" }), create(b.id, B, { route: "race" })]);
+    check("two creates of the same route at once: one 201, one 409", both.map((r) => r.status).sort().join() === "201,409", both);
+    // agent precheck (permission mode refuses at once instead of queueing)
+    check("precheck: taken route", (await precheckPageLayoutsWrite(b.id, "POST", ["page-layouts"], { route: "race" }))?.status === 409);
+    check("precheck: reserved route", (await precheckPageLayoutsWrite(b.id, "POST", ["page-layouts"], { route: "cart" }))?.status === 400);
+    check("precheck: free route passes", (await precheckPageLayoutsWrite(b.id, "POST", ["page-layouts"], { route: "fresh-one" })) === null);
+    check("precheck: missing page", (await precheckPageLayoutsWrite(b.id, "PUT", ["page-layouts", "nope"], []))?.status === 404);
+    check("precheck: invalid layout", (await precheckPageLayoutsWrite(b.id, "PUT", ["page-layouts", "race"], [{ type: "categories", settings: {} }]))?.status === 400);
+    check("precheck: delete home", (await precheckPageLayoutsWrite(b.id, "DELETE", ["page-layouts", "home"], undefined))?.status === 400);
+    check("precheck: valid save passes", (await precheckPageLayoutsWrite(b.id, "PUT", ["page-layouts", "race"], [carousel()])) === null);
   } finally {
     await prismadb.category.deleteMany({ where: { storeId: { in: [a.id, b.id] } } });
     await prismadb.store.deleteMany({ where: { id: { in: [a.id, b.id] } } });

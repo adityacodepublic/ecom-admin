@@ -10,7 +10,7 @@ import { AutoForm } from "@/components/ui/autoform";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BillboardImagesField } from "@/components/billboard-images-field";
-import { CURRENT_CATEGORY, sectionSettingsSchemas, type PageName, type SectionType } from "@/lib/home-layout";
+import { CURRENT_CATEGORY, sectionSettingsSchemas, type PageKind, type SectionType } from "@/lib/home-layout";
 import { CodeField, dataQueriesField, type Option } from "./data-queries-field";
 
 export type { Option };
@@ -18,7 +18,7 @@ export type { Option };
 
 interface SectionFormProps {
   /** The page the section is on (a custom component's data options depend on it). */
-  page: PageName;
+  page: PageKind;
   type: SectionType;
   settings: Record<string, unknown>;
   categories: Option[];
@@ -117,7 +117,7 @@ export const SectionForm = ({ page, type, settings, categories, saving, onChange
   const schema = useMemo(() => new ZodProvider(formSchema(type)), [type]);
   const formComponents = useMemo(() => {
     // On the category and product pages a products query can use "this page's category".
-    const withCurrent = page === "home" ? categories : [{ value: CURRENT_CATEGORY, label: "This page's category" }, ...categories];
+    const withCurrent = page === "category" || page === "product" ? [{ value: CURRENT_CATEGORY, label: "This page's category" }, ...categories] : categories;
     return {
       billboardImages: ImagesField,
       category: optionsField(withCurrent, true),

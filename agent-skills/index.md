@@ -6,7 +6,7 @@ Paths mirror the admin API without `/api/{storeId}`: `GET {{BASE}}/products`, `P
 
 ## The storefront
 
-The store's public website is `{{STORE_URL}}`. It is public: open it, browse it and use it freely (cart, checkout and search work as for any customer; orders and the profile need a customer sign-in). Pages: home `{{STORE_URL}}`, a category `{{STORE_URL}}/category/{categoryId}`, a product `{{STORE_URL}}/product/{productId}`, search `{{STORE_URL}}/search/{text}`, the cart `{{STORE_URL}}/cart`, checkout `{{STORE_URL}}/checkout`, your orders `{{STORE_URL}}/orders` and one order `{{STORE_URL}}/orders/{orderId}`. Changes you make here show up there, so open the storefront to see what customers see.
+The store's public website is `{{STORE_URL}}`. It is public: open it, browse it and use it freely (cart, checkout and search work as for any customer; orders and the profile need a customer sign-in). Pages: home `{{STORE_URL}}`, a category `{{STORE_URL}}/category/{categoryId}`, a product `{{STORE_URL}}/product/{productId}`, search `{{STORE_URL}}/search/{text}`, the cart `{{STORE_URL}}/cart`, checkout `{{STORE_URL}}/checkout`, your orders `{{STORE_URL}}/orders` and one order `{{STORE_URL}}/orders/{orderId}`. The owner's custom pages are at `{{STORE_URL}}/<route>`. Changes you make here show up there, so open the storefront to see what customers see.
 
 ## Skills (read only what the task needs)
 
@@ -19,7 +19,7 @@ The store's public website is `{{STORE_URL}}`. It is public: open it, browse it 
 | Status lists, cancellation, returns rules | `{{BASE}}/skill/order-settings` |
 | Phone, WhatsApp, email | `{{BASE}}/skill/contact` |
 | Store name and logo | `{{BASE}}/skill/branding` |
-| Home, category and product page layouts: Billboards, product lists, custom HTML blocks | `{{BASE}}/skill/pages` |
+| Page layouts (home, category, product) and custom pages at their own route: Billboards, product lists, custom HTML blocks | `{{BASE}}/skill/pages` |
 | Uploading or listing images | `{{BASE}}/skill/media` |
 | Customer ids | `{{BASE}}/skill/users` |
 
@@ -56,7 +56,7 @@ Product(name, price, quantity, maxQuantity, isFeatured, isArchived, description)
    -> images[{url, order}]            (at least 1)
    -> filteritems -> Value(value, unit) -> Filter(name)   (optional attributes)
 Order (read + status updates only) -> items reference Product, customer = Users
-Store JSON: settings (orders, contact, logo), pageLayouts (home, category and product pages; billboard
+Store JSON: settings (orders, contact, logo), pageLayouts (home, category and product pages, and custom pages by route; billboard
             banners are "carousel" blocks there, with their images inside)
 MediaImage: the image library (url, source "upload" | "url")
 ```

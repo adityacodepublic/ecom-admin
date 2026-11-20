@@ -1,46 +1,64 @@
 import { NextResponse } from "next/server";
 
 import { getUserId } from "@/lib/agent/context";
-import { isPage, readLayout, saveLayout } from "@/lib/page-layouts";
+import { deleteCustomPage, isPage, readLayout, saveLayout } from "@/lib/page-layouts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, PUT, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
 type Ctx = { params: Promise<{ storeId: string; page: string }> };
 
+const reply = (status: number, body: unknown) =>
+  typeof body === "string" ? new NextResponse(body, { status }) : NextResponse.json(body, { status });
+
 export async function OPTIONS() {
   return NextResponse.json({}, { headers: corsHeaders });
 }
 
-/** Public: the store reads the layout of a page here (page = home, category or product). Null = none saved yet. */
+/**
+ * Public: the store reads the layout of a page here. page = home, category, product, or a custom page's route.
+ * A built-in page with no saved layout returns null (the store shows its default). An unknown custom route is a 404.
+ */
 export async function GET(_req: Request, { params }: Ctx) {
   const { storeId, page } = await params;
-  if (!isPage(page)) return new NextResponse("Unknown page. Use home, category or product.", { status: 404 });
   const layout = await readLayout(storeId, page);
   if (layout === undefined) return new NextResponse("Store not found", { status: 404 });
+  if (layout === "missing") return new NextResponse(`No page at /${page}`, { status: 404, headers: corsHeaders });
   return NextResponse.json(layout, { headers: corsHeaders });
 }
 
-/** Owner only: replaces the whole layout of a page. Sections without an id get one. */
+/** Owner only: replaces the whole layout of a page (a custom page must exist). Sections without an id get one. */
 export async function PUT(req: Request, { params }: Ctx) {
   try {
     const { storeId, page } = await params;
-    if (!isPage(page)) return new NextResponse("Unknown page. Use home, category or product.", { status: 404 });
     const userId = await getUserId();
     if (!userId) return new NextResponse("Unauthenticated", { status: 403 });
 
     const result = await saveLayout(storeId, userId, page, await req.json());
-    if (!result.ok) {
-      return typeof result.body === "string"
-        ? new NextResponse(result.body, { status: result.status })
-        : NextResponse.json(result.body, { status: result.status });
-    }
+    if (!result.ok) return reply(result.status, result.body);
     return NextResponse.json(result.layout, { headers: corsHeaders });
   } catch (error) {
     console.log("[PAGE_LAYOUT_PUT]", error);
+    return new NextResponse("Internal error", { status: 500 });
+  }
+}
+
+/** Owner only: deletes a custom page. The home, category and product pages cannot be deleted. */
+export async function DELETE(_req: Request, { params }: Ctx) {
+  try {
+    const { storeId, page } = await params;
+    if (isPage(page)) return new NextResponse(`The ${page} page cannot be deleted. Save an empty layout instead.`, { status: 400 });
+    const userId = await getUserId();
+    if (!userId) return new NextResponse("Unauthenticated", { status: 403 });
+
+    const result = await deleteCustomPage(storeId, userId, page);
+    if (!result.ok) return reply(result.status, result.body);
+    return NextResponse.json({ deleted: page });
+  } catch (error) {
+    console.log("[PAGE_LAYOUT_DELETE]", error);
     return new NextResponse("Internal error", { status: 500 });
   }
 }

@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CUSTOM_DATA_NAME, type DataQuery, type PageName } from "@/lib/home-layout";
+import { CUSTOM_DATA_NAME, type DataQuery, type PageKind } from "@/lib/home-layout";
 
 export interface Option {
   value: string;
@@ -55,7 +55,7 @@ const emptyQuery = (source: Source): DataQuery =>
   source === "products" ? { source, featuredOnly: false, limit: 12 } : ({ source } as DataQuery);
 
 /** Item fields of each source: what the HTML finds in STORE_DATA.<name>. */
-const DataHelp = ({ page }: { page: PageName }) => (
+const DataHelp = ({ page }: { page: PageKind }) => (
   <Popover>
     <PopoverTrigger asChild>
       <button
@@ -98,7 +98,7 @@ const DataHelp = ({ page }: { page: PageName }) => (
  * options that fit its source (categories come from the store, so the picker is always valid). It writes the
  * object the schema expects: { "<name>": { source, ...options } }.
  */
-export const dataQueriesField = (categories: Option[], page: PageName = "home") => {
+export const dataQueriesField = (categories: Option[], page: PageKind = "home") => {
   const DataQueriesField = ({ id }: AutoFormFieldProps) => {
     const { field } = useController({ name: id });
     const nextKey = useRef(0);

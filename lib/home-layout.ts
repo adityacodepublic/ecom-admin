@@ -1,7 +1,8 @@
 import { z } from "zod";
 
-// The layouts of the store pages (home, category, product): each is an ordered list of blocks. Array order = page order.
-// All three are stored in Store.pageLayouts = { home, category, product } (a missing page = that page's default).
+// The layouts of the store pages (home, category, product, and the owner's custom pages): each is an ordered list
+// of blocks. Array order = page order. All are stored in Store.pageLayouts = { home, category, product, custom }
+// (a missing home, category or product = that page's default; custom = { "<route>": blocks }, one per custom page).
 // This file is the same in the admin and the store repo. Change both together.
 
 /** In a products query (product list or custom component), `categoryId: "current"` means the category of the page it sits on. */
@@ -121,17 +122,20 @@ const sectionSchema = <T extends SectionType>(type: T) =>
 
 export const PAGES = ["home", "category", "product"] as const;
 export type PageName = (typeof PAGES)[number];
+/** A built-in page, or "custom": any of the owner's custom pages (they all hold the same kinds of blocks). */
+export type PageKind = PageName | "custom";
 export const pageLabels: Record<PageName, string> = { home: "Home", category: "Category page", product: "Product page" };
 
 /** What each page can hold: its fixed blocks (once each), then the blocks any page can use (any number of times). */
-export const pageSectionTypes: Record<PageName, SectionType[]> = {
+export const pageSectionTypes: Record<PageKind, SectionType[]> = {
   home: ["categories", "carousel", "productList", "custom"],
   category: ["categoryBanner", "categoryProducts", "carousel", "productList", "custom"],
   product: ["productTop", "productDescription", "relatedProducts", "carousel", "productList", "custom"],
+  custom: ["carousel", "productList", "custom"],
 };
 
 /** Custom data names the page itself fills in (STORE_DATA.category on the category page, STORE_DATA.product on the product page). */
-export const pageReservedDataNames: Record<PageName, string[]> = { home: [], category: ["category"], product: ["product"] };
+export const pageReservedDataNames: Record<PageKind, string[]> = { home: [], category: ["category"], product: ["product"], custom: [] };
 
 const anyPageSections = [sectionSchema("carousel"), sectionSchema("productList"), sectionSchema("custom")] as const;
 export const homeSectionSchema = z.discriminatedUnion("type", [sectionSchema("categories"), ...anyPageSections]);
@@ -150,7 +154,7 @@ export const productSectionSchema = z.discriminatedUnion("type", [
 type AnySection = { type: string; settings: unknown };
 
 /** Fixed blocks at most once; custom components may not use the data names the page fills in. */
-const checkPage = (page: PageName) => (sections: AnySection[], ctx: z.RefinementCtx) => {
+const checkPage = (page: PageKind) => (sections: AnySection[], ctx: z.RefinementCtx) => {
   const seen = new Set<string>();
   sections.forEach((s, i) => {
     if (s.type === "custom") {
@@ -169,12 +173,55 @@ export const homeLayoutSchema = z.array(homeSectionSchema).superRefine(checkPage
 export const categoryLayoutSchema = z.array(categorySectionSchema).superRefine(checkPage("category"));
 export const productLayoutSchema = z.array(productSectionSchema).superRefine(checkPage("product"));
 
+export const customSectionSchema = z.discriminatedUnion("type", [...anyPageSections]);
+export const customPageLayoutSchema = z.array(customSectionSchema).superRefine(checkPage("custom"));
+
 export const pageLayoutSchemas = { home: homeLayoutSchema, category: categoryLayoutSchema, product: productLayoutSchema } as const;
+/** The layout schema of any page kind. */
+export const layoutSchemaFor = (kind: PageKind) => (kind === "custom" ? customPageLayoutSchema : pageLayoutSchemas[kind]);
+
+// ---- custom pages: extra store pages at their own route (/<route>), holding the blocks any page can use.
+
+/**
+ * Routes a custom page cannot take: the store's own pages (and their sub-pages, such as /product/<id>),
+ * the store's utility routes, and names the admin API uses next to the pages (page-layouts/data).
+ */
+export const RESERVED_ROUTES = [
+  "home", "cart", "category", "product", "products", "search", "checkout", "orders", "user-profile",
+  "sign-in", "sign-up", "preview", "api", "s", "data", "custom",
+];
+export const CUSTOM_PAGES_MAX = 30;
+const ROUTE_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/** What the owner typed, as a route: "/Summer-Sale/" -> "summer-sale". */
+export const normalizeRoute = (raw: string) => raw.trim().replace(/^\/+|\/+$/g, "").toLowerCase();
+
+/** Why a (normalized) route cannot be used, or null. Whether another custom page already has it is checked separately. */
+export const routeProblem = (route: string): string | null => {
+  if (!route) return "Enter a route, for example summer-sale";
+  if (route.includes("/")) return "Use a single word or words joined by hyphens, without /. For example: summer-sale";
+  if (route.length > 40) return "Use 40 characters at most";
+  if (!ROUTE_RE.test(route)) return "Use lowercase letters, digits and hyphens only. For example: summer-sale";
+  if (RESERVED_ROUTES.includes(route)) return `/${route} is used by the store itself. Pick another route.`;
+  return null;
+};
+
+export const routeTakenMessage = (route: string) => `/${route} is already a page of this store. Pick another route.`;
+
+/** A new custom page's route, as sent by the admin or an agent. */
+export const customRouteSchema = z
+  .string()
+  .transform(normalizeRoute)
+  .superRefine((route, ctx) => {
+    const problem = routeProblem(route);
+    if (problem) ctx.addIssue({ code: "custom", message: problem });
+  });
 
 export type HomeSection = z.infer<typeof homeSectionSchema>;
 export type HomeLayout = z.infer<typeof homeLayoutSchema>;
 export type CategorySection = z.infer<typeof categorySectionSchema>;
 export type ProductSection = z.infer<typeof productSectionSchema>;
+export type CustomPageSection = z.infer<typeof customSectionSchema>;
 /** A block of any page. */
 export type PageSection = HomeSection | CategorySection | ProductSection;
 export type PageLayout = PageSection[];
