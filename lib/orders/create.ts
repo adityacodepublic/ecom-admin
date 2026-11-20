@@ -287,5 +287,8 @@ async function placeOrder(
     )
     SELECT id, "orderNumber" FROM o`;
 
+  // 6. The ordered products leave the shopper's saved cart (lib/cart.ts), whatever the browser does next.
+  await tx.cartItem.deleteMany({ where: { storeId, customerId, productId: { in: items.map((i) => i.productId) } } });
+
   return { result: { id: order.id, orderNumber: order.orderNumber, status: startStatus, paymentStatus: "PENDING", payment, totalPaise }, duplicate: false };
 }

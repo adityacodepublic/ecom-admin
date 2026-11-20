@@ -24,10 +24,12 @@ export async function DELETE(
     // Library rows first, then the store, in ONE transaction: if the store delete fails
     // (it still has products etc.) the library rows come back. Cloudinary files stay.
     // Only this user's own store is touched.
-    const [, store] = await prismadb.$transaction([
+    const [, , store] = await prismadb.$transaction([
       prismadb.mediaImage.deleteMany({
         where: { storeId: resolvedParams.storeId, store: { userId } },
       }),
+      // Saved carts have no relation to the store: removed here, only when the store is this user's.
+      prismadb.$executeRaw`DELETE FROM "CartItem" WHERE "storeId" = ${resolvedParams.storeId} AND EXISTS (SELECT 1 FROM "Store" WHERE "id" = ${resolvedParams.storeId} AND "userId" = ${userId})`,
       prismadb.store.deleteMany({
         where: {
           id: resolvedParams.storeId,

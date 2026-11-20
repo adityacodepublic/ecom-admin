@@ -149,6 +149,11 @@ async function main() {
   check("checkout refused: no order was created", (await prismadb.order.count({ where: { storeId: A.store.id } })) === 0);
 
   // ------------------------------------------------------------ 4. a good order: exact money, frozen data
+  // The saved cart (lib/cart.ts): the ordered products leave it, the rest stay.
+  const cap = await A.product("Cap", "2.00", 10, 10);
+  await prismadb.cartItem.createMany({
+    data: [shirt.id, mug.id, cap.id].map((productId) => ({ storeId: A.store.id, customerId: C1, productId, quantity: 1 })),
+  });
   const ok = await checkout(A.store.id, C1, {
     items: [{ productId: shirt.id, quantity: 3 }, { productId: mug.id, quantity: 1 }],
     address: newAddress,
@@ -166,6 +171,8 @@ async function main() {
   const d1 = parseDetails(row1.id, row1.details);
   check("checkout: frozen items + shipTo", d1.items[0].pricePaise === 1999 && d1.items[0].name === "Shirt" && d1.shipTo.name === "Test c1" && d1.shipTo.pincode === "411001");
   check("checkout: stock taken", (await stockOf(shirt.id)) === shirtStock - 3 && (await stockOf(mug.id)) === 9);
+  const savedCart = (await prismadb.cartItem.findMany({ where: { storeId: A.store.id, customerId: C1 } })).map((r) => r.productId);
+  check("checkout: ordered products leave the saved cart, the rest stay", savedCart.length === 1 && savedCart[0] === cap.id, savedCart);
   // Price change later does not change the order
   await prismadb.product.update({ where: { id: shirt.id }, data: { price: "25.00" } });
   const again = await call(orderRoute.GET, { params: { storeId: A.store.id, orderId: o1.id }, customer: C1 });
@@ -559,6 +566,7 @@ async function main() {
 
 async function cleanup() {
   if (createdStores.length) {
+    await prismadb.$executeRaw`DELETE FROM "CartItem" WHERE "storeId" = ANY(${createdStores})`;
     // Raw SQL in a fixed order (the relations are emulated by Prisma, there are no real foreign keys).
     await prismadb.$executeRaw`DELETE FROM "OrderItem" WHERE "orderId" IN (SELECT id FROM "Order" WHERE "storeId" = ANY(${createdStores}))`;
     await prismadb.$executeRaw`DELETE FROM "Order" WHERE "storeId" = ANY(${createdStores})`;

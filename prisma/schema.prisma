@@ -153,6 +153,22 @@ model Order {
   @@index([storeId, paymentStatus])
 }
 
+// A shopper's saved cart: one row per product (lib/cart.ts, created by sql/cart.sql). No relations on
+// purpose: the shopper may have no Users row yet, and a deleted product's row is removed on the next read.
+model CartItem {
+  id         String   @id @default(uuid())
+  storeId    String
+  customerId String // the store app's Clerk user id
+  productId  String
+  quantity   Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([customerId, storeId, productId])
+  @@index([storeId])
+  @@index([productId])
+}
+
 // Intermediary for a many-to-many relationship
 model OrderItem {
   id            String  @id @default(uuid())
