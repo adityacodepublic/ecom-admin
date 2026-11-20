@@ -3,6 +3,7 @@ import { parsePaging } from "@/lib/api/validate";
 import prismadb from "@/lib/prismadb";
 import { paiseToDecimalString, sumPaise, toPaise } from "@/lib/money";
 import { parseDetailsOrNull } from "@/lib/orders/details";
+import { parseClarityProjectId, readSettings } from "@/lib/store-settings";
 
 import { UserColumn } from "./components/columns";
 import { UserClient } from "./components/client";
@@ -67,6 +68,7 @@ const UsersPage = async ({
     }
     const latest = parseDetailsOrNull(user.orders[0]?.id ?? "", user.orders[0]?.details);
     return {
+      id: user.id,
       fname: user.fname,
       orderCount: user.orders.length,
       email: user.email,
@@ -85,7 +87,7 @@ const UsersPage = async ({
   return (
     <div className="flex-col">
       <div className="flex-1 space-y-4 p-4 pt-6 md:p-8">
-        <UserClient data={formatted} page={page} pageSize={pageSize} totalCount={totalCount} q={q} />
+        <UserClient data={formatted} page={page} pageSize={pageSize} totalCount={totalCount} q={q} clarityConnected={!!parseClarityProjectId(await readSettings(storeId))} />
       </div>
     </div>
   );

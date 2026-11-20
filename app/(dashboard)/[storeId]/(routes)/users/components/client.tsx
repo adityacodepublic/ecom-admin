@@ -10,7 +10,7 @@ import { Heading } from "@/components/ui/heading";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 
-import { columns, UserColumn } from "./columns";
+import { clarityColumn, columns, UserColumn } from "./columns";
 
 interface UserClientProps {
   data: UserColumn[];
@@ -18,6 +18,7 @@ interface UserClientProps {
   pageSize: number;
   totalCount: number;
   q: string;
+  clarityConnected: boolean; // shows the "Copy Clarity ID" column
 }
 
 export const UserClient: React.FC<UserClientProps> = ({
@@ -26,6 +27,7 @@ export const UserClient: React.FC<UserClientProps> = ({
   pageSize,
   totalCount,
   q,
+  clarityConnected,
 }) => {
   const params = useParams();
   const router = useRouter();
@@ -52,7 +54,7 @@ export const UserClient: React.FC<UserClientProps> = ({
         onChange={(e) => setSearch(e.target.value)}
         className="max-w-sm"
       />
-      <DataTable columns={columns} data={data} />
+      <DataTable columns={clarityConnected ? [...columns, clarityColumn] : columns} data={data} />
       {pages > 1 && (
         <div className="flex items-center justify-end space-x-2 py-2">
           <span className="text-sm text-muted-foreground">

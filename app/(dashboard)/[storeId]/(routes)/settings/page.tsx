@@ -4,7 +4,8 @@ import { auth } from "@clerk/nextjs/server";
 import prismadb from "@/lib/prismadb";
 
 import { getContact } from "@/lib/contact";
-import { parseLogo, parseLogoOnly } from "@/lib/store-settings";
+import { parseClarityProjectId, parseLogo, parseLogoOnly } from "@/lib/store-settings";
+import { AnalyticsSection } from "./components/analytics-section";
 import { LogoSection } from "./components/logo-section";
 import { getOrderSettings } from "@/lib/orders/settings";
 import { SettingsForm } from "./components/settings-form";
@@ -47,6 +48,7 @@ const SettingsPage = async ({
         <SettingsForm initialData={{ id: store.id, name: store.name, slug: store.slug }}>
           <LogoSection storeId={store.id} logo={parseLogo(store.settings)} logoOnly={parseLogoOnly(store.settings)} />
           <ContactSection storeId={store.id} initial={contact} />
+          <AnalyticsSection storeId={store.id} slug={store.slug} clarityProjectId={parseClarityProjectId(store.settings)} />
         </SettingsForm>
         <h3 className="pt-4 text-lg font-semibold tracking-tight">Orders</h3>
         <OrderSettingsCard storeId={store.id} initial={orderSettings} />

@@ -4,14 +4,15 @@ import { z } from "zod";
 import prismadb from "@/lib/prismadb";
 
 /**
- * Store.settings (JSON, null = all defaults): { orders, contact, logo, logoOnly }.
+ * Store.settings (JSON, null = all defaults): { orders, contact, logo, logoOnly, clarityProjectId }.
  *   orders   order settings (lib/orders/settings.ts)
  *   contact  how customers reach the store (lib/contact.ts)
  *   logo     the store's logo/icon url, shown in the store's header and browser tab ("" = the default icon)
  *   logoOnly true: the store's header shows the logo without the name (for a logo that already contains the name)
+ *   clarityProjectId  the owner's own Microsoft Clarity project id ("" = no Clarity on this store's pages)
  * Each part is parsed by its own module; this file only reads and writes the parts.
  */
-export type SettingsPart = "orders" | "contact" | "logo" | "logoOnly";
+export type SettingsPart = "orders" | "contact" | "logo" | "logoOnly" | "clarityProjectId";
 
 const asObject = (raw: unknown): Record<string, unknown> =>
   raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
@@ -60,3 +61,20 @@ export const parseLogo = (raw: unknown): string => {
 
 /** Header shows only the logo. Only meaningful with a logo; without one the name is always shown. */
 export const parseLogoOnly = (raw: unknown): boolean => settingsPart(raw, "logoOnly") === true;
+
+// ---- Microsoft Clarity (the owner's own project: heatmaps, recordings, funnels)
+
+/** A Clarity project id, for example "zg7vtqkayo" (Clarity > Settings > Overview). "" = not connected. It goes into a script URL, so only letters and digits. */
+export const clarityProjectIdSchema = z.union([
+  z.literal(""),
+  z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(/^[a-z0-9]{6,20}$/, "A Clarity project id has only letters and numbers, for example zg7vtqkayo"),
+]);
+
+export const parseClarityProjectId = (raw: unknown): string => {
+  const r = clarityProjectIdSchema.safeParse(settingsPart(raw, "clarityProjectId") ?? "");
+  return r.success ? r.data : "";
+};
