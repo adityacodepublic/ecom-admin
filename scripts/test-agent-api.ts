@@ -570,9 +570,9 @@ async function main() {
 
     // orders ?q=
     await prismadb.users.create({ data: { id: `${TAG}-user`, email: "zed.buyer@x.test", phone: "9000022222", fname: "Zedbuyer" } });
-    const addr = await prismadb.address.create({ data: { usersId: `${TAG}-user`, value: "addr" } });
+    const addr = await prismadb.address.create({ data: { usersId: `${TAG}-user`, street: "addr" } });
     await prismadb.order.create({
-      data: { storeId: A.store.id, orderNumber: 4242, usersId: `${TAG}-user`, addressId: addr.id, total: "10.00", details: { v: 1, events: [], shipTo: { name: "Zedreceiver", phone: "9000011111", address: "addr", pincode: "560001", instructions: "" }, customerNote: null, adminContent: null, money: { subtotalPaise: 1000, shippingPaise: 0, totalPaise: 1000 }, items: [] } },
+      data: { storeId: A.store.id, orderNumber: 4242, usersId: `${TAG}-user`, addressId: addr.id, total: "10.00", details: { v: 1, events: [], shipTo: { name: "Zedreceiver", phone: "9000011111", street: "addr", city: "Bengaluru", state: "Karnataka", country: "India", pincode: "560001", instructions: "" }, customerNote: null, adminContent: null, money: { subtotalPaise: 1000, shippingPaise: 0, totalPaise: 1000 }, items: [] } },
     });
     const ordersFor = async (q: string) => {
       const x = await proxy(tokenA, "GET", `orders?q=${encodeURIComponent(q)}`);

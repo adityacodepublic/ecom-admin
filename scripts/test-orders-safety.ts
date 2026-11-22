@@ -14,6 +14,7 @@ import { orderDetailsSchema, parseDetails } from "@/lib/orders/details";
 import { adminUpdateOrder, appendOrderEvent } from "@/lib/orders/update";
 import { getAdminOrder, getOrderStats, listAdminOrders } from "@/lib/orders/queries";
 import { updateContact } from "@/lib/contact";
+import { getStoreAnalytics } from "@/lib/orders/analytics";
 import { updateOrderSettings } from "@/lib/orders/settings";
 import { OrderError, isOrderError } from "@/lib/orders/errors";
 import { duplicateOrders, orderNumberRetries } from "@/lib/orders/create";
@@ -78,7 +79,7 @@ async function makeStore(name: string, settings?: object) {
 
 const stockOf = async (id: string) => (await prismadb.product.findUniqueOrThrow({ where: { id } })).quantity;
 const contact = (n: string) => ({ fname: `Test ${n}`, email: `${n}@example.com`, phone: "+91 98765 43210" });
-const newAddress = { new: { value: "12 MG Road, Pune", pincode: "411001", instructions: "Ring bell" } };
+const newAddress = { new: { street: "12 MG Road", city: "Pune", state: "Maharashtra", pincode: "411001", instructions: "Ring bell" } };
 
 /** Makes an order older than the 60 s duplicate window (so a repeat of the same cart is a new order). */
 const age = (orderId: string, seconds = 120) => prismadb.order.update({ where: { id: orderId }, data: { createdAt: new Date(Date.now() - seconds * 1000) } });
@@ -133,6 +134,12 @@ async function main() {
     check(`checkout refused: ${name} -> ${code}`, r.body?.error?.code === code, r.body);
   };
   await bad("first order without contact", C1, { items: [{ productId: shirt.id, quantity: 1 }], address: newAddress, paymentMethod: "COD" }, "PROFILE_REQUIRED");
+  const withAddress = (a: Record<string, unknown>) => ({ items: [{ productId: shirt.id, quantity: 1 }], address: { new: { ...newAddress.new, ...a } }, contact: contact("c1"), paymentMethod: "COD" });
+  await bad("address: a state that is not in the list", C1, withAddress({ state: "Atlantis" }), "VALIDATION");
+  await bad("address: no city", C1, withAddress({ city: "" }), "VALIDATION");
+  await bad("address: no state", C1, withAddress({ state: undefined }), "VALIDATION");
+  await bad("address: the old one-box shape (value) is refused", C1, { ...withAddress({}), address: { new: { value: "12 MG Road, Pune", pincode: "411001" } } }, "VALIDATION");
+  await bad("address: the country cannot be sent", C1, withAddress({ country: "Nepal" }), "VALIDATION");
   await bad("quantity 0", C1, { items: [{ productId: shirt.id, quantity: 0 }], address: newAddress, contact: contact("c1"), paymentMethod: "COD" }, "VALIDATION");
   await bad("quantity 1.5", C1, { items: [{ productId: shirt.id, quantity: 1.5 }], address: newAddress, contact: contact("c1"), paymentMethod: "COD" }, "VALIDATION");
   await bad("negative quantity", C1, { items: [{ productId: shirt.id, quantity: -5 }], address: newAddress, contact: contact("c1"), paymentMethod: "COD" }, "VALIDATION");
@@ -169,7 +176,11 @@ async function main() {
   check("checkout: DB total column is 60.07", row1.total.toFixed(2) === "60.07");
   check("checkout: payment COD, PENDING, Placed, number 1", row1.payment === "COD" && row1.paymentStatus === "PENDING" && row1.status === "Placed" && row1.orderNumber === 1);
   const d1 = parseDetails(row1.id, row1.details);
-  check("checkout: frozen items + shipTo", d1.items[0].pricePaise === 1999 && d1.items[0].name === "Shirt" && d1.shipTo.name === "Test c1" && d1.shipTo.pincode === "411001");
+  check("checkout: frozen items + shipTo", d1.items[0].pricePaise === 1999 && d1.items[0].name === "Shirt" && d1.shipTo.name === "Test c1" && d1.shipTo.pincode === "411001" && d1.shipTo.street === "12 MG Road" && d1.shipTo.city === "Pune" && d1.shipTo.state === "Maharashtra" && d1.shipTo.country === "India");
+  const savedAddr = await prismadb.address.findUniqueOrThrow({ where: { id: row1.addressId } });
+  check("checkout: the saved address has street, city, state and country", savedAddr.street === "12 MG Road" && savedAddr.city === "Pune" && savedAddr.state === "Maharashtra" && savedAddr.country === "India" && savedAddr.pincode === 411001, savedAddr);
+  const geo = (await getStoreAnalytics(A.store.id)).geography;
+  check("dashboard: orders are counted by state, city and pincode", geo.states[0]?.place === "Maharashtra" && geo.cities[0]?.place === "Pune, Maharashtra" && geo.pincodes[0]?.place === "411001" && geo.states[0].orders >= 1, geo);
   check("checkout: stock taken", (await stockOf(shirt.id)) === shirtStock - 3 && (await stockOf(mug.id)) === 9);
   const savedCart = (await prismadb.cartItem.findMany({ where: { storeId: A.store.id, customerId: C1 } })).map((r) => r.productId);
   check("checkout: ordered products leave the saved cart, the rest stay", savedCart.length === 1 && savedCart[0] === cap.id, savedCart);

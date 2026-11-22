@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import prismadb from "@/lib/prismadb";
 import { OrderError } from "./errors";
+import { COUNTRY, INDIAN_STATES } from "./india";
 
 /**
  * The customer's own profile and saved addresses (customers are global, not per store).
@@ -28,7 +29,9 @@ export const profilePatchSchema = profileCreateSchema.partial().strict();
 
 export const addressInputSchema = z
   .object({
-    value: z.string().trim().min(5, "Enter the full address").max(500),
+    street: z.string().trim().min(3, "Enter the house, street and area").max(300),
+    city: z.string().trim().min(2, "Enter the city or town").max(100),
+    state: z.enum(INDIAN_STATES, { errorMap: () => ({ message: "Choose the state" }) }),
     pincode: z.string().trim().regex(/^[1-9][0-9]{5}$/, "Enter a 6 digit pincode"),
     instructions: z.string().trim().max(255).optional(),
   })
@@ -37,7 +40,7 @@ export const addressInputSchema = z
 export const addressPatchSchema = addressInputSchema.partial().strict();
 
 export type CustomerProfile = { id: string; fname: string; email: string; phone: string; imgurl: string };
-export type CustomerAddress = { id: string; value: string; pincode: string; instructions: string };
+export type CustomerAddress = { id: string; street: string; city: string; state: string; country: string; pincode: string; instructions: string };
 
 const toProfile = (u: { id: string; fname: string; email: string; phone: string; imgurl: string | null }): CustomerProfile => ({
   id: u.id,
@@ -47,9 +50,12 @@ const toProfile = (u: { id: string; fname: string; email: string; phone: string;
   imgurl: u.imgurl ?? "",
 });
 
-const toAddress = (a: { id: string; value: string; pincode: number; instructions: string | null }): CustomerAddress => ({
+const toAddress = (a: { id: string; street: string; city: string; state: string; country: string; pincode: number; instructions: string | null }): CustomerAddress => ({
   id: a.id,
-  value: a.value,
+  street: a.street,
+  city: a.city,
+  state: a.state,
+  country: a.country,
   pincode: String(a.pincode),
   instructions: a.instructions ?? "",
 });
@@ -64,7 +70,7 @@ export async function getCustomer(customerId: string) {
       email: true,
       phone: true,
       imgurl: true,
-      address: { select: { id: true, value: true, pincode: true, instructions: true }, orderBy: { id: "asc" } },
+      address: { select: { id: true, street: true, city: true, state: true, country: true, pincode: true, instructions: true }, orderBy: { id: "asc" } },
     },
   });
   if (!user) return { profile: null, addresses: [] as CustomerAddress[] };
@@ -90,7 +96,7 @@ export async function addAddress(customerId: string, input: z.infer<typeof addre
   const user = await prismadb.users.findUnique({ where: { id: customerId }, select: { id: true } });
   if (!user) throw new OrderError("PROFILE_REQUIRED", "Save your name, email and phone first");
   const a = await prismadb.address.create({
-    data: { usersId: customerId, value: input.value, pincode: Number(input.pincode), instructions: input.instructions ?? "" },
+    data: { usersId: customerId, street: input.street, city: input.city, state: input.state, country: COUNTRY, pincode: Number(input.pincode), instructions: input.instructions ?? "" },
   });
   return toAddress(a);
 }
@@ -98,7 +104,9 @@ export async function addAddress(customerId: string, input: z.infer<typeof addre
 /** Edits one of the customer's own addresses. Old orders keep their frozen copy (details.shipTo). */
 export async function updateAddress(customerId: string, addressId: string, patch: z.infer<typeof addressPatchSchema>): Promise<CustomerAddress> {
   const data: Prisma.AddressUpdateManyMutationInput = {};
-  if (patch.value !== undefined) data.value = patch.value;
+  if (patch.street !== undefined) data.street = patch.street;
+  if (patch.city !== undefined) data.city = patch.city;
+  if (patch.state !== undefined) data.state = patch.state;
   if (patch.pincode !== undefined) data.pincode = Number(patch.pincode);
   if (patch.instructions !== undefined) data.instructions = patch.instructions;
   const { count } = await prismadb.address.updateMany({ where: { id: addressId, usersId: customerId }, data });

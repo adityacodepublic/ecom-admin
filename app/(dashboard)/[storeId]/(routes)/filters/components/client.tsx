@@ -2,6 +2,7 @@
 
 import { Plus } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
+import { use } from "react";
 
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
@@ -11,12 +12,13 @@ import { Separator } from "@/components/ui/separator";
 import { columns, FilterColumn } from "./columns";
 
 interface FiltersClientProps {
-  data: FilterColumn[];
+  data: Promise<FilterColumn[]>; // Started on the server and not awaited there: read here with use(), inside the page's <Suspense>.
 }
 
 export const FiltersClient: React.FC<FiltersClientProps> = ({
-  data
+  data: rows
 }) => {
+  const data = use(rows);
   const params = useParams();
   const router = useRouter();
 

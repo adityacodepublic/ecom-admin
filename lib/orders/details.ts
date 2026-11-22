@@ -32,7 +32,10 @@ export type OrderEvent = z.infer<typeof orderEventSchema>;
 export const shipToSchema = z.object({
   name: z.string(),
   phone: z.string(),
-  address: z.string(),
+  street: z.string(),
+  city: z.string(),
+  state: z.string(),
+  country: z.string(),
   pincode: z.string(),
   instructions: z.string(),
 });

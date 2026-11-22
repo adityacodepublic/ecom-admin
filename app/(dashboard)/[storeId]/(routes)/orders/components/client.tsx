@@ -1,408 +1,235 @@
 "use client";
 
 import Link from "next/link";
-import {
-  useParams,
-  usePathname,
-  useRouter,
-  useSearchParams,
-} from "next/navigation";
-import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { use } from "react";
+import { Search, X } from "lucide-react";
 
 import { Heading } from "@/components/ui/heading";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  PaymentBadge,
-  StatusBadge,
-  paymentMethodLabel,
-} from "@/components/orders/status-badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ColumnFilter, FilterChips } from "@/components/ui/column-filter";
+import { Pager } from "@/components/ui/pager";
+import { PaymentBadge, StatusBadge, paymentMethodLabel } from "@/components/orders/status-badge";
+import { useDebouncedSearch } from "@/hooks/use-debounced-search";
+import { useUrlFilters } from "@/hooks/use-url-filters";
 import { formatINR } from "@/lib/money";
-import {
-  deliveryLabel,
-  formatDay,
-  formatIstDate,
-  formatIstTime,
-} from "@/lib/format-date";
-import type { AdminOrderList, AdminOrderSummary } from "@/lib/orders/queries";
-import { PAYMENT_STATUSES, PAYMENT_STATUS_LABELS } from "@/lib/orders/status";
+import { deliveryLabel, formatDay, formatIstDate, formatIstTime, tookLabel } from "@/lib/format-date";
+import type { AdminOrderList, AdminOrderSummary, OrderFacets } from "@/lib/orders/queries";
+import { cn } from "@/lib/utils";
 
-type Filters = {
-  status: string;
-  paymentStatus: string;
-  q: string;
-  from: string;
-  to: string;
-};
+import { ORDER_FILTER_KEYS, type OrderFilters } from "@/lib/orders/list-query";
+
+import { orderColumnFilters, type ColumnFilterDef } from "./order-filters";
+
+export type OrdersData = { list: AdminOrderList; facets: OrderFacets; buyerName: string };
 
 const itemsSummary = (o: AdminOrderSummary) => {
   const names = o.itemNames.join(", ");
   const short = names.length > 60 ? `${names.slice(0, 57)}...` : names;
   return `${short || "No items"}${o.itemCount > 1 ? ` (${o.itemCount} items)` : ""}`;
 };
-const customerName = (o: AdminOrderSummary) =>
-  o.shipTo?.name || o.customer?.fname || "Unknown";
-const customerPhone = (o: AdminOrderSummary) =>
-  o.shipTo?.phone || o.customer?.phone || "";
+const customerName = (o: AdminOrderSummary) => o.shipTo?.name || o.customer?.fname || "Unknown";
+const customerPhone = (o: AdminOrderSummary) => o.shipTo?.phone || o.customer?.phone || "";
+const place = (o: AdminOrderSummary) => [o.shipTo?.city, o.shipTo?.state].filter((x) => x?.trim()).join(", ");
 
-export const OrdersClient = ({
-  list,
-  filters,
-}: {
-  list: AdminOrderList;
-  filters: Filters;
-}) => {
+/** Delivery cell: where the expected day stands, then how long a delivered order took (or the expected day). */
+const DeliveryCell = ({ o, steps }: { o: AdminOrderSummary; steps: string[] }) => {
+  const d = deliveryLabel(o.expectedDelivery, o.status, steps);
+  return (
+    <div>
+      <div className={d.overdue ? "font-medium text-destructive" : ""}>{d.text}</div>
+      {o.deliveredAt ? (
+        <div className="text-xs text-muted-foreground">Took {tookLabel(o.createdAt, o.deliveredAt)}</div>
+      ) : (
+        o.expectedDelivery && <div className="text-xs text-muted-foreground">{formatDay(o.expectedDelivery)}</div>
+      )}
+    </div>
+  );
+};
+
+/** A column title that is its filter. */
+const FilterHead = ({ col, className }: { col: ColumnFilterDef; className?: string }) => (
+  <TableHead className={className}>
+    <ColumnFilter label={col.label} active={col.active} align={col.align}>
+      {col.body}
+    </ColumnFilter>
+  </TableHead>
+);
+
+/** `data` is started on the server and not awaited there: read here with use(), inside the page's <Suspense>. */
+export const OrdersClient = ({ data, filters }: { data: Promise<OrdersData>; filters: OrderFilters }) => {
+  const { list, facets, buyerName } = use(data);
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const { storeId } = useParams<{ storeId: string }>();
-
-  /** The URL with some filters changed. Any filter change goes back to page 1. */
-  const hrefWith = (changes: Record<string, string>) => {
-    const sp = new URLSearchParams(searchParams.toString());
-    for (const [k, v] of Object.entries(changes)) {
-      if (v) sp.set(k, v);
-      else sp.delete(k);
-    }
-    if (!("page" in changes)) sp.delete("page");
-    const s = sp.toString();
-    return s ? `${pathname}?${s}` : pathname;
-  };
-  const go = (changes: Record<string, string>) =>
-    router.push(hrefWith(changes));
-
-  // The search box: typing waits a moment, then the URL changes (the list is read on the server, page by page).
-  const [search, setSearch] = useState(filters.q);
-  useEffect(() => setSearch(filters.q), [filters.q]);
-  useEffect(() => {
-    if (search.trim() === filters.q) return;
-    const t = setTimeout(() => go({ q: search.trim() }), 400);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search]);
+  const { set, clear, pending } = useUrlFilters();
+  const [search, setSearch] = useDebouncedSearch(filters.q, (q) => set({ q }));
+  const { columns: cols, chips } = orderColumnFilters({ filters, list, facets, buyerName, set, search, setSearch });
 
   const allCount = Object.values(list.counts).reduce((n, c) => n + c, 0);
   const pages = Math.max(1, Math.ceil(list.totalCount / list.pageSize));
   const first = list.totalCount === 0 ? 0 : (list.page - 1) * list.pageSize + 1;
   const last = Math.min(list.page * list.pageSize, list.totalCount);
-  const hasFilters = !!(
-    filters.status ||
-    filters.paymentStatus ||
-    filters.q ||
-    filters.from ||
-    filters.to
-  );
-  const orderHref = (o: AdminOrderSummary) =>
-    `/${storeId}/orders/${o.orderNumber}`;
-
-  const Delivery = ({ o }: { o: AdminOrderSummary }) => {
-    const d = deliveryLabel(o.expectedDelivery, o.status, list.steps);
-    return (
-      <div>
-        <div className={d.overdue ? "font-medium text-destructive" : ""}>
-          {d.text}
-        </div>
-        {o.expectedDelivery && (
-          <div className="text-xs text-muted-foreground">
-            {formatDay(o.expectedDelivery)}
-          </div>
-        )}
-      </div>
-    );
-  };
+  const orderHref = (o: AdminOrderSummary) => `/${storeId}/orders/${o.orderNumber}`;
+  const empty = filters.q ? `No orders match "${filters.q}".` : "No orders match these filters.";
 
   return (
     <>
-      <Heading
-        title={`Orders (${allCount})`}
-        description="Manage orders for your store"
-      />
+      <Heading title={`Orders (${allCount})`} description="Manage orders for your store" />
       <Separator />
 
-      {/* Search, then the filters below it */}
       <div className="space-y-3">
-        <div className="relative w-full sm:max-w-md">
-          <Search
-            className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden
-          />
-          <Input
-            type="search"
-            aria-label="Search orders"
-            placeholder="Search"
-            className="pl-8"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="grid gap-1">
-            <Label className="text-xs text-muted-foreground">Status</Label>
-            <Select
-              value={filters.status || "ALL"}
-              onValueChange={(v) => go({ status: v === "ALL" ? "" : v })}
-            >
-              <SelectTrigger className="w-44">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All statuses ({allCount})</SelectItem>
-                {list.statuses.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {s} ({list.counts[s] ?? 0})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid gap-1">
-            <Label className="text-xs text-muted-foreground">Payment</Label>
-            <Select
-              value={filters.paymentStatus || "ALL"}
-              onValueChange={(v) => go({ paymentStatus: v === "ALL" ? "" : v })}
-            >
-              <SelectTrigger className="w-36">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All payments</SelectItem>
-                {PAYMENT_STATUSES.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {PAYMENT_STATUS_LABELS[s]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid gap-1">
-            <Label htmlFor="from" className="text-xs text-muted-foreground">
-              From
-            </Label>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-full sm:max-w-md">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
             <Input
-              id="from"
-              type="date"
-              className="w-40 dark:[color-scheme:dark]"
-              value={filters.from}
-              max={filters.to || undefined}
-              onChange={(e) => go({ from: e.target.value })}
+              type="search"
+              aria-label="Search orders"
+              placeholder="Search order number, name, phone or email"
+              className="pl-8"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <div className="grid gap-1">
-            <Label htmlFor="to" className="text-xs text-muted-foreground">
-              To
-            </Label>
-            <Input
-              id="to"
-              type="date"
-              className="w-40 dark:[color-scheme:dark]"
-              value={filters.to}
-              min={filters.from || undefined}
-              onChange={(e) => go({ to: e.target.value })}
-            />
-          </div>
-          {hasFilters && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() =>
-                go({ status: "", paymentStatus: "", q: "", from: "", to: "" })
-              }
-            >
+          {(filters.q || chips.length > 0) && (
+            <Button variant="ghost" size="sm" onClick={() => clear(ORDER_FILTER_KEYS)}>
               <X className="mr-1 h-4 w-4" /> Clear filters
             </Button>
           )}
         </div>
+
+        {/* Phones have no table header: the same column filters as buttons. */}
+        <div className="flex flex-wrap gap-1.5 md:hidden">
+          {Object.values(cols).map((c) => (
+            <ColumnFilter key={c.key} label={c.label} active={c.active} variant="button">
+              {c.body}
+            </ColumnFilter>
+          ))}
+        </div>
+
+        <FilterChips chips={chips}>
+          {list.excludesCancelled && <span className="text-xs text-muted-foreground">Cancelled orders left out.</span>}
+          <span className="text-xs text-muted-foreground">
+            <span className="hidden md:inline">Click a column title to filter by it.</span>
+            <span className="md:hidden">Tap a button above to filter.</span>
+          </span>
+        </FilterChips>
       </div>
 
-      {list.orders.length === 0 ? (
-        <div className="rounded-md border p-10 text-center text-sm text-muted-foreground">
-          {filters.q
-            ? `No orders match "${filters.q}".`
-            : "No orders match these filters."}
-        </div>
-      ) : (
-        <>
-          {/* Desktop table */}
-          <div className="hidden rounded-md border md:block">
-            <Table>
-              <TableHeader>
+      <div className={cn("transition-opacity", pending && "pointer-events-none opacity-60")} aria-busy={pending}>
+        {/* Desktop table. The header stays even when nothing matches, so the filters can be changed. */}
+        <div className="hidden rounded-md border md:block">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Order</TableHead>
+                <FilterHead col={cols.date} />
+                <FilterHead col={cols.customer} />
+                <FilterHead col={cols.shipTo} />
+                <FilterHead col={cols.items} />
+                <FilterHead col={cols.total} className="text-right" />
+                <FilterHead col={cols.payment} />
+                <FilterHead col={cols.status} />
+                <FilterHead col={cols.delivery} />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {list.orders.length === 0 && (
                 <TableRow>
-                  <TableHead>Order</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Items</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                  <TableHead>Payment</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Delivery</TableHead>
+                  <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
+                    {empty}
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {list.orders.map((o) => (
-                  <TableRow
-                    key={o.id}
-                    className="cursor-pointer"
-                    onClick={() => router.push(orderHref(o))}
-                  >
-                    <TableCell className="font-medium">
-                      <Link
-                        href={orderHref(o)}
-                        onClick={(e) => e.stopPropagation()}
-                        className="hover:underline"
-                      >
-                        #{o.orderNumber}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      <div>{formatIstDate(o.createdAt)}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {formatIstTime(o.createdAt)}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div>{customerName(o)}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {customerPhone(o)}
-                      </div>
-                    </TableCell>
-                    <TableCell className="max-w-xs">
-                      {itemsSummary(o)}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap text-right font-medium">
-                      {formatINR(o.totalPaise)}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2 whitespace-nowrap">
-                        <span className="text-sm">
-                          {paymentMethodLabel(o.payment)}
-                        </span>
-                        <PaymentBadge status={o.paymentStatus} />
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col items-start gap-1">
-                        <StatusBadge status={o.status} statuses={list.steps} />
-                        {o.returnStatus && (
-                          <span className="text-xs text-muted-foreground">
-                            Return: {o.returnStatus}
-                          </span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      <Delivery o={o} />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+              )}
+              {list.orders.map((o) => (
+                <TableRow key={o.id} className="cursor-pointer" onClick={() => router.push(orderHref(o))}>
+                  <TableCell className="font-medium">
+                    <Link href={orderHref(o)} onClick={(e) => e.stopPropagation()} className="hover:underline">
+                      #{o.orderNumber}
+                    </Link>
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    <div>{formatIstDate(o.createdAt)}</div>
+                    <div className="text-xs text-muted-foreground">{formatIstTime(o.createdAt)}</div>
+                  </TableCell>
+                  <TableCell>
+                    <div>{customerName(o)}</div>
+                    <div className="text-xs text-muted-foreground">{customerPhone(o)}</div>
+                  </TableCell>
+                  <TableCell>
+                    <div>{place(o) || "–"}</div>
+                    <div className="text-xs text-muted-foreground">{o.shipTo?.pincode}</div>
+                  </TableCell>
+                  <TableCell className="max-w-xs">{itemsSummary(o)}</TableCell>
+                  <TableCell className="whitespace-nowrap text-right font-medium">{formatINR(o.totalPaise)}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2 whitespace-nowrap">
+                      <span className="text-sm">{paymentMethodLabel(o.payment)}</span>
+                      <PaymentBadge status={o.paymentStatus} />
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col items-start gap-1">
+                      <StatusBadge status={o.status} statuses={list.steps} />
+                      {o.returnStatus && <span className="text-xs text-muted-foreground">Return: {o.returnStatus}</span>}
+                    </div>
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    <DeliveryCell o={o} steps={list.steps} />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
 
-          {/* Phone cards */}
-          <div className="grid gap-3 md:hidden">
-            {list.orders.map((o) => (
-              <Link
-                key={o.id}
-                href={orderHref(o)}
-                className="block rounded-md border p-3 hover:bg-accent"
-              >
+        {/* Phone cards */}
+        <div className="grid gap-3 md:hidden">
+          {list.orders.length === 0 && <div className="rounded-md border p-10 text-center text-sm text-muted-foreground">{empty}</div>}
+          {list.orders.map((o) => {
+            const d = deliveryLabel(o.expectedDelivery, o.status, list.steps);
+            return (
+              <Link key={o.id} href={orderHref(o)} className="block rounded-md border p-3 hover:bg-accent">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-semibold">#{o.orderNumber}</span>
                   <span className="flex items-center gap-2">
-                    {o.returnStatus && (
-                      <span className="text-xs text-muted-foreground">
-                        Return: {o.returnStatus}
-                      </span>
-                    )}
+                    {o.returnStatus && <span className="text-xs text-muted-foreground">Return: {o.returnStatus}</span>}
                     <StatusBadge status={o.status} statuses={list.steps} />
                   </span>
                 </div>
                 <div className="mt-1 text-sm">
-                  {customerName(o)}{" "}
-                  <span className="text-muted-foreground">
-                    {customerPhone(o)}
-                  </span>
+                  {customerName(o)} <span className="text-muted-foreground">{customerPhone(o)}</span>
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  {itemsSummary(o)}
-                </div>
+                {place(o) && (
+                  <div className="text-xs text-muted-foreground">
+                    {place(o)} {o.shipTo?.pincode}
+                  </div>
+                )}
+                <div className="text-sm text-muted-foreground">{itemsSummary(o)}</div>
                 <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                   <span className="font-medium">{formatINR(o.totalPaise)}</span>
                   <span className="flex items-center gap-2 text-sm">
-                    {paymentMethodLabel(o.payment)}{" "}
-                    <PaymentBadge status={o.paymentStatus} />
+                    {paymentMethodLabel(o.payment)} <PaymentBadge status={o.paymentStatus} />
                   </span>
                 </div>
-                <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
+                <div className="mt-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
                   <span>
                     {formatIstDate(o.createdAt)}, {formatIstTime(o.createdAt)}
                   </span>
-                  <span
-                    className={
-                      deliveryLabel(o.expectedDelivery, o.status, list.steps)
-                        .overdue
-                        ? "font-medium text-destructive"
-                        : ""
-                    }
-                  >
-                    {
-                      deliveryLabel(o.expectedDelivery, o.status, list.steps)
-                        .text
-                    }
+                  <span className={d.overdue ? "font-medium text-destructive" : ""}>
+                    {d.text}
+                    {o.deliveredAt ? `, took ${tookLabel(o.createdAt, o.deliveredAt)}` : ""}
                   </span>
                 </div>
               </Link>
-            ))}
-          </div>
-        </>
-      )}
-
-      {/* Pages */}
-      <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-        <span className="text-muted-foreground">
-          Showing {first}-{last} of {list.totalCount}
-        </span>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={list.page <= 1}
-            onClick={() => go({ page: String(list.page - 1) })}
-          >
-            <ChevronLeft className="mr-1 h-4 w-4" /> Previous
-          </Button>
-          <span>
-            Page {list.page} of {pages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={list.page >= pages}
-            onClick={() => go({ page: String(list.page + 1) })}
-          >
-            Next <ChevronRight className="ml-1 h-4 w-4" />
-          </Button>
+            );
+          })}
         </div>
       </div>
+
+      <Pager always page={list.page} pages={pages} onPage={(p) => set({ page: String(p) })} summary={`Showing ${first}-${last} of ${list.totalCount}`} />
     </>
   );
 };

@@ -1,86 +1,96 @@
-"use client"
+"use client";
 
-import { ColumnDef, Cell } from "@tanstack/react-table"
-import { Copy } from "lucide-react"
-import { toast } from "react-hot-toast"
+import { ColumnDef } from "@tanstack/react-table";
+import { Copy, ExternalLink, MoreHorizontal } from "lucide-react";
+import { createContext, useContext, useState } from "react";
+import { toast } from "react-hot-toast";
 
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import type { CustomerRow } from "@/lib/customers";
+import { formatINR, toPaise } from "@/lib/money";
 
+export type UserColumn = CustomerRow;
 
-export type UserColumn = {
-  id: string; // the sign-in id: the store sends it to Clarity as the visitor's custom user ID
-  fname:string;
-  email: string;
-  phone: string;
-  address: string;
-  totalPrice: string; // rupees with paise, exact (e.g. "309.97")
-  products:string;
-  imgurl:string;
-  orderCount: number;
-  
-}
+type FilterColumn = "orderCount" | "address" | "totalPrice" | "products";
+/** Column titles that are filters (made by the page, which keeps the filters in the URL). Others are plain text. */
+export type CustomerFilterHeaders = Partial<Record<FilterColumn, React.ReactNode>>;
 
-export const columns: ColumnDef<UserColumn>[] = [
+// The titles come through context, so the columns below stay the same objects on every render: a header function
+// made per render would be a new component each time and close an open filter.
+const FilterHeadersContext = createContext<CustomerFilterHeaders>({});
+export const CustomerFilterHeadersProvider = FilterHeadersContext.Provider;
+const Title = ({ column, text }: { column: FilterColumn; text: string }) => <>{useContext(FilterHeadersContext)[column] ?? text}</>;
+
+// Fixed widths (the table uses fixedLayout): long text is cut with "..." and the column edge can be dragged wider.
+export const customerColumns: ColumnDef<UserColumn>[] = [
   {
     accessorKey: "fname",
     header: "Name",
+    size: 180,
     cell: ({ row }) => (
-      <div className="flex items-center">
-        <img src={row.original.imgurl} alt={row.original.fname} className="rounded-full mr-2 w-7 h-7 border border-slate-grey" />
-        {row.original.fname}
+      <div className="flex min-w-0 items-center">
+        <img src={row.original.imgurl} alt={row.original.fname} className="mr-2 h-7 w-7 shrink-0 rounded-full border border-slate-grey" />
+        <span className="truncate">{row.original.fname}</span>
       </div>
     ),
   },
-  {
-    accessorKey: "orderCount",
-    header: "Orders",
-  },
-  {
-    accessorKey: "email",
-    header: "Email",
-  },
-  {
-    accessorKey: "phone",
-    header: "Phone",
-  },
-  {
-    accessorKey: "address",
-    header: "Address",
-  },
-  {
-    accessorKey: "totalPrice",
-    header: "Paid purchases",
-    cell: ({ row }) => (
-      <div className="flex items-center">
-        <p>&#8377;</p>{row.original.totalPrice}
-      </div>
-    ),
-  },
-  {
-    accessorKey: "products",
-    header: "Products",
-  },
-
-
-
+  { accessorKey: "orderCount", header: () => <Title column="orderCount" text="Orders" />, size: 90 },
+  { accessorKey: "email", header: "Email", size: 220 },
+  { accessorKey: "phone", header: "Phone", size: 160 },
+  { accessorKey: "address", header: () => <Title column="address" text="Address" />, size: 250 },
+  { accessorKey: "totalPrice", header: () => <Title column="totalPrice" text="Paid purchases" />, size: 150, cell: ({ row }) => formatINR(toPaise(row.original.totalPrice)) },
+  { accessorKey: "products", header: () => <Title column="products" text="Products" />, size: 240 },
 ];
 
-// Only when the store has Clarity connected: copy this customer's Clarity ID, then paste it into Clarity's
-// Filters > Custom filters > Custom user ID to see only this customer's recordings and visits.
-export const clarityColumn: ColumnDef<UserColumn> = {
-  id: "clarity",
-  header: "Clarity ID",
-  cell: ({ row }) => (
-    <Button
-      type="button"
-      variant="outline"
-      size="sm"
-      onClick={() => {
-        navigator.clipboard.writeText(row.original.id);
-        toast.success("Clarity ID copied. Paste it in Clarity > Filters > Custom user ID.");
-      }}
-    >
-      <Copy className="mr-2 h-3.5 w-3.5" /> Copy
-    </Button>
-  ),
+/** The Clarity actions for one customer, in a dialog opened from the "..." button. */
+const ClarityActions = ({ user, projectId }: { user: UserColumn; projectId: string }) => {
+  const [open, setOpen] = useState(false);
+  const copy = () => {
+    navigator.clipboard.writeText(user.id);
+    toast.success("Clarity ID copied.");
+  };
+  return (
+    <>
+      <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => setOpen(true)} aria-label={`Clarity options for ${user.fname}`} title="Clarity">
+        <MoreHorizontal className="h-4 w-4" />
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{user.fname} in Clarity</DialogTitle>
+            <DialogDescription>See this customer&apos;s recordings and visits in your Clarity project.</DialogDescription>
+          </DialogHeader>
+          <ol className="list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
+            <li>Copy the customer&apos;s Clarity ID.</li>
+            <li>Open Clarity recordings.</li>
+            <li>
+              Click <span className="font-medium text-foreground">Filters</span> &gt; <span className="font-medium text-foreground">Custom user ID</span> and paste the ID.
+            </li>
+          </ol>
+          <div className="break-all rounded-md border bg-muted/30 px-3 py-2 font-mono text-xs">{user.id}</div>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" onClick={copy}>
+              <Copy className="mr-2 h-4 w-4" /> Copy Clarity ID
+            </Button>
+            <Button asChild>
+              <a href={`https://clarity.microsoft.com/projects/view/${projectId}/impressions`} target="_blank" rel="noreferrer" onClick={copy}>
+                <ExternalLink className="mr-2 h-4 w-4" /> Copy ID and open recordings
+              </a>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
 };
+
+// Only when the store has Clarity connected: the "..." button on a customer opens their Clarity options.
+export const clarityColumn = (projectId: string): ColumnDef<UserColumn> => ({
+  id: "actions",
+  header: "",
+  size: 50,
+  enableResizing: false,
+  meta: { pinned: "right" },
+  cell: ({ row }) => <ClarityActions user={row.original} projectId={projectId} />,
+});

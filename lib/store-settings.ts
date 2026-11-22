@@ -1,18 +1,21 @@
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
+import { CLARITY_API_TOKEN, CLARITY_API_TOKEN_ERROR, CLARITY_PROJECT_ID, CLARITY_PROJECT_ID_ERROR } from "@/lib/clarity-format";
 import prismadb from "@/lib/prismadb";
 
 /**
- * Store.settings (JSON, null = all defaults): { orders, contact, logo, logoOnly, clarityProjectId }.
+ * Store.settings (JSON, null = all defaults): { orders, contact, logo, logoOnly, clarityProjectId, clarityApiToken, clarityInsights }.
  *   orders   order settings (lib/orders/settings.ts)
  *   contact  how customers reach the store (lib/contact.ts)
  *   logo     the store's logo/icon url, shown in the store's header and browser tab ("" = the default icon)
  *   logoOnly true: the store's header shows the logo without the name (for a logo that already contains the name)
  *   clarityProjectId  the owner's own Microsoft Clarity project id ("" = no Clarity on this store's pages)
+ *   clarityApiToken   the owner's Clarity Data Export token (secret, admin server only: never sent to a browser or the store app)
+ *   clarityInsights   the last visitor numbers fetched with that token, and when to ask Clarity again (lib/clarity-insights.ts)
  * Each part is parsed by its own module; this file only reads and writes the parts.
  */
-export type SettingsPart = "orders" | "contact" | "logo" | "logoOnly" | "clarityProjectId";
+export type SettingsPart = "orders" | "contact" | "logo" | "logoOnly" | "clarityProjectId" | "clarityApiToken" | "clarityInsights";
 
 const asObject = (raw: unknown): Record<string, unknown> =>
   raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
@@ -71,10 +74,24 @@ export const clarityProjectIdSchema = z.union([
     .string()
     .trim()
     .toLowerCase()
-    .regex(/^[a-z0-9]{6,20}$/, "A Clarity project id has only letters and numbers, for example zg7vtqkayo"),
+    .regex(CLARITY_PROJECT_ID, CLARITY_PROJECT_ID_ERROR),
 ]);
 
 export const parseClarityProjectId = (raw: unknown): string => {
   const r = clarityProjectIdSchema.safeParse(settingsPart(raw, "clarityProjectId") ?? "");
+  return r.success ? r.data : "";
+};
+
+/** A Clarity Data Export API token (Clarity > Settings > Data Export). A JWT: letters, digits and . _ - only. "" = none. */
+export const clarityApiTokenSchema = z.union([
+  z.literal(""),
+  z
+    .string()
+    .trim()
+    .regex(CLARITY_API_TOKEN, CLARITY_API_TOKEN_ERROR),
+]);
+
+export const parseClarityApiToken = (raw: unknown): string => {
+  const r = clarityApiTokenSchema.safeParse(settingsPart(raw, "clarityApiToken") ?? "");
   return r.success ? r.data : "";
 };

@@ -3,11 +3,11 @@ import { auth } from "@clerk/nextjs/server";
 
 import prismadb from "@/lib/prismadb";
 
-import { getContact } from "@/lib/contact";
-import { parseClarityProjectId, parseLogo, parseLogoOnly } from "@/lib/store-settings";
+import { parseContact } from "@/lib/contact";
+import { parseClarityApiToken, parseClarityProjectId, parseLogo, parseLogoOnly } from "@/lib/store-settings";
 import { AnalyticsSection } from "./components/analytics-section";
 import { LogoSection } from "./components/logo-section";
-import { getOrderSettings } from "@/lib/orders/settings";
+import { parseOrderSettings } from "@/lib/orders/settings";
 import { SettingsForm } from "./components/settings-form";
 import { ContactSection } from "./components/contact-section";
 import { TransferCard } from "./components/transfer-card";
@@ -39,8 +39,9 @@ const SettingsPage = async ({
     redirect("/");
   }
 
-  const orderSettings = (await getOrderSettings(store.id))!;
-  const contact = (await getContact(store.id))!;
+  // Every section reads the store row loaded above (no second read of the same row).
+  const orderSettings = parseOrderSettings(store.settings);
+  const contact = parseContact(store.settings);
 
   return (
     <div className="flex-col">
@@ -48,7 +49,7 @@ const SettingsPage = async ({
         <SettingsForm initialData={{ id: store.id, name: store.name, slug: store.slug }}>
           <LogoSection storeId={store.id} logo={parseLogo(store.settings)} logoOnly={parseLogoOnly(store.settings)} />
           <ContactSection storeId={store.id} initial={contact} />
-          <AnalyticsSection storeId={store.id} slug={store.slug} clarityProjectId={parseClarityProjectId(store.settings)} />
+          <AnalyticsSection storeId={store.id} slug={store.slug} clarityProjectId={parseClarityProjectId(store.settings)} hasApiToken={!!parseClarityApiToken(store.settings)} />
         </SettingsForm>
         <h3 className="pt-4 text-lg font-semibold tracking-tight">Orders</h3>
         <OrderSettingsCard storeId={store.id} initial={orderSettings} />

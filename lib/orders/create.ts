@@ -12,6 +12,7 @@ import { parseOrderSettings } from "./settings";
 import { TX_OPTIONS, newEvent } from "./update";
 import { notifyOrder } from "./notify";
 import { addressInputSchema, profileCreateSchema } from "./customer";
+import { COUNTRY } from "./india";
 
 /**
  * Checkout: creates one order. Everything is decided on the server:
@@ -81,7 +82,7 @@ const isOrderNumberClash = (e: unknown) =>
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 type Profile = { fname: string; phone: string };
-type Address = { id: string; value: string; pincode: number; instructions: string | null };
+type Address = { id: string; street: string; city: string; state: string; country: string; pincode: number; instructions: string | null };
 
 export async function createOrder(storeId: string, customerId: string, input: CheckoutInput): Promise<CheckoutResult> {
   // Everything that does not need the transaction is read before it, in parallel (one round trip of waiting, not three).
@@ -194,7 +195,7 @@ async function placeOrder(
   } else {
     const a = (input.address as { new: z.infer<typeof addressInputSchema> }).new;
     address = await tx.address.create({
-      data: { usersId: customerId, value: a.value, pincode: Number(a.pincode), instructions: a.instructions ?? "" },
+      data: { usersId: customerId, street: a.street, city: a.city, state: a.state, country: COUNTRY, pincode: Number(a.pincode), instructions: a.instructions ?? "" },
     });
   }
 
@@ -253,7 +254,10 @@ async function placeOrder(
     shipTo: {
       name: input.contact?.fname ?? profile.fname,
       phone: input.contact?.phone ?? profile.phone,
-      address: address.value,
+      street: address.street,
+      city: address.city,
+      state: address.state,
+      country: address.country,
       pincode: String(address.pincode),
       instructions: address.instructions ?? "",
     },

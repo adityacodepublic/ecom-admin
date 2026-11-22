@@ -1,14 +1,17 @@
 "use client"
 
+import { use } from "react"
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts"
 
 interface OverviewProps {
-  data: any[]
+  // Started on the server and not awaited there: read here, inside the dashboard's <Suspense>.
+  data: Promise<{ name: string; total: number }[]>
 };
 
 export const Overview: React.FC<OverviewProps> = ({
-  data
+  data: promise
 }) => {
+  const data = use(promise)
   return (
     <ResponsiveContainer width="100%" height={350}>
       <BarChart data={data}>

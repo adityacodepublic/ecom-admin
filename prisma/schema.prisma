@@ -111,7 +111,10 @@ model Users {
 
 model Address {
   id           String  @id @default(uuid())
-  value        String  @default("")
+  street       String  @default("") // house / flat, street, area
+  city         String  @default("")
+  state        String  @default("")
+  country      String  @default("India")
   instructions String? @default("")
   pincode      Int     @default(0)
   orders       Order[] @relation("AddressToOrder")

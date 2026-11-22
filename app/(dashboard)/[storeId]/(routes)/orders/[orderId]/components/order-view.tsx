@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { toast } from "react-hot-toast";
-import { ArrowLeft, Check, Copy, Lock, MessageCircle, Pencil, Phone, Mail, XCircle } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Copy, Lock, MessageCircle, Pencil, Phone, Mail, XCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { MarkdownView } from "@/components/ui/markdown-view";
 import { PaymentBadge, StatusBadge, paymentMethodLabel } from "@/components/orders/status-badge";
 import { formatINR } from "@/lib/money";
-import { formatDay, formatIstDateTime } from "@/lib/format-date";
+import { daysAgoLabel, formatDay, formatIstDateTime } from "@/lib/format-date";
 import type { AdminOrder } from "@/lib/orders/queries";
 import type { OrderEvent } from "@/lib/orders/details";
 import { STATUS_LOCK_MESSAGES, isCancelled } from "@/lib/orders/status";
@@ -125,18 +125,19 @@ const StatusActions = ({ order, onCancel, onReplace }: { order: AdminOrder; onCa
           Update status
         </Button>
       )}
-      {order.nextStatus && (
-        <Button size="sm" disabled={loading} onClick={() => save({ status: order.nextStatus })}>
-          Move to {order.nextStatus}
+      {/* Back on the left, forward after it (the way the steps run), cancel apart on the right. */}
+      {order.prevStatus && (
+        <Button size="sm" variant="outline" disabled={loading} onClick={() => save({ status: order.prevStatus })}>
+          <ArrowLeft className="mr-1 h-4 w-4" /> Back to {order.prevStatus}
         </Button>
       )}
-      {order.prevStatus && (
-        <Button size="sm" variant="ghost" disabled={loading} onClick={() => save({ status: order.prevStatus })}>
-          Back to {order.prevStatus}
+      {order.nextStatus && (
+        <Button size="sm" disabled={loading} onClick={() => save({ status: order.nextStatus })}>
+          Move to {order.nextStatus} <ArrowRight className="ml-1 h-4 w-4" />
         </Button>
       )}
       {order.canCancel && (
-        <Button size="sm" variant="outline" className="text-destructive" onClick={onCancel}>
+        <Button size="sm" variant="outline" className="ml-auto text-destructive" onClick={onCancel}>
           Cancel order
         </Button>
       )}
@@ -192,18 +193,18 @@ const ReturnCard = ({ order, onReject, onReplace }: { order: AdminOrder; onRejec
                 Update return status
               </Button>
             )}
-            {ret.nextStatus && (
-              <Button size="sm" disabled={loading} onClick={() => save({ returnStatus: ret.nextStatus })}>
-                Move to {ret.nextStatus}
+            {ret.prevStatus && (
+              <Button size="sm" variant="outline" disabled={loading} onClick={() => save({ returnStatus: ret.prevStatus })}>
+                <ArrowLeft className="mr-1 h-4 w-4" /> Back to {ret.prevStatus}
               </Button>
             )}
-            {ret.prevStatus && (
-              <Button size="sm" variant="ghost" disabled={loading} onClick={() => save({ returnStatus: ret.prevStatus })}>
-                Back to {ret.prevStatus}
+            {ret.nextStatus && (
+              <Button size="sm" disabled={loading} onClick={() => save({ returnStatus: ret.nextStatus })}>
+                Move to {ret.nextStatus} <ArrowRight className="ml-1 h-4 w-4" />
               </Button>
             )}
             {ret.canReject && (
-              <Button size="sm" variant="outline" className="text-destructive" onClick={onReject}>
+              <Button size="sm" variant="outline" className="ml-auto text-destructive" onClick={onReject}>
                 Reject return
               </Button>
             )}
@@ -240,7 +241,7 @@ export const OrderView = ({ order }: { order: AdminOrder }) => {
 
   const phone = order.shipTo.phone || order.customer?.phone || "";
   const customerPhone = order.customer?.phone || "";
-  const addressText = [order.shipTo.name, order.shipTo.phone, order.shipTo.address, order.shipTo.pincode].filter(Boolean).join(", ");
+  const addressText = [order.shipTo.name, order.shipTo.phone, order.shipTo.street, order.shipTo.city, order.shipTo.state, order.shipTo.pincode, order.shipTo.country].filter(Boolean).join(", ");
   const copyAddress = async () => {
     try {
       await navigator.clipboard.writeText(addressText);
@@ -272,7 +273,7 @@ export const OrderView = ({ order }: { order: AdminOrder }) => {
             <StatusBadge status={order.status} statuses={order.statuses} />
           </div>
           <p className="text-sm text-muted-foreground">
-            Placed {formatIstDateTime(order.createdAt)} (India time) · {formatINR(order.totalPaise)}
+            Placed {formatIstDateTime(order.createdAt)} (India time, {daysAgoLabel(order.createdAt)}) · {formatINR(order.totalPaise)}
           </p>
         </div>
       </div>
@@ -307,7 +308,7 @@ export const OrderView = ({ order }: { order: AdminOrder }) => {
 
       <ReturnCard order={order} onReject={() => setModal("reject")} onReplace={() => setModal("replaceReturn")} />
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           {/* Items */}
           <Card>
@@ -438,8 +439,9 @@ export const OrderView = ({ order }: { order: AdminOrder }) => {
             <CardContent className="space-y-1 text-sm">
               <div className="font-medium">{order.shipTo.name}</div>
               <div>{order.shipTo.phone}</div>
-              <div className="whitespace-pre-wrap break-words">{order.shipTo.address}</div>
-              <div>PIN {order.shipTo.pincode}</div>
+              <div className="whitespace-pre-wrap break-words">{order.shipTo.street}</div>
+              <div>{[order.shipTo.city, order.shipTo.state].filter(Boolean).join(", ")}</div>
+              <div>PIN {order.shipTo.pincode}{order.shipTo.country ? `, ${order.shipTo.country}` : ""}</div>
               {order.shipTo.instructions && <div className="text-muted-foreground">Delivery instructions: {order.shipTo.instructions}</div>}
               <Separator className="my-2" />
               <div className="text-xs font-medium text-muted-foreground">Note from the buyer</div>

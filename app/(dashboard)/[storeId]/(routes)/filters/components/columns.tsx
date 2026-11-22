@@ -26,6 +26,8 @@ export const columns: ColumnDef<FilterColumn>[] = [
   },
   {
     id: "actions",
-    cell: ({ row }) => <CellAction data={row.original} />
+    cell: ({ row }) => <CellAction data={row.original} />,
+    meta: { pinned: "right" },
+    enableResizing: false,
   },
 ];

@@ -72,3 +72,6 @@ export function formatINR(paise: number): string {
   const rupees = new Intl.NumberFormat("en-IN").format(Math.floor(abs / 100));
   return `${sign}₹${rupees}.${String(abs % 100).padStart(2, "0")}`;
 }
+
+/** Rupees typed by a person (a filter field, "1999.5") -> "₹1,999.50". Rounds to paise; for display only. */
+export const formatRupees = (rupees: number | string) => formatINR(Math.round(Number(rupees) * 100));

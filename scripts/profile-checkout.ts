@@ -27,7 +27,7 @@ async function main() {
   );
   const customer = `zz_prof_c_${Date.now()}`;
   const contact = { fname: "Prof", email: "prof@example.com", phone: "+91 98765 43210" };
-  const address = { new: { value: "12 MG Road, Pune", pincode: "411001", instructions: "" } };
+  const address = { new: { street: "12 MG Road", city: "Pune", state: "Maharashtra" as const, pincode: "411001", instructions: "" } };
 
   const run = async (label: string, who: string, items: { productId: string; quantity: number }[], withContact: boolean) => {
     statements.length = 0;

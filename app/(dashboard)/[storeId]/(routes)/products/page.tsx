@@ -1,75 +1,81 @@
-import { format } from "date-fns";
+import { Suspense } from "react";
 
+import { requireStoreOwnerPage } from "@/lib/api/admin-auth";
+import { TableSkeleton } from "@/components/ui/skeleton";
 import prismadb from "@/lib/prismadb";
 import { formatter } from "@/lib/utils";
 
 import { ProductsClient } from "./components/client";
 import { ProductColumn } from "./components/columns";
 
-const ProductsPage = async ({
-  params,
-}: {
-  params: Promise<{ storeId: string }>;
-}) => {
+const ProductsPage = async ({ params }: { params: Promise<{ storeId: string }> }) => {
   const resolvedParams = await params;
-  // Fetch all filters for this store
-  const filters = await prismadb.filter.findMany({
-    where: {
-      storeId: resolvedParams.storeId,
-    },
-    select: {
-      id: true,
-      name: true,
-    },
-  });
+  await requireStoreOwnerPage(resolvedParams.storeId);
+  // Owner check first, then the read is started and not awaited: the client reads it with use() inside <Suspense>,
+  // so the page shell (navigation, layout) shows at once and the table fills in when the rows arrive.
+  const data = loadProducts(resolvedParams.storeId);
 
-  const products = await prismadb.product.findMany({
-    where: {
-      storeId: resolvedParams.storeId,
-    },
-    select: {
-      id: true,
-      name: true,
-      price: true,
-      quantity: true,
-      isFeatured: true,
-      isArchived: true,
-      createdAt: true,
-      category: {
-        select: {
-          name: true,
-        },
+  return (
+    <div className="flex-col">
+      <div className="flex-1 space-y-4 p-8 pt-6">
+        <Suspense fallback={<TableSkeleton />}>
+          <ProductsClient data={data} />
+        </Suspense>
+      </div>
+    </div>
+  );
+};
+
+async function loadProducts(storeId: string) {
+  // The store's filters (a column each) and its products, read together.
+  const [filters, products] = await Promise.all([
+    prismadb.filter.findMany({
+      where: { storeId },
+      select: { id: true, name: true },
+    }),
+    prismadb.product.findMany({
+      where: {
+        storeId,
       },
-      filteritems: {
-        select: {
-          value: {
-            select: {
-              value: true,
-              unit: true,
-              filter: {
-                select: {
-                  id: true,
-                  name: true,
+      select: {
+        id: true,
+        name: true,
+        price: true,
+        quantity: true,
+        isFeatured: true,
+        isArchived: true,
+        category: {
+          select: {
+            name: true,
+          },
+        },
+        filteritems: {
+          select: {
+            value: {
+              select: {
+                value: true,
+                unit: true,
+                filter: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
                 },
               },
             },
           },
         },
       },
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
+      orderBy: {
+        createdAt: "desc",
+      },
+    }),
+  ]);
 
   const formattedProducts: ProductColumn[] = products.map((item) => {
-    // Create a map of filter name to combined value+unit for this product
+    // This product's value of each store filter (value + unit, e.g. "8 GB"), by filter id.
     const filterValues: Record<string, string> = {};
-    item.filteritems.forEach((fi) => {
-      const valueStr = fi.value.value ? fi.value.value.toString() + " " : "";
-      const unitStr = fi.value.unit || "";
-      filterValues[fi.value.filter.name] = (valueStr + unitStr).trim();
-    });
+    for (const fi of item.filteritems) filterValues[fi.value.filter.id] = `${fi.value.value ?? ""} ${fi.value.unit ?? ""}`.trim();
 
     return {
       id: item.id,
@@ -77,20 +83,14 @@ const ProductsPage = async ({
       isFeatured: item.isFeatured,
       isArchived: item.isArchived,
       price: formatter.format(item.price.toNumber()),
+      priceRupees: item.price.toNumber(),
       category: item.category.name,
       quantity: item.quantity,
-      createdAt: format(item.createdAt, "d MMM, yyyy"),
-      ...filterValues, // Spread filter values as dynamic properties
+      filterValues,
     };
   });
 
-  return (
-    <div className="flex-col">
-      <div className="flex-1 space-y-4 p-8 pt-6">
-        <ProductsClient data={formattedProducts} filters={filters} />
-      </div>
-    </div>
-  );
-};
+  return { rows: formattedProducts, filters };
+}
 
 export default ProductsPage;
