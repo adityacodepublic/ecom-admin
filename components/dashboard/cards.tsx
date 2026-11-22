@@ -22,6 +22,9 @@ export const countLabel = (shown: number, total: number, word = "order") => (tot
 /** "12.5%", or "–" when there is nothing to divide by. */
 export const pct = (n: number, of: number) => (of > 0 ? `${((n / of) * 100).toFixed(1)}%` : "–");
 
+/** A card row that is a link to the data behind it: the label, then its value. */
+export const rowLink = "-mx-1 flex justify-between gap-3 rounded-sm px-1 py-0.5 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
 const focusRing = "rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 /** A titled card: the title, an optional note under it, then the content. */
@@ -90,19 +93,15 @@ export type DashboardCard = { id: string; title: string; node: React.ReactNode }
 export const dashCard = (id: string, title: string, node: React.ReactNode): DashboardCard => ({ id, title, node });
 
 /**
- * A grid of cards that can each be minimized (right-click or long-press). `children` go after the cards, in the grid:
- * usually the section's MinimizedList, which lists the minimized cards of every grid in the section.
+ * A grid of cards that can each be minimized (right-click or long-press); a minimized card goes to the page's one
+ * "Minimized cards" list.
  */
-export const MinimizableGrid = ({ cards, className, children }: { cards: DashboardCard[]; className: string; children?: React.ReactNode }) => (
+export const MinimizableGrid = ({ cards, className }: { cards: DashboardCard[]; className: string }) => (
   <div className={cn("grid grid-cols-1 gap-4", className)}>
     {cards.map((c) => (
       <Minimizable key={c.id} id={c.id} title={c.title}>
         {c.node}
       </Minimizable>
     ))}
-    {children}
   </div>
 );
-
-/** The id and title of each card, for MinimizedList (the nodes stay on the server). */
-export const cardTitles = (cards: DashboardCard[]) => cards.map(({ id, title }) => ({ id, title }));

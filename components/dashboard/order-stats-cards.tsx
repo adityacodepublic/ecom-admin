@@ -7,8 +7,7 @@ import type { OrderStats } from "@/lib/orders/queries";
 import { PAYMENT_STATUSES, PAYMENT_STATUS_LABELS, type PaymentStatus } from "@/lib/orders/status";
 import { cn } from "@/lib/utils";
 
-import { cardTitles, dashCard, InsightCard, MinimizableGrid, plural, StatCard } from "./cards";
-import { MinimizedList } from "./minimize";
+import { dashCard, InsightCard, MinimizableGrid, plural, StatCard } from "./cards";
 
 // Bars use the theme's blue, and soft (pastel) tints where a colour has to mean something (done, cancelled, waiting).
 const BAR: Record<string, string> = {
@@ -98,9 +97,7 @@ export const OrderStatsCards = async ({ storeId, data }: { storeId: string; data
   return (
     <>
       <MinimizableGrid cards={numbers} className="sm:grid-cols-2 lg:grid-cols-4" />
-      <MinimizableGrid cards={bars} className="md:grid-cols-2">
-        <MinimizedList cards={cardTitles([...numbers, ...bars])} />
-      </MinimizableGrid>
+      <MinimizableGrid cards={bars} className="md:grid-cols-2" />
     </>
   );
 };

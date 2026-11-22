@@ -2,6 +2,8 @@
 
 import { ColumnDef } from "@tanstack/react-table";
 import { Copy, ExternalLink, MoreHorizontal } from "lucide-react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 import { createContext, useContext, useState } from "react";
 import { toast } from "react-hot-toast";
 
@@ -22,6 +24,16 @@ const FilterHeadersContext = createContext<CustomerFilterHeaders>({});
 export const CustomerFilterHeadersProvider = FilterHeadersContext.Provider;
 const Title = ({ column, text }: { column: FilterColumn; text: string }) => <>{useContext(FilterHeadersContext)[column] ?? text}</>;
 
+/** The number of orders, as a link to this customer's orders on the Orders page. */
+const OrdersLink = ({ customerId, count }: { customerId: string; count: number }) => {
+  const { storeId } = useParams<{ storeId: string }>();
+  return (
+    <Link href={`/${storeId}/orders?buyer=${encodeURIComponent(customerId)}`} className="underline underline-offset-2 hover:text-foreground" title="See this customer's orders">
+      {count}
+    </Link>
+  );
+};
+
 // Fixed widths (the table uses fixedLayout): long text is cut with "..." and the column edge can be dragged wider.
 export const customerColumns: ColumnDef<UserColumn>[] = [
   {
@@ -35,7 +47,12 @@ export const customerColumns: ColumnDef<UserColumn>[] = [
       </div>
     ),
   },
-  { accessorKey: "orderCount", header: () => <Title column="orderCount" text="Orders" />, size: 90 },
+  {
+    accessorKey: "orderCount",
+    header: () => <Title column="orderCount" text="Orders" />,
+    size: 90,
+    cell: ({ row }) => <OrdersLink customerId={row.original.id} count={row.original.orderCount} />,
+  },
   { accessorKey: "email", header: "Email", size: 220 },
   { accessorKey: "phone", header: "Phone", size: 160 },
   { accessorKey: "address", header: () => <Title column="address" text="Address" />, size: 250 },

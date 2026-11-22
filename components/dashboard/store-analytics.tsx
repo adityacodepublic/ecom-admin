@@ -6,13 +6,10 @@ import { RANGE_OPTIONS, type StoreAnalytics } from "@/lib/orders/analytics";
 import { CANCELLED } from "@/lib/orders/status";
 import { hourLabel, WEEKDAYS } from "@/lib/shop-time";
 
-import { cardTitles, dashCard, Empty, InsightCard, MinimizableGrid, pct, plural, StatCard } from "./cards";
+import { dashCard, Empty, InsightCard, MinimizableGrid, pct, plural, StatCard, rowLink } from "./cards";
 import { BuyersCard, DeliveryCard, ReasonCard, WhenBars } from "./insight-dialogs";
-import { MinimizedList } from "./minimize";
 import { RangeSelect } from "./range-select";
-
-const age = (hours: number) => (hours < 48 ? `${hours} h` : `${Math.floor(hours / 24)} days`);
-const rowLink = "-mx-1 flex justify-between gap-3 rounded-sm px-1 py-0.5 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+import { WaitingCard } from "./waiting-card";
 
 /** A titled card holding rows of "label ... value". A row with an href is a link to the data behind it. */
 const Rows = ({ title, note, rows }: { title: string; note?: string; rows: { key: string; label: React.ReactNode; value: string; href?: string }[] }) => (
@@ -106,11 +103,11 @@ export const StoreAnalyticsCards = async ({ storeId, data }: { storeId: string; 
       "Time to delivery",
       <DeliveryCard
         storeId={storeId}
+        from={a.from}
         value={a.delivery.count ? durationLabel(a.delivery.hours) : "–"}
         note={a.delivery.count ? `Average over ${plural(a.delivery.count, "order")} delivered, ${days.toLowerCase()}. Click to see each one` : "No delivered orders yet"}
         count={a.delivery.count}
         hours={a.delivery.hours}
-        orders={a.delivery.orders}
         finalStatus={a.finalStatus}
         allHref={`/${storeId}/orders?${new URLSearchParams({ status: a.finalStatus })}`}
       />,
@@ -118,24 +115,7 @@ export const StoreAnalyticsCards = async ({ storeId, data }: { storeId: string; 
   ];
 
   const rest = [
-    card(
-      "waiting",
-      "Orders waiting too long",
-      <Rows
-        title="Orders waiting too long"
-        note={`Not shipped ${a.waiting.hours} hours after they were placed (${a.waiting.count})`}
-        rows={a.waiting.orders.map((o) => ({
-          key: o.id,
-          label: (
-            <>
-              #{o.orderNumber} <span className="text-muted-foreground">({o.status})</span>
-            </>
-          ),
-          value: age(o.ageHours),
-          href: `/${storeId}/orders/${o.orderNumber}`,
-        }))}
-      />,
-    ),
+    card("waiting", "Orders waiting too long", <WaitingCard storeId={storeId} waiting={a.waiting} />),
     card(
       "top-units",
       "Top products by units",
@@ -177,6 +157,8 @@ export const StoreAnalyticsCards = async ({ storeId, data }: { storeId: string; 
       "Why orders were cancelled",
       <ReasonCard
         storeId={storeId}
+        kind="cancel"
+        from={a.from}
         title="Why orders were cancelled"
         note={`${days}. Click a reason to see the orders`}
         reasons={a.cancelled.reasons}
@@ -189,6 +171,8 @@ export const StoreAnalyticsCards = async ({ storeId, data }: { storeId: string; 
       "Why orders were returned",
       <ReasonCard
         storeId={storeId}
+        kind="return"
+        from={a.from}
         title="Why orders were returned"
         note={`${days}. Click a reason to see the orders`}
         reasons={a.returned.reasons}
@@ -205,7 +189,7 @@ export const StoreAnalyticsCards = async ({ storeId, data }: { storeId: string; 
         rows={[...stockRows("Low stock", stock.low), ...stockRows("Out of stock", stock.out), ...stockRows("Dead stock", stock.dead)]}
       />,
     ),
-    card("buyers", "Buyers", <BuyersCard storeId={storeId} total={buyers.total} repeat={buyers.repeat} buyers={buyers.top} />),
+    card("buyers", "Buyers", <BuyersCard storeId={storeId} total={buyers.total} repeat={buyers.repeat} top={buyers.top} />),
     card(
       "by-hour",
       "Orders by hour of the day",
@@ -255,9 +239,7 @@ export const StoreAnalyticsCards = async ({ storeId, data }: { storeId: string; 
   return (
     <>
       <MinimizableGrid cards={stats} className="sm:grid-cols-2 lg:grid-cols-4" />
-      <MinimizableGrid cards={rest} className="md:grid-cols-2 lg:grid-cols-3">
-        <MinimizedList cards={cardTitles([...stats, ...rest])} />
-      </MinimizableGrid>
+      <MinimizableGrid cards={rest} className="md:grid-cols-2 lg:grid-cols-3" />
     </>
   );
 };

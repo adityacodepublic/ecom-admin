@@ -17,14 +17,14 @@ import { useDebouncedSearch } from "@/hooks/use-debounced-search";
 import { useUrlFilters } from "@/hooks/use-url-filters";
 import { formatINR } from "@/lib/money";
 import { deliveryLabel, formatDay, formatIstDate, formatIstTime, tookLabel } from "@/lib/format-date";
-import type { AdminOrderList, AdminOrderSummary, OrderFacets } from "@/lib/orders/queries";
+import type { AdminOrderList, AdminOrderSummary } from "@/lib/orders/queries";
 import { cn } from "@/lib/utils";
 
 import { ORDER_FILTER_KEYS, type OrderFilters } from "@/lib/orders/list-query";
 
 import { orderColumnFilters, type ColumnFilterDef } from "./order-filters";
 
-export type OrdersData = { list: AdminOrderList; facets: OrderFacets; buyerName: string };
+export type OrdersData = { list: AdminOrderList; buyerName: string; productName: string };
 
 const itemsSummary = (o: AdminOrderSummary) => {
   const names = o.itemNames.join(", ");
@@ -61,12 +61,12 @@ const FilterHead = ({ col, className }: { col: ColumnFilterDef; className?: stri
 
 /** `data` is started on the server and not awaited there: read here with use(), inside the page's <Suspense>. */
 export const OrdersClient = ({ data, filters }: { data: Promise<OrdersData>; filters: OrderFilters }) => {
-  const { list, facets, buyerName } = use(data);
+  const { list, buyerName, productName } = use(data);
   const router = useRouter();
   const { storeId } = useParams<{ storeId: string }>();
   const { set, clear, pending } = useUrlFilters();
   const [search, setSearch] = useDebouncedSearch(filters.q, (q) => set({ q }));
-  const { columns: cols, chips } = orderColumnFilters({ filters, list, facets, buyerName, set, search, setSearch });
+  const { columns: cols, chips } = orderColumnFilters({ storeId, filters, list, buyerName, productName, set, search, setSearch });
 
   const allCount = Object.values(list.counts).reduce((n, c) => n + c, 0);
   const pages = Math.max(1, Math.ceil(list.totalCount / list.pageSize));

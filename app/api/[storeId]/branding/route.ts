@@ -4,7 +4,7 @@ import prismadb from "@/lib/prismadb";
 import { requireStoreOwner } from "@/lib/api/admin-auth";
 import { errorResponse, json, readBody } from "@/lib/api/http";
 import { OrderError } from "@/lib/orders/errors";
-import { logoSchema, parseLogo, parseLogoOnly, updateSettingsPart } from "@/lib/store-settings";
+import { logoSchema, parseLogo, parseLogoOnly, updateStoreSettings } from "@/lib/store-settings";
 import { revalidateStoreInfo } from "@/lib/store-revalidate";
 
 export const dynamic = "force-dynamic";
@@ -44,14 +44,16 @@ export async function PATCH(req: Request, { params }: Params) {
     const { storeId } = await params;
     await requireStoreOwner(storeId);
     const body = await readBody(req, brandingPatchSchema);
-    if (body.name !== undefined) await prismadb.store.update({ where: { id: storeId }, data: { name: body.name } });
-    if (body.logo !== undefined && (await updateSettingsPart(storeId, "logo", () => body.logo)) === null) {
-      throw new OrderError("STORE_NOT_FOUND", "Store not found");
-    }
-    if (body.logoOnly !== undefined) await updateSettingsPart(storeId, "logoOnly", () => body.logoOnly);
-    const { name, logo, logoOnly, slug } = await read(storeId);
-    revalidateStoreInfo(slug);
-    return json({ branding: { name, logo, logoOnly } });
+    // One locked write: the name, the logo and logoOnly change together or not at all.
+    const { name, logo, logoOnly } = body;
+    const store = await updateStoreSettings(
+      storeId,
+      { ...(logo !== undefined && { logo: () => logo }), ...(logoOnly !== undefined && { logoOnly: () => logoOnly }) },
+      name,
+    );
+    if (!store) throw new OrderError("STORE_NOT_FOUND", "Store not found");
+    revalidateStoreInfo(store.slug);
+    return json({ branding: { name: store.name, logo: parseLogo(store.settings), logoOnly: parseLogoOnly(store.settings) } });
   } catch (error) {
     return errorResponse(error, "BRANDING_PATCH");
   }

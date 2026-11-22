@@ -3,16 +3,7 @@ import { Prisma } from "@prisma/client";
 import prismadb from "@/lib/prismadb";
 import { toPaise } from "@/lib/money";
 import { nextShopDayStart, SHOP_UTC_OFFSET_MS, shopDayStart, todayShop } from "@/lib/shop-time";
-import {
-  CustomerOrderEvent,
-  OrderDetails,
-  OrderEvent,
-  OrderMoney,
-  ShipTo,
-  customerEvents,
-  parseDetails,
-  parseDetailsOrNull,
-} from "./details";
+import { CustomerOrderEvent, OrderDetails, OrderEvent, OrderMoney, ShipTo, customerEvents, parseDetails, parseDetailsOrNull, reachedStatusAt } from "./details";
 import { OrderError } from "./errors";
 import { OrderSettings, getOrderSettings, parseOrderSettings } from "./settings";
 import {
@@ -32,7 +23,7 @@ import {
   prevStatus,
   statusOptions,
 } from "./status";
-import { OrderRef, reachedFinalAt } from "./update";
+import { OrderRef } from "./update";
 import { orderListQuerySchema, type OrderListQuery } from "./list-query";
 import { HAS_RETURN, hasProduct, NOT_CANCELLED, PLACED_SHOP_TIME, shipToPlace, UNKNOWN_PLACE } from "./sql";
 
@@ -55,50 +46,40 @@ export function parseListQuery(params: URLSearchParams, allow: (keyof OrderListQ
   return r.data;
 }
 
-const has = (t: string) => ({ contains: t, mode: "insensitive" as const });
-const inShipTo = (field: string, t: string): Prisma.OrderWhereInput => ({ details: { path: ["shipTo", field], string_contains: t, mode: "insensitive" } });
+/** "createdAt" is a UTC timestamp without time zone: compare it with an explicit UTC instant. */
+const atOrAfter = (d: Date) => Prisma.sql`"createdAt" >= (${d.toISOString()}::timestamptz AT TIME ZONE 'UTC')`;
+const before = (d: Date) => Prisma.sql`"createdAt" < (${d.toISOString()}::timestamptz AT TIME ZONE 'UTC')`;
 
 /** The search box: "#1042" is that order number only; anything else is text found in the customer or the receiver (a plain number also matches the order number). */
-function searchWhere(text: string): Prisma.OrderWhereInput {
+function searchSql(text: string): Prisma.Sql {
   const t = text.replace(/^#/, "").trim();
-  if (text.startsWith("#")) return /^\d{1,9}$/.test(t) ? { orderNumber: Number(t) } : { id: "" };
-  const or: Prisma.OrderWhereInput[] = [
-    { users: { is: { fname: has(t) } } },
-    { users: { is: { email: has(t) } } },
-    { users: { is: { phone: has(t) } } },
-    inShipTo("name", t),
-    inShipTo("phone", t),
+  const number = /^\d{1,9}$/.test(t) ? Number(t) : null;
+  if (text.startsWith("#")) return number === null ? Prisma.sql`false` : Prisma.sql`"orderNumber" = ${number}`;
+  const like = `%${t}%`;
+  const or = [
+    Prisma.sql`EXISTS (SELECT 1 FROM "Users" u WHERE u."id" = "Order"."usersId" AND (u."fname" ILIKE ${like} OR u."email" ILIKE ${like} OR u."phone" ILIKE ${like}))`,
+    Prisma.sql`"details"->'shipTo'->>'name' ILIKE ${like}`,
+    Prisma.sql`"details"->'shipTo'->>'phone' ILIKE ${like}`,
   ];
-  if (/^\d{1,9}$/.test(t)) or.push({ orderNumber: Number(t) });
-  return { OR: or };
-}
-
-function baseWhere(storeId: string, q: Pick<OrderListQuery, "paymentStatus" | "from" | "to" | "q" | "minTotal" | "maxTotal">): Prisma.OrderWhereInput {
-  const where: Prisma.OrderWhereInput = { storeId };
-  if (q.q) Object.assign(where, searchWhere(q.q));
-  if (q.paymentStatus) where.paymentStatus = q.paymentStatus;
-  if (q.minTotal !== undefined || q.maxTotal !== undefined) {
-    where.total = {};
-    if (q.minTotal !== undefined) where.total.gte = new Prisma.Decimal(q.minTotal);
-    if (q.maxTotal !== undefined) where.total.lte = new Prisma.Decimal(q.maxTotal);
-  }
-  if (q.from || q.to) {
-    where.createdAt = {};
-    if (q.from) where.createdAt.gte = shopDayStart(q.from);
-    if (q.to) where.createdAt.lt = nextShopDayStart(q.to);
-  }
-  return where;
+  if (number !== null) or.push(Prisma.sql`"orderNumber" = ${number}`);
+  return Prisma.sql`(${Prisma.join(or, " OR ")})`;
 }
 
 /**
- * The filters the database cannot express with plain columns: orders that have a return, where an order was
- * shipped (frozen in details.shipTo), the hour / weekday it was placed (shop time), its expected delivery day and its
- * products. `ids` = the matching order ids, or null when none of these filters is used.
- * With a place, buyer, hour or weekday filter and no status filter, cancelled orders are left out, as on the dashboard
- * (which counts those without them); `excludesCancelled` says so, for the page's note.
+ * Every Orders filter but the status, as one SQL condition over "Order", so the list, its count and the per-status
+ * counts are each one query (no list of ids goes back and forth, whatever the store's size). Places are read as the
+ * dashboard groups them (lib/orders/sql). With a place, buyer, hour or weekday filter and no status filter, cancelled
+ * orders are left out, as on the dashboard (which counts those without them); `excludesCancelled` says so.
+ * `steps` gives the status list (only the Delivery filter needs it).
  */
-async function filterIds(storeId: string, q: OrderListQuery, steps: () => Promise<OrderStatus[]>): Promise<{ ids: string[] | null; excludesCancelled: boolean }> {
-  const conds: Prisma.Sql[] = [];
+async function orderListWhere(storeId: string, q: OrderListQuery, steps: () => Promise<OrderStatus[]>): Promise<{ where: Prisma.Sql; excludesCancelled: boolean }> {
+  const conds: Prisma.Sql[] = [Prisma.sql`"storeId" = ${storeId}`];
+  if (q.q) conds.push(searchSql(q.q));
+  if (q.paymentStatus) conds.push(Prisma.sql`"paymentStatus" = ${q.paymentStatus}`);
+  if (q.minTotal !== undefined) conds.push(Prisma.sql`"total" >= ${q.minTotal}`);
+  if (q.maxTotal !== undefined) conds.push(Prisma.sql`"total" <= ${q.maxTotal}`);
+  if (q.from) conds.push(atOrAfter(shopDayStart(q.from)));
+  if (q.to) conds.push(before(nextShopDayStart(q.to)));
   if (q.returned) conds.push(HAS_RETURN);
   const places = (["state", "city", "pincode"] as const).filter((f) => q[f] !== undefined);
   for (const f of places) conds.push(Prisma.sql`${shipToPlace(f)} = ${q[f] as string}`);
@@ -117,9 +98,7 @@ async function filterIds(storeId: string, q: OrderListQuery, steps: () => Promis
   }
   const excludesCancelled = !q.status && (places.length > 0 || !!q.buyer || q.hour !== undefined || q.weekday !== undefined);
   if (excludesCancelled) conds.push(NOT_CANCELLED);
-  if (conds.length === 0) return { ids: null, excludesCancelled };
-  const rows = await prismadb.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT "id" FROM "Order" WHERE "storeId" = ${storeId} AND ${Prisma.join(conds, " AND ")}`);
-  return { ids: rows.map((r) => r.id), excludesCancelled };
+  return { where: Prisma.join(conds, " AND "), excludesCancelled };
 }
 
 /** Orders per status text (only statuses that have orders). */
@@ -205,9 +184,6 @@ const adminSelect = {
 
 type AdminRow = Prisma.OrderGetPayload<{ select: typeof adminSelect }>;
 
-/** When the order first reached its status (the same moment the dashboard's "Time to delivery" uses). */
-const firstReachedAt = (d: OrderDetails | null, status: string) => d?.events.find((e) => e.type === "status" && e.status === status)?.at ?? null;
-
 function adminSummary(o: AdminRow, finalStatus?: string): AdminOrderSummary {
   const d = parseDetailsOrNull(o.id, o.details);
   return {
@@ -224,29 +200,40 @@ function adminSummary(o: AdminRow, finalStatus?: string): AdminOrderSummary {
     shipTo: d ? { name: d.shipTo.name, phone: d.shipTo.phone, city: d.shipTo.city, state: d.shipTo.state, pincode: d.shipTo.pincode } : null,
     expectedDelivery: d?.expectedDelivery ?? null,
     returnStatus: d?.return?.status ?? null,
-    deliveredAt: finalStatus && o.status === finalStatus ? firstReachedAt(d, finalStatus) : null,
+    deliveredAt: d && finalStatus && o.status === finalStatus ? (reachedStatusAt(d, finalStatus)?.toISOString() ?? null) : null,
   };
 }
 
 export async function listAdminOrders(storeId: string, q: OrderListQuery): Promise<AdminOrderList> {
   // The status list is read alongside the filters (only the Delivery filter needs it first).
   const statuses = getOrderSettings(storeId).then((s) => (s ?? parseOrderSettings(null)).statuses);
-  const [list, { ids, excludesCancelled }] = await Promise.all([statuses, filterIds(storeId, q, () => statuses)]);
-  const base: Prisma.OrderWhereInput = { ...baseWhere(storeId, q), ...(ids ? { id: { in: ids } } : {}) };
-  const where: Prisma.OrderWhereInput = q.status ? { ...base, status: q.status } : base;
-  const [rows, totalCount, counts] = await Promise.all([
-    prismadb.order.findMany({
-      where,
-      select: adminSelect,
-      orderBy: [{ createdAt: "desc" }, { orderNumber: "desc" }],
-      skip: (q.page - 1) * q.pageSize,
-      take: q.pageSize,
-    }),
-    prismadb.order.count({ where }),
-    countsByStatus(base),
+  const [list, { where, excludesCancelled }] = await Promise.all([statuses, orderListWhere(storeId, q, () => statuses)]);
+  const listed = q.status ? Prisma.sql`${where} AND "status" = ${q.status}` : where;
+  const [page, total, byStatus] = await Promise.all([
+    prismadb.$queryRaw<{ id: string }[]>`
+      SELECT "id" FROM "Order" WHERE ${listed}
+      ORDER BY "createdAt" DESC, "orderNumber" DESC LIMIT ${q.pageSize} OFFSET ${(q.page - 1) * q.pageSize}`,
+    prismadb.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM "Order" WHERE ${listed}`,
+    // Per status with the same filters but the status: the counts in the Status filter.
+    prismadb.$queryRaw<{ status: string; n: number }[]>`SELECT "status", count(*)::int AS n FROM "Order" WHERE ${where} GROUP BY 1`,
   ]);
+  // The page's rows (at most pageSize), in the page's order.
+  const found = await prismadb.order.findMany({ where: { id: { in: page.map((r) => r.id) } }, select: adminSelect });
+  const byId = new Map(found.map((o) => [o.id, o]));
+  const rows = page.flatMap((r) => byId.get(r.id) ?? []);
+  const counts: Record<OrderStatus, number> = Object.fromEntries(byStatus.map((g) => [g.status, g.n]));
+  const totalCount = total[0]?.n ?? 0;
   const final = list[list.length - 1];
-  return { orders: rows.map((o) => adminSummary(o, final)), page: q.page, pageSize: q.pageSize, totalCount, steps: list, statuses: statusOptions(list, Object.keys(counts)), counts, excludesCancelled };
+  return {
+    orders: rows.map((o) => adminSummary(o, final)),
+    page: q.page,
+    pageSize: q.pageSize,
+    totalCount,
+    steps: list,
+    statuses: statusOptions(list, Object.keys(counts)),
+    counts,
+    excludesCancelled,
+  };
 }
 
 export type AdminOrder = Omit<AdminOrderSummary, "itemNames" | "returnStatus" | "deliveredAt"> & {
@@ -291,10 +278,7 @@ export type AdminReturn = {
 };
 
 export async function getAdminOrder(storeId: string, ref: OrderRef): Promise<AdminOrder | null> {
-  const [o, settings] = await Promise.all([
-    prismadb.order.findFirst({ where: { storeId, ...refWhere(ref) }, select: adminSelect }),
-    getOrderSettings(storeId),
-  ]);
+  const [o, settings] = await Promise.all([prismadb.order.findFirst({ where: { storeId, ...refWhere(ref) }, select: adminSelect }), getOrderSettings(storeId)]);
   if (!o) return null;
   const { statuses, returns } = settings ?? parseOrderSettings(null);
   const d = parseDetails(o.id, o.details);
@@ -361,8 +345,11 @@ export type OrderStats = {
   byStatus: Record<OrderStatus, number>; // per status text (missing = 0)
   returned: number; // orders that have a return, any return status (a return is not an order status)
   byPaymentStatus: Record<PaymentStatus, number>;
-  revenueByMonth: { month: string; revenuePaise: number }[]; // this year (India time), "Jan".."Dec"
+  revenueByMonth: MonthRevenue[]; // the last 12 months, this one last (India time)
 };
+
+/** Paid revenue of one month (India time). from / to = its first and last day, the Orders page filter for it. */
+export type MonthRevenue = { month: string; label: string; revenuePaise: number; orders: number; from: string; to: string };
 
 const notCancelled: Prisma.OrderWhereInput = { status: { not: CANCELLED } };
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -392,6 +379,28 @@ export async function revenueByMonth(storeId: string, year = new Date(Date.now()
   return MONTHS.map((month, i) => ({ month, revenuePaise: sums[i] }));
 }
 
+/**
+ * Paid revenue per month for the last 12 months (this month and the 11 before it), India time, cancelled orders left
+ * out: one row per month comes back from the database. Months with no sales are 0, so the chart always has 12 bars.
+ */
+export async function revenueLast12Months(storeId: string): Promise<MonthRevenue[]> {
+  const [y, m] = todayShop().split("-").map(Number);
+  const months = Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(Date.UTC(y, m - 12 + i, 1));
+    const key = d.toISOString().slice(0, 7); // YYYY-MM
+    const last = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+    return { month: key, label: MONTHS[d.getUTCMonth()], from: `${key}-01`, to: `${key}-${String(last).padStart(2, "0")}` };
+  });
+  const rows = await prismadb.$queryRaw<{ month: string; paise: bigint; orders: number }[]>`
+    SELECT to_char(date_trunc('month', ${PLACED_SHOP_TIME}), 'YYYY-MM') AS month, (SUM("total") * 100)::bigint AS paise, count(*)::int AS orders
+    FROM "Order"
+    WHERE "storeId" = ${storeId} AND "paymentStatus" = 'PAID' AND ${NOT_CANCELLED}
+      AND "createdAt" >= (${shopDayStart(months[0].from).toISOString()}::timestamptz AT TIME ZONE 'UTC')
+    GROUP BY 1`;
+  const byMonth = new Map(rows.map((r) => [r.month, r]));
+  return months.map((mo) => ({ ...mo, revenuePaise: Number(byMonth.get(mo.month)?.paise ?? 0), orders: byMonth.get(mo.month)?.orders ?? 0 }));
+}
+
 export async function getOrderStats(storeId: string): Promise<OrderStats> {
   const paid: Prisma.OrderWhereInput = { storeId, paymentStatus: "PAID", ...notCancelled };
   const cod: Prisma.OrderWhereInput = { storeId, payment: "COD", paymentStatus: "PENDING", ...notCancelled };
@@ -401,7 +410,7 @@ export async function getOrderStats(storeId: string): Promise<OrderStats> {
     prismadb.order.groupBy({ by: ["paymentStatus"], where: { storeId }, _count: { _all: true } }),
     prismadb.order.aggregate({ where: paid, _sum: { total: true }, _count: { _all: true } }),
     prismadb.order.aggregate({ where: cod, _sum: { total: true }, _count: { _all: true } }),
-    revenueByMonth(storeId),
+    revenueLast12Months(storeId),
     prismadb.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM "Order" WHERE "storeId" = ${storeId} AND ${HAS_RETURN}`,
   ]);
   const byPaymentStatus = Object.fromEntries(PAYMENT_STATUSES.map((s) => [s, 0])) as Record<PaymentStatus, number>;
@@ -467,7 +476,7 @@ type CustomerRow = Prisma.OrderGetPayload<{ select: typeof customerSelect }>;
 /** Whether the customer may ask for a return now, and until when (while the order sits at its final stage). */
 function returnWindow(settings: OrderSettings, status: string, d: OrderDetails | null): { canReturn: boolean; returnUntil: string | null } {
   if (!d || !settings.returns.enabled || !isFinalStatus(settings.statuses, status)) return { canReturn: false, returnUntil: null };
-  const since = reachedFinalAt(d, status);
+  const since = reachedStatusAt(d, status);
   if (!since) return { canReturn: false, returnUntil: null };
   const until = new Date(since.getTime() + settings.returns.windowDays * 24 * 60 * 60 * 1000);
   return { canReturn: !d.return && Date.now() <= until.getTime(), returnUntil: until.toISOString() };
@@ -576,11 +585,29 @@ export async function getOrderFacets(storeId: string): Promise<OrderFacets> {
     return m;
   };
   const byName = (a: { orders: number }, b: { orders: number }) => b.orders - a.orders;
-  const list = (m: Map<string, number>) => Array.from(m, ([value, orders]) => ({ value, orders })).sort(byName).slice(0, FACET_MAX);
+  const list = (m: Map<string, number>) =>
+    Array.from(m, ([value, orders]) => ({ value, orders }))
+      .sort(byName)
+      .slice(0, FACET_MAX);
   // A city is named with its state (the same name in two states is two places), except the unknown city, which is one.
   const cityFilter = (p: (typeof places)[number]) => (p.city === UNKNOWN_PLACE ? { city: UNKNOWN_PLACE, state: "" } : { city: p.city, state: p.state });
   const cityKey = (f: { city: string; state: string }) => (f.state ? `${f.city}, ${f.state}` : f.city);
   const filters = new Map(places.map((p) => [cityKey(cityFilter(p)), cityFilter(p)]));
-  const cities = Array.from(sum((p) => cityKey(cityFilter(p))), ([key, orders]) => ({ key, label: key, filter: filters.get(key)!, orders }));
+  const cities = Array.from(
+    sum((p) => cityKey(cityFilter(p))),
+    ([key, orders]) => ({ key, label: key, filter: filters.get(key)!, orders }),
+  );
   return { states: list(sum((p) => p.state)), cities: cities.sort(byName).slice(0, FACET_MAX), pincodes: list(sum((p) => p.pincode)), products };
+}
+
+/**
+ * Names for the filter chips of ids that come from links (a customer, a product), so a chip says "Customer: Asha"
+ * and not an id. Only this store's customer / product is named; anything else stays "".
+ */
+export async function filterLabels(storeId: string, ids: { buyer?: string; product?: string }) {
+  const [buyer, product] = await Promise.all([
+    ids.buyer ? prismadb.users.findFirst({ where: { id: ids.buyer, orders: { some: { storeId } } }, select: { fname: true, email: true } }) : null,
+    ids.product ? prismadb.product.findFirst({ where: { id: ids.product, storeId }, select: { name: true } }) : null,
+  ]);
+  return { buyerName: buyer ? buyer.fname || buyer.email : "", productName: product?.name ?? "" };
 }

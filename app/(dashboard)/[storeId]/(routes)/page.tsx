@@ -4,8 +4,6 @@ import { CreditCard, DollarSign, Package } from "lucide-react";
 
 import { requireStoreOwnerPage } from "@/lib/api/admin-auth";
 import { Separator } from "@/components/ui/separator";
-import { Overview } from "@/components/overview";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Heading } from "@/components/ui/heading";
 import { CardGridSkeleton, Skeleton } from "@/components/ui/skeleton";
 import { SectionError } from "@/components/section-error";
@@ -15,9 +13,10 @@ import { formatINR } from "@/lib/money";
 import { minimizedCookie, parseMinimized } from "@/lib/minimized-cards";
 import { getOrderStats } from "@/lib/orders/queries";
 import { getStoreAnalytics, parseRange } from "@/lib/orders/analytics";
-import { StatCard } from "@/components/dashboard/cards";
+import { dashCard, MinimizableGrid, StatCard } from "@/components/dashboard/cards";
+import { RevenueChart } from "@/components/dashboard/revenue-chart";
 import { ClarityVisitors } from "@/components/dashboard/clarity-visitors";
-import { MinimizeProvider } from "@/components/dashboard/minimize";
+import { Minimizable, MinimizedList, MinimizeProvider } from "@/components/dashboard/minimize";
 import { OrderStatsCards } from "@/components/dashboard/order-stats-cards";
 import { InsightsHeader, StoreAnalyticsCards } from "@/components/dashboard/store-analytics";
 
@@ -28,20 +27,19 @@ interface DashboardPageProps {
   searchParams: Promise<{ days?: string | string[] }>;
 }
 
-/** The three total cards at the top. */
+// The three total cards at the top, with fixed ids for the "minimized" cookie.
+const TOTALS = [
+  { id: "total-revenue", title: "Total Revenue", Icon: DollarSign },
+  { id: "total-sales", title: "Sales", Icon: CreditCard },
+  { id: "total-stock", title: "Products In Stock", Icon: Package },
+] as const;
+
+/** The three total cards at the top, each of which can be minimized. */
 const TotalCards = async ({ data }: { data: Promise<[number, number, number]> }) => {
-  const [totalRevenue, salesCount, stockCount] = await data;
-  const cards = [
-    { title: "Total Revenue", value: formatINR(totalRevenue), Icon: DollarSign },
-    { title: "Sales", value: `+${salesCount}`, Icon: CreditCard },
-    { title: "Products In Stock", value: String(stockCount), Icon: Package },
-  ];
+  const values = await data;
+  const shown = [formatINR(values[0]), `+${values[1]}`, String(values[2])];
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-      {cards.map((c) => (
-        <StatCard key={c.title} {...c} />
-      ))}
-    </div>
+    <MinimizableGrid className="sm:grid-cols-3" cards={TOTALS.map(({ id, title, Icon }, i) => dashCard(id, title, <StatCard title={title} value={shown[i]} Icon={Icon} />))} />
   );
 };
 
@@ -59,7 +57,7 @@ const DashboardPage: React.FC<DashboardPageProps> = async ({ params, searchParam
   const orderStats = getOrderStats(storeId);
   // The totals and the chart are parts of the order numbers (one read), plus the stock count.
   const totals = Promise.all([orderStats, getStockCount(storeId)]).then(([s, stock]): [number, number, number] => [s.revenuePaise, s.paidOrders, stock]);
-  const graph = orderStats.then((s) => s.revenueByMonth.map((m) => ({ name: m.month, total: m.revenuePaise / 100 }))); // rupees, for the chart axis
+  const months = orderStats.then((s) => s.revenueByMonth);
   const analytics = getStoreAnalytics(storeId, days);
   // Waits on Clarity only when its saved numbers are due a refresh.
   const visitors = getVisitorInsights(storeId);
@@ -69,24 +67,21 @@ const DashboardPage: React.FC<DashboardPageProps> = async ({ params, searchParam
       <div className="flex-1 space-y-4 p-4 pt-6 md:p-8">
         <Heading title="Dashboard" description="Overview of your store" />
         <Separator />
-        <SectionError title="the totals">
-          <Suspense fallback={<CardGridSkeleton count={3} className="sm:grid-cols-3" />}>
-            <TotalCards data={totals} />
-          </Suspense>
-        </SectionError>
-        <Card className="col-span-4">
-          <CardHeader>
-            <CardTitle>Overview</CardTitle>
-          </CardHeader>
-          <CardContent className="pl-2">
+        <MinimizeProvider storeId={storeId} initial={minimized}>
+          {/* The one list of minimized cards for the whole page: a minimized card waits here, a click brings it back. */}
+          <MinimizedList />
+          <SectionError title="the totals">
+            <Suspense fallback={<CardGridSkeleton count={3} className="sm:grid-cols-3" />}>
+              <TotalCards data={totals} />
+            </Suspense>
+          </SectionError>
+          <Minimizable id="revenue-by-month" title="Revenue by month">
             <SectionError title="the chart">
-              <Suspense fallback={<Skeleton className="ml-4 h-[350px]" />}>
-                <Overview data={graph} />
+              <Suspense fallback={<Skeleton className="h-[440px] rounded-xl" />}>
+                <RevenueChart storeId={storeId} data={months} />
               </Suspense>
             </SectionError>
-          </CardContent>
-        </Card>
-        <MinimizeProvider storeId={storeId} initial={minimized}>
+          </Minimizable>
           <h3 className="pt-2 text-lg font-semibold">Orders</h3>
           <SectionError title="the order numbers">
             <Suspense

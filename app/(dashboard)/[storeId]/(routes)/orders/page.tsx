@@ -2,9 +2,8 @@ import { Suspense } from "react";
 
 import { requireStoreOwnerPage } from "@/lib/api/admin-auth";
 import { TableSkeleton } from "@/components/ui/skeleton";
-import prismadb from "@/lib/prismadb";
 import { ADMIN_LIST_KEYS, filtersAsText, orderListQuerySchema } from "@/lib/orders/list-query";
-import { getOrderFacets, listAdminOrders } from "@/lib/orders/queries";
+import { filterLabels, listAdminOrders } from "@/lib/orders/queries";
 import { parseUrlQuery } from "@/lib/url-query";
 
 import { OrdersClient } from "./components/client";
@@ -19,12 +18,8 @@ const OrdersPage = async ({ params, searchParams }: { params: Promise<{ storeId:
   const q = { ...parseUrlQuery(orderListQuerySchema, ADMIN_LIST_KEYS, await searchParams), pageSize: PAGE_SIZE };
   // Started, not awaited: OrdersClient reads it with use() inside the <Suspense> below, so the page shell shows at once.
   // When a filter changes, the old rows stay (dimmed) until the new ones arrive (the boundary is not keyed on purpose).
-  const data = Promise.all([
-    listAdminOrders(storeId, q),
-    getOrderFacets(storeId),
-    // A buyer filter comes from a link: show the customer's name, not their id.
-    q.buyer ? prismadb.users.findFirst({ where: { id: q.buyer, orders: { some: { storeId } } }, select: { fname: true, email: true } }) : null,
-  ]).then(([list, facets, buyer]) => ({ list, facets, buyerName: buyer ? buyer.fname || buyer.email : "" }));
+  // The place and product options for the filters are read only when such a filter opens (/orders/facets).
+  const data = Promise.all([listAdminOrders(storeId, q), filterLabels(storeId, q)]).then(([list, labels]) => ({ list, ...labels }));
 
   return (
     <div className="flex-col">

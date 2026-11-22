@@ -9,7 +9,7 @@ import {
   clarityProjectIdSchema,
   parseClarityApiToken,
   parseClarityProjectId,
-  updateSettingsPart,
+  updateStoreSettings,
 } from "@/lib/store-settings";
 import { revalidateStoreInfo } from "@/lib/store-revalidate";
 
@@ -49,22 +49,24 @@ export async function PATCH(req: Request, { params }: Params) {
     const { storeId } = await params;
     await requireStoreOwner(storeId);
     const body = await readBody(req, analyticsPatchSchema);
-    const before = await read(storeId);
-    let changed = false; // a different project or token: the saved visitor numbers no longer apply
-    if (body.clarityProjectId !== undefined && body.clarityProjectId !== before.clarityProjectId) {
-      const id = body.clarityProjectId;
-      if ((await updateSettingsPart(storeId, "clarityProjectId", () => id)) === null) throw new OrderError("STORE_NOT_FOUND", "Store not found");
-      revalidateStoreInfo(before.slug); // the store app caches slug -> store (this id included) under store-<slug>
-      changed = true;
-    }
-    if (body.clarityApiToken !== undefined) {
-      const token = body.clarityApiToken;
-      if ((await updateSettingsPart(storeId, "clarityApiToken", () => token)) === null) throw new OrderError("STORE_NOT_FOUND", "Store not found");
-      changed = true;
-    }
-    if (changed) await updateSettingsPart(storeId, "clarityInsights", () => null); // the next dashboard visit fetches fresh numbers
-    const { clarityProjectId, hasApiToken } = await read(storeId);
-    return json({ analytics: { clarityProjectId, hasApiToken } });
+    const { clarityProjectId: id, clarityApiToken: token } = body;
+    // One locked write: the project id, the token and the saved visitor numbers change together or not at all.
+    let idChanged = false;
+    const store = await updateStoreSettings(storeId, {
+      ...(id !== undefined && {
+        clarityProjectId: (current) => {
+          idChanged = id !== parseClarityProjectId({ clarityProjectId: current });
+          return id;
+        },
+      }),
+      ...(token !== undefined && { clarityApiToken: () => token }),
+      // A different project or token: the saved visitor numbers no longer apply (the next dashboard visit fetches fresh
+      // ones). Runs after the id above (parts are written in this order), so idChanged is known here.
+      clarityInsights: (current) => (idChanged || token !== undefined ? null : current),
+    });
+    if (!store) throw new OrderError("STORE_NOT_FOUND", "Store not found");
+    if (idChanged) revalidateStoreInfo(store.slug); // the store app caches slug -> store (this id included) under store-<slug>
+    return json({ analytics: { clarityProjectId: parseClarityProjectId(store.settings), hasApiToken: !!parseClarityApiToken(store.settings) } });
   } catch (error) {
     return errorResponse(error, "ANALYTICS_PATCH");
   }

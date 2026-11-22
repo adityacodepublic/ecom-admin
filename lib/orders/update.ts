@@ -4,7 +4,7 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import prismadb from "@/lib/prismadb";
-import { MARKDOWN_MAX, OrderDetails, detailsToJson, OrderEvent, orderDetailsSchema, parseDetails, expectedDeliverySchema, PRIVATE_NOTE_MAX } from "./details";
+import { MARKDOWN_MAX, OrderDetails, detailsToJson, OrderEvent, orderDetailsSchema, parseDetails, expectedDeliverySchema, PRIVATE_NOTE_MAX, reachedStatusAt } from "./details";
 import { OrderError } from "./errors";
 import { OrderSettings, getOrderSettingsTx } from "./settings";
 import {
@@ -306,11 +306,6 @@ export const customerReturnSchema = z
   .strict();
 export type CustomerReturnInput = z.infer<typeof customerReturnSchema>;
 
-/** When the order reached its final stage (the last status event for it), or null. */
-export function reachedFinalAt(details: OrderDetails, finalStatus: string): Date | null {
-  const e = [...details.events].reverse().find((x) => x.type === "status" && x.status === finalStatus);
-  return e ? new Date(e.at) : null;
-}
 
 /**
  * The customer asks to return the WHOLE order. Needs: returns on, the order at the final stage, no return yet,
@@ -325,7 +320,7 @@ export async function customerRequestReturn(storeId: string, customerId: string,
     if (!returns.enabled) throw new OrderError("RETURNS_OFF", "This store does not take returns here. Please contact the store.");
     if (!isFinalStatus(statuses, order.status)) throw new OrderError("NOT_RETURNABLE", "This order cannot be returned yet.");
     if (details.return) throw new OrderError("RETURN_EXISTS", "A return was already requested for this order.");
-    const since = reachedFinalAt(details, order.status);
+    const since = reachedStatusAt(details, order.status);
     const until = since ? since.getTime() + returns.windowDays * 24 * 60 * 60 * 1000 : 0;
     if (!since || Date.now() > until) throw new OrderError("RETURN_WINDOW_CLOSED", `The ${returns.windowDays}-day return window has ended. Please contact the store.`);
 

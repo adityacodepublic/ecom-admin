@@ -1,5 +1,6 @@
 "use client";
 
+import { useParams } from "next/navigation";
 import { use, useMemo } from "react";
 import { X } from "lucide-react";
 
@@ -10,13 +11,12 @@ import { Pager } from "@/components/ui/pager";
 import { Heading } from "@/components/ui/heading";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { PlaceFilter, ProductFilter } from "@/components/orders/order-facet-filters";
+import { PlaceFilter, ProductFilter, WithOrderFacets } from "@/components/orders/order-facet-filters";
 import { useDebouncedSearch } from "@/hooks/use-debounced-search";
 import { useUrlFilters } from "@/hooks/use-url-filters";
 import { CUSTOMER_FILTER_KEYS, type CustomerListQuery } from "@/lib/customer-query";
 import type { CustomerRow } from "@/lib/customers";
 import { formatRupees } from "@/lib/money";
-import type { OrderFacets } from "@/lib/orders/queries";
 import { cn } from "@/lib/utils";
 
 import { clarityColumn, CustomerFilterHeadersProvider, customerColumns, type CustomerFilterHeaders } from "./columns";
@@ -24,7 +24,7 @@ import { clarityColumn, CustomerFilterHeadersProvider, customerColumns, type Cus
 export type UsersData = {
   rows: CustomerRow[];
   totalCount: number;
-  facets: OrderFacets; // places and products of the store's orders, for the filters
+  productName: string; // the filtered product, for its chip
   clarityProjectId: string; // when set, each customer gets a "..." button with their Clarity options
 };
 
@@ -43,7 +43,8 @@ interface UserClientProps {
 }
 
 export const UserClient: React.FC<UserClientProps> = ({ data: promise, query: f, pageSize }) => {
-  const { rows, totalCount, facets, clarityProjectId } = use(promise);
+  const { rows, totalCount, productName, clarityProjectId } = use(promise);
+  const { storeId } = useParams<{ storeId: string }>();
   const { set, clear, pending } = useUrlFilters();
   const [search, setSearch] = useDebouncedSearch(f.q ?? "", (q) => set({ q }));
   const pages = Math.max(1, Math.ceil(totalCount / pageSize));
@@ -52,7 +53,6 @@ export const UserClient: React.FC<UserClientProps> = ({ data: promise, query: f,
     set(changes);
     close();
   };
-  const productName = facets.products.find((p) => p.id === f.product)?.name ?? "a product";
 
   // The column titles that filter. The filters run on the server over every customer, not just this page.
   const headers: CustomerFilterHeaders = {
@@ -64,12 +64,16 @@ export const UserClient: React.FC<UserClientProps> = ({ data: promise, query: f,
     address: (
       <ColumnFilter label="Address" active={!!(f.state || f.city || f.pincode)}>
         {(close) => (
-          <PlaceFilter
-            facets={facets}
-            value={{ state: f.state ?? "", city: f.city ?? "", pincode: f.pincode ?? "" }}
-            onPick={(changes) => pick(changes, close)}
-            note="Customers who had an order shipped there (cancelled orders left out). Counts are orders."
-          />
+          <WithOrderFacets storeId={storeId}>
+            {(facets) => (
+              <PlaceFilter
+                facets={facets}
+                value={{ state: f.state ?? "", city: f.city ?? "", pincode: f.pincode ?? "" }}
+                onPick={(changes) => pick(changes, close)}
+                note="Customers who had an order shipped there (cancelled orders left out). Counts are orders."
+              />
+            )}
+          </WithOrderFacets>
         )}
       </ColumnFilter>
     ),
@@ -81,12 +85,16 @@ export const UserClient: React.FC<UserClientProps> = ({ data: promise, query: f,
     products: (
       <ColumnFilter label="Products" active={!!f.product} align="end">
         {(close) => (
-          <ProductFilter
-            products={facets.products}
-            value={f.product ?? ""}
-            onPick={(product) => pick({ product }, close)}
-            note="Customers who ordered it (cancelled orders left out). Counts are orders."
-          />
+          <WithOrderFacets storeId={storeId}>
+            {(facets) => (
+              <ProductFilter
+                products={facets.products}
+                value={f.product ?? ""}
+                onPick={(product) => pick({ product }, close)}
+                note="Customers who ordered it (cancelled orders left out). Counts are orders."
+              />
+            )}
+          </WithOrderFacets>
         )}
       </ColumnFilter>
     ),
@@ -100,7 +108,7 @@ export const UserClient: React.FC<UserClientProps> = ({ data: promise, query: f,
     chip("state", `State: ${f.state}`),
     chip("city", `City: ${f.city}`),
     chip("pincode", `Pincode: ${f.pincode}`),
-    chip("product", `Bought: ${productName}`),
+    chip("product", `Bought: ${productName || "a product"}`),
   ].filter((c): c is Chip => c !== null);
 
   return (

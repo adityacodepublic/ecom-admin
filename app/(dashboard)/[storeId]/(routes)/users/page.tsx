@@ -4,7 +4,7 @@ import { requireStoreOwnerPage } from "@/lib/api/admin-auth";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { parseCustomerQuery } from "@/lib/customer-query";
 import { CUSTOMER_PAGE_SIZE, listStoreCustomers } from "@/lib/customers";
-import { getOrderFacets } from "@/lib/orders/queries";
+import { filterLabels } from "@/lib/orders/queries";
 import { parseClarityProjectId, readSettings } from "@/lib/store-settings";
 
 import { UserClient } from "./components/client";
@@ -16,9 +16,10 @@ const UsersPage = async ({ params, searchParams }: { params: Promise<{ storeId: 
   const query = parseCustomerQuery(await searchParams);
   // Started, not awaited: UserClient reads it with use() inside the <Suspense> below. When a filter changes, the
   // rows on screen stay until the new ones arrive (the boundary is not keyed on purpose).
-  const data = Promise.all([listStoreCustomers(storeId, query), getOrderFacets(storeId), readSettings(storeId)]).then(([list, facets, settings]) => ({
+  // The place and product options for the filters are read only when such a filter opens (/orders/facets).
+  const data = Promise.all([listStoreCustomers(storeId, query), filterLabels(storeId, query), readSettings(storeId)]).then(([list, labels, settings]) => ({
     ...list,
-    facets,
+    productName: labels.productName,
     clarityProjectId: parseClarityProjectId(settings) ?? "",
   }));
 

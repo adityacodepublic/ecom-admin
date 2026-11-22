@@ -29,19 +29,31 @@ export async function readSettings(storeId: string): Promise<unknown | null> {
   return store ? (store.settings ?? {}) : null;
 }
 
+type PartUpdates = Partial<Record<SettingsPart, (current: unknown) => unknown>>;
+
 /**
- * Changes one part under a row lock: `next` gets the current (unparsed) part and returns the new one.
- * Only that part is written, so saving the order settings and the contact details at the same time is safe.
- * Null when the store does not exist.
+ * Changes some parts of the settings (and, if given, the store name) together: one row lock, one write, so a save
+ * that touches several parts is all or nothing. Each function gets its part's current (unparsed) value and returns
+ * the new one; the other parts are left as they are, so saving the order settings and the contact details at the
+ * same time is safe. Returns the store as written, or null when it does not exist.
  */
-export async function updateSettingsPart<T>(storeId: string, part: SettingsPart, next: (current: unknown) => T): Promise<T | null> {
+export async function updateStoreSettings(storeId: string, parts: PartUpdates, name?: string): Promise<{ name: string; slug: string; settings: unknown } | null> {
   return prismadb.$transaction(async (tx) => {
     const rows = await tx.$queryRaw<{ settings: unknown }[]>`SELECT "settings" FROM "Store" WHERE id = ${storeId} FOR UPDATE`;
     if (rows.length === 0) return null;
-    const value = next(settingsPart(rows[0].settings, part));
-    await tx.$executeRaw`UPDATE "Store" SET "settings" = jsonb_set(COALESCE("settings", '{}'::jsonb), ARRAY[${part}]::text[], ${JSON.stringify(value)}::jsonb), "updatedAt" = now() WHERE id = ${storeId}`;
-    return value;
+    const patch = Object.fromEntries(Object.entries(parts).map(([part, next]) => [part, next!(settingsPart(rows[0].settings, part as SettingsPart))]));
+    const [store] = await tx.$queryRaw<{ name: string; slug: string; settings: unknown }[]>`
+      UPDATE "Store" SET "settings" = COALESCE("settings", '{}'::jsonb) || ${JSON.stringify(patch)}::jsonb,
+             "name" = COALESCE(${name ?? null}::text, "name"), "updatedAt" = now()
+      WHERE id = ${storeId} RETURNING "name", "slug", "settings"`;
+    return store;
   });
+}
+
+/** Changes one part under a row lock (see updateStoreSettings). Returns the new value, or null when the store does not exist. */
+export async function updateSettingsPart<T>(storeId: string, part: SettingsPart, next: (current: unknown) => T): Promise<T | null> {
+  const store = await updateStoreSettings(storeId, { [part]: next });
+  return store ? (settingsPart(store.settings, part) as T) : null;
 }
 
 /** The same read, inside a transaction. */

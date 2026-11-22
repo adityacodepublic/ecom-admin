@@ -3,14 +3,7 @@ import { z } from "zod";
 
 import { parseContact, type StoreContact } from "@/lib/contact";
 import { readSettings, readSettingsTx, settingsPart, updateSettingsPart } from "@/lib/store-settings";
-import {
-  DEFAULT_ORDER_STATUSES,
-  DEFAULT_RETURN_REASONS,
-  DEFAULT_RETURN_STATUSES,
-  REJECTED,
-  RETURN_WINDOW_DEFAULT,
-  cleanStatusList,
-} from "./status";
+import { DEFAULT_ORDER_STATUSES, DEFAULT_RETURN_REASONS, DEFAULT_RETURN_STATUSES, REJECTED, RETURN_WINDOW_DEFAULT, cleanStatusList } from "./status";
 
 /**
  * Store.settings.orders (JSON, missing = all defaults).
@@ -19,19 +12,19 @@ import {
  *                        false: no payment step; the order is placed with payment "" and the seller
  *                        agrees the method with the buyer, then types it in the status update form.
  *   statuses             the ordered list of order statuses (first = start, last = final stage)
+ *   waitingUntil         the dashboard's "Orders waiting too long" card: orders that have not reached this status
+ *                        48 hours after they were placed (the starting status = orders still at it). Picked on the card.
  *   cancellation         customer cancellation: on/off, the statuses where it is allowed, the reasons
  *   returns              customer returns: on/off, the window in days, the reasons, the return statuses
  */
-const statusList = z
-  .array(z.string())
-  .transform((a, ctx) => {
-    const r = cleanStatusList(a);
-    if (!r.ok) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: r.error });
-      return z.NEVER;
-    }
-    return r.list;
-  });
+const statusList = z.array(z.string()).transform((a, ctx) => {
+  const r = cleanStatusList(a);
+  if (!r.ok) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: r.error });
+    return z.NEVER;
+  }
+  return r.list;
+});
 
 const reasonList = z
   .array(z.string())
@@ -67,6 +60,7 @@ export const orderSettingsSchema = z.object({
   autoEmails: z.boolean().default(false),
   checkoutPaymentStep: z.boolean().default(true),
   statuses: statusList.default(DEFAULT_ORDER_STATUSES),
+  waitingUntil: z.string().default(""), // "" or not in the list = the default (see tidy)
   cancellation: cancellationSchema.default({}),
   returns: returnsSchema.default({}),
 });
@@ -78,16 +72,24 @@ export const orderSettingsPatchSchema = z
     autoEmails: z.boolean().optional(),
     checkoutPaymentStep: z.boolean().optional(),
     statuses: statusList.optional(),
+    waitingUntil: z.string().trim().max(60).optional(),
     cancellation: cancellationSchema.partial().optional(),
     returns: returnsSchema.partial().optional(),
   })
   .strict();
 export type OrderSettingsPatch = z.infer<typeof orderSettingsPatchSchema>;
 
-/** Statuses where cancelling is ticked must exist in the list. */
+/** The waiting card's status when none is picked, or the picked one is gone (renamed or removed): "Shipped", else the starting status. */
+const defaultWaitingUntil = (statuses: string[]) => statuses.find((s) => s.toLowerCase() === "shipped") ?? statuses[0];
+
+/** Statuses where cancelling is ticked must exist in the list; so must the waiting card's status. */
 function tidy(s: OrderSettings): OrderSettings {
-  return { ...s, cancellation: { ...s.cancellation, allowedAt: s.cancellation.allowedAt.filter((x) => s.statuses.includes(x)) } };
+  const waitingUntil = s.statuses.includes(s.waitingUntil) ? s.waitingUntil : defaultWaitingUntil(s.statuses);
+  return { ...s, waitingUntil, cancellation: { ...s.cancellation, allowedAt: s.cancellation.allowedAt.filter((x) => s.statuses.includes(x)) } };
 }
+
+/** The statuses an order is "waiting" at: those before the card's status, or just the starting status when that is the one picked. */
+export const waitingStatuses = (s: OrderSettings) => s.statuses.slice(0, Math.max(1, s.statuses.indexOf(s.waitingUntil)));
 
 /** The stored settings JSON (Store.settings) -> full order settings with defaults. Bad stored data falls back to the defaults. */
 export function parseOrderSettings(settings: unknown): OrderSettings {

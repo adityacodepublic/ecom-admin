@@ -4,8 +4,7 @@ import { ExternalLink } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { REFRESH_EVERY_HOURS, type Breakdown, type DeviceRow, type VisitorData, type VisitorInsights } from "@/lib/clarity-insights";
 
-import { cardTitles, dashCard, Empty, InsightCard, MinimizableGrid, plural, StatCard } from "./cards";
-import { MinimizedList } from "./minimize";
+import { dashCard, Empty, InsightCard, MinimizableGrid, plural, StatCard } from "./cards";
 import { WorldMap } from "./world-map";
 
 const n = (v: number) => Math.round(v).toLocaleString("en-IN");
@@ -199,9 +198,7 @@ function VisitorCards({ d }: { d: VisitorData }) {
   return (
     <>
       <MinimizableGrid cards={numbers} className="sm:grid-cols-3" />
-      <MinimizableGrid cards={panels} className="md:grid-cols-2">
-        <MinimizedList cards={cardTitles([...numbers, ...panels, ...countries])} />
-      </MinimizableGrid>
+      <MinimizableGrid cards={panels} className="md:grid-cols-2" />
       <MinimizableGrid cards={countries} className="" />
     </>
   );

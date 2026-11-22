@@ -3,12 +3,12 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ClearFilter, OptionList, RangeFilter, type Chip } from "@/components/ui/column-filter";
-import { PlaceFilter, ProductFilter } from "@/components/orders/order-facet-filters";
+import { PlaceFilter, ProductFilter, WithOrderFacets } from "@/components/orders/order-facet-filters";
 import { formatDay } from "@/lib/format-date";
 import { formatRupees } from "@/lib/money";
 import { hourLabel, hourRangeLabel, WEEKDAYS } from "@/lib/shop-time";
 import type { OrderFilters } from "@/lib/orders/list-query";
-import type { AdminOrderList, OrderFacets } from "@/lib/orders/queries";
+import type { AdminOrderList } from "@/lib/orders/queries";
 import { PAYMENT_STATUSES, PAYMENT_STATUS_LABELS, type PaymentStatus } from "@/lib/orders/status";
 import { cn } from "@/lib/utils";
 
@@ -24,16 +24,18 @@ const toggle = (current: string, v: string) => (current === v ? "" : v);
 export function orderColumnFilters({
   filters: f,
   list,
-  facets,
+  storeId,
   buyerName,
+  productName,
   set,
   search,
   setSearch,
 }: {
   filters: OrderFilters;
   list: AdminOrderList;
-  facets: OrderFacets;
+  storeId: string;
   buyerName: string;
+  productName: string; // the filtered product, for its chip
   set: (changes: Record<string, string>) => void;
   search: string;
   setSearch: (text: string) => void;
@@ -137,12 +139,16 @@ export function orderColumnFilters({
       label: "Ship to",
       active: !!(f.state || f.city || f.pincode),
       body: (close) => (
-        <PlaceFilter
-          facets={facets}
-          value={{ state: f.state, city: f.city, pincode: f.pincode }}
-          onPick={(changes) => pick(changes, close)}
-          note={'Cancelled orders are left out (unless you pick a status). "Unknown" = no place saved on the order.'}
-        />
+        <WithOrderFacets storeId={storeId}>
+          {(facets) => (
+            <PlaceFilter
+              facets={facets}
+              value={{ state: f.state, city: f.city, pincode: f.pincode }}
+              onPick={(changes) => pick(changes, close)}
+              note={'Cancelled orders are left out (unless you pick a status). "Unknown" = no place saved on the order.'}
+            />
+          )}
+        </WithOrderFacets>
       ),
     },
     items: {
@@ -150,7 +156,16 @@ export function orderColumnFilters({
       label: "Items",
       active: !!f.product,
       body: (close) => (
-        <ProductFilter products={facets.products} value={f.product} onPick={(product) => pick({ product }, close)} note="Orders that have this product. Counts are all orders." />
+        <WithOrderFacets storeId={storeId}>
+          {(facets) => (
+            <ProductFilter
+              products={facets.products}
+              value={f.product}
+              onPick={(product) => pick({ product }, close)}
+              note="Orders that have this product. Counts are all orders."
+            />
+          )}
+        </WithOrderFacets>
       ),
     },
     total: {
@@ -205,7 +220,6 @@ export function orderColumnFilters({
   };
 
   // Every filter that is on, in words. Each chip removes its own filter; the column title shows and changes it.
-  const productName = facets.products.find((p) => p.id === f.product)?.name ?? "a product";
   const chip = (key: keyof OrderFilters, label: string): Chip | null => (f[key] ? { id: key, label, onRemove: () => set({ [key]: "" }) } : null);
   const chips = [
     chip("status", `Status: ${f.status}`),
@@ -219,7 +233,7 @@ export function orderColumnFilters({
     chip("state", `State: ${f.state}`),
     chip("city", `City: ${f.city}`),
     chip("pincode", `Pincode: ${f.pincode}`),
-    chip("product", `Item: ${productName}`),
+    chip("product", `Item: ${productName || "a product"}`),
     chip("minTotal", f.minTotal && `Total from ${formatRupees(f.minTotal)}`),
     chip("maxTotal", f.maxTotal && `Total up to ${formatRupees(f.maxTotal)}`),
     chip("delivery", `Delivery: ${deliveryOptions.find((d) => d.value === f.delivery)?.label}`),

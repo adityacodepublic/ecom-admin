@@ -94,6 +94,16 @@ export const orderDetailsSchema = z.object({
 });
 export type OrderDetails = z.infer<typeof orderDetailsSchema>;
 
+/**
+ * When the order first reached a status (its first status event for it), or null. The one answer to "when was it
+ * delivered": the Orders list's delivery time, the dashboard's average (same rule in SQL: min of those events) and the
+ * return window all count from it. The final stage is locked, so an order reaches it once anyway.
+ */
+export function reachedStatusAt(details: OrderDetails, status: string): Date | null {
+  const e = details.events.find((x) => x.type === "status" && x.status === status);
+  return e ? new Date(e.at) : null;
+}
+
 /** For writing to the Json column (the object was checked by orderDetailsSchema). */
 export const detailsToJson = (d: OrderDetails) => d as unknown as Prisma.InputJsonValue;
 

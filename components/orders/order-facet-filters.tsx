@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { Fetched } from "@/components/fetched";
 import { ClearFilter, SearchList } from "@/components/ui/column-filter";
 import type { OrderFacets } from "@/lib/orders/queries";
 import { cn } from "@/lib/utils";
@@ -83,4 +84,13 @@ export const ProductFilter = ({ products, value, onPick, note }: { products: Ord
     <p className="text-xs text-muted-foreground">{note}</p>
     <ClearFilter show={!!value} onClear={() => onPick("")} />
   </>
+);
+
+const FACETS_TTL_MS = 8 * 60 * 1000; // the places and products of a store change slowly
+
+/** Reads the store's places and products (for the filters above) when a filter that needs them opens. */
+export const WithOrderFacets = ({ storeId, children }: { storeId: string; children: (facets: OrderFacets) => React.ReactNode }) => (
+  <Fetched<OrderFacets> url={`/api/${storeId}/orders/facets`} ttlMs={FACETS_TTL_MS}>
+    {children}
+  </Fetched>
 );

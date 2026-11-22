@@ -1,8 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import prismadb from "@/lib/prismadb";
-import { paiseToDecimalString, sumPaise, toPaise } from "@/lib/money";
-import { parseDetailsOrNull } from "@/lib/orders/details";
+import { paiseToDecimalString } from "@/lib/money";
 import { CANCELLED } from "@/lib/orders/status";
 import { hasProduct, NOT_CANCELLED, shipToPlace } from "@/lib/orders/sql";
 import type { CustomerListQuery } from "@/lib/customer-query";
@@ -27,73 +26,64 @@ export type CustomerRow = {
 };
 
 /**
- * The customers the filters that need their orders keep (order count, amount paid, places, products), or null when
- * none of them is on. One grouped query over this store's orders.
+ * One page of the store's customers, newest first, with the search and the filters applied, all in one query:
+ * the customers are grouped from this store's orders (count, amount paid, places, products), so no list of ids
+ * goes back and forth. Then two small reads for just this page: what they bought and where their latest order went.
  */
-async function filteredCustomerIds(storeId: string, q: CustomerListQuery): Promise<string[] | null> {
-  const having: Prisma.Sql[] = [];
+export async function listStoreCustomers(storeId: string, q: CustomerListQuery): Promise<{ rows: CustomerRow[]; totalCount: number }> {
+  const paid = Prisma.sql`COALESCE(SUM("total") FILTER (WHERE "paymentStatus" = 'PAID' AND ${NOT_CANCELLED}), 0)`;
+  const having: Prisma.Sql[] = [Prisma.sql`true`];
   if (q.orders) having.push(q.orders === "1" ? Prisma.sql`count(*) = 1` : Prisma.sql`count(*) >= ${q.orders === "2+" ? 2 : 5}`);
-  const paid = Prisma.sql`COALESCE(SUM("total") FILTER (WHERE "paymentStatus" = 'PAID' AND "status" <> ${CANCELLED}), 0)`;
   if (q.minPaid !== undefined) having.push(Prisma.sql`${paid} >= ${q.minPaid}`);
   if (q.maxPaid !== undefined) having.push(Prisma.sql`${paid} <= ${q.maxPaid}`);
+  // "Shipped there" and "bought it" count the customer's orders that were not cancelled.
   for (const f of ["state", "city", "pincode"] as const) if (q[f] !== undefined) having.push(Prisma.sql`bool_or(${NOT_CANCELLED} AND ${shipToPlace(f)} = ${q[f] as string})`);
   if (q.product) having.push(Prisma.sql`bool_or(${NOT_CANCELLED} AND ${hasProduct(q.product)})`);
-  if (having.length === 0) return null;
-  const rows = await prismadb.$queryRaw<{ id: string }[]>(
-    Prisma.sql`SELECT "usersId" AS id FROM "Order" WHERE "storeId" = ${storeId} GROUP BY "usersId" HAVING ${Prisma.join(having, " AND ")}`,
-  );
-  return rows.map((r) => r.id);
-}
+  const like = q.q ? `%${q.q}%` : null;
 
-export async function listStoreCustomers(storeId: string, q: CustomerListQuery): Promise<{ rows: CustomerRow[]; totalCount: number }> {
-  const ids = await filteredCustomerIds(storeId, q);
-  const where: Prisma.UsersWhereInput = {
-    orders: { some: { storeId } },
-    ...(ids ? { id: { in: ids } } : {}),
-    ...(q.q ? { OR: (["fname", "email", "phone"] as const).map((f) => ({ [f]: { contains: q.q, mode: "insensitive" as const } })) } : {}),
-  };
-  const [totalCount, users] = await Promise.all([
-    prismadb.users.count({ where }),
-    prismadb.users.findMany({
-      where,
-      select: {
-        id: true,
-        fname: true,
-        email: true,
-        phone: true,
-        imgurl: true,
-        orders: { where: { storeId }, select: { id: true, total: true, paymentStatus: true, status: true, details: true }, orderBy: { createdAt: "desc" } },
-      },
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      skip: (q.page - 1) * CUSTOMER_PAGE_SIZE,
-      take: CUSTOMER_PAGE_SIZE,
-    }),
+  const page = await prismadb.$queryRaw<{ id: string; fname: string; email: string; phone: string; imgurl: string | null; orders: number; paise: bigint; total: number }[]>`
+    SELECT u."id", u."fname", u."email", u."phone", u."imgurl", c.orders, c.paise, count(*) OVER ()::int AS total
+    FROM (
+      SELECT "usersId" AS id, count(*)::int AS orders, (${paid} * 100)::bigint AS paise
+      FROM "Order" WHERE "storeId" = ${storeId}
+      GROUP BY "usersId" HAVING ${Prisma.join(having, " AND ")}
+    ) c
+    JOIN "Users" u ON u."id" = c.id
+    WHERE ${like}::text IS NULL OR u."fname" ILIKE ${like} OR u."email" ILIKE ${like} OR u."phone" ILIKE ${like}
+    ORDER BY u."createdAt" DESC, u."id" DESC
+    LIMIT ${CUSTOMER_PAGE_SIZE} OFFSET ${(q.page - 1) * CUSTOMER_PAGE_SIZE}`;
+  const ids = page.map((u) => u.id);
+  if (ids.length === 0) return { rows: [], totalCount: 0 };
+
+  const [bought, latest] = await Promise.all([
+    // What each bought in paid, not cancelled orders: name and quantity.
+    prismadb.$queryRaw<{ id: string; name: string; qty: number }[]>`
+      SELECT o."usersId" AS id, i->>'name' AS name, SUM((i->>'quantity')::int)::int AS qty
+      FROM "Order" o CROSS JOIN LATERAL jsonb_array_elements(o."details"->'items') i
+      WHERE o."storeId" = ${storeId} AND o."usersId" = ANY(${ids}::text[]) AND o."paymentStatus" = 'PAID' AND o."status" <> ${CANCELLED}
+      GROUP BY 1, 2`,
+    // Where each one's latest order went.
+    prismadb.$queryRaw<{ id: string; shipTo: Record<string, string> | null }[]>`
+      SELECT DISTINCT ON ("usersId") "usersId" AS id, "details"->'shipTo' AS "shipTo"
+      FROM "Order" WHERE "storeId" = ${storeId} AND "usersId" = ANY(${ids}::text[])
+      ORDER BY "usersId", "createdAt" DESC`,
   ]);
+  const products = new Map<string, string[]>();
+  for (const b of [...bought].sort((x, y) => x.name.localeCompare(y.name))) products.set(b.id, [...(products.get(b.id) ?? []), `${b.name.slice(0, 30)}(${b.qty})`]);
+  const address = new Map(latest.map((l) => [l.id, l.shipTo ? [l.shipTo.street, l.shipTo.city, l.shipTo.state, l.shipTo.pincode].filter(Boolean).join(", ") : ""]));
 
-  const rows = users.map((user): CustomerRow => {
-    const paid = user.orders.filter((o) => o.paymentStatus === "PAID" && o.status !== CANCELLED);
-    const productCount: Record<string, number> = {};
-    for (const o of paid) {
-      for (const item of parseDetailsOrNull(o.id, o.details)?.items ?? []) {
-        const name = item.name.slice(0, 30);
-        productCount[name] = (productCount[name] ?? 0) + item.quantity;
-      }
-    }
-    const latest = parseDetailsOrNull(user.orders[0]?.id ?? "", user.orders[0]?.details);
-    return {
-      id: user.id,
-      fname: user.fname,
-      orderCount: user.orders.length,
-      email: user.email,
-      phone: user.phone,
-      address: latest ? [latest.shipTo.street, latest.shipTo.city, latest.shipTo.state, latest.shipTo.pincode].filter(Boolean).join(", ") : "",
-      products: Object.entries(productCount)
-        .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([name, count]) => `${name}(${count})`)
-        .join(", "),
-      totalPrice: paiseToDecimalString(sumPaise(paid.map((o) => toPaise(o.total)))),
-      imgurl: user.imgurl || "/white.png",
-    };
-  });
-  return { rows, totalCount };
+  return {
+    totalCount: page[0].total,
+    rows: page.map((u) => ({
+      id: u.id,
+      fname: u.fname,
+      email: u.email,
+      phone: u.phone,
+      orderCount: u.orders,
+      address: address.get(u.id) ?? "",
+      products: (products.get(u.id) ?? []).join(", "),
+      totalPrice: paiseToDecimalString(Number(u.paise)),
+      imgurl: u.imgurl || "/white.png",
+    })),
+  };
 }
