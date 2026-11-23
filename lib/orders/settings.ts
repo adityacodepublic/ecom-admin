@@ -16,6 +16,8 @@ import { DEFAULT_ORDER_STATUSES, DEFAULT_RETURN_REASONS, DEFAULT_RETURN_STATUSES
  *                        48 hours after they were placed (the starting status = orders still at it). Picked on the card.
  *   cancellation         customer cancellation: on/off, the statuses where it is allowed, the reasons
  *   returns              customer returns: on/off, the window in days, the reasons, the return statuses
+ *   quote                the words the store shows for price-on-request products: the checkout button of a quote
+ *                        ("Request a quote") and the text in place of the price ("Price on request")
  */
 const statusList = z.array(z.string()).transform((a, ctx) => {
   const r = cleanStatusList(a);
@@ -56,6 +58,22 @@ export const returnsSchema = z.object({
   statuses: returnStatusList.default(DEFAULT_RETURN_STATUSES),
 });
 
+export const QUOTE_LABEL_MAX = 24;
+export const QUOTE_BUTTON_PRESETS = ["Request a quote", "Send enquiry", "Get best price", "Submit requirement", "Ask for price", "Book a consultation", "Check availability"];
+export const QUOTE_PRICE_PRESETS = ["Price on request", "Price on enquiry", "Call for price", "Custom pricing"];
+const label = (fallback: string) =>
+  z
+    .string()
+    .transform((s) => s.trim().replace(/\s+/g, " "))
+    .pipe(z.string().max(QUOTE_LABEL_MAX, `At most ${QUOTE_LABEL_MAX} characters`))
+    .transform((s) => s || fallback);
+
+export const quoteLabelsSchema = z.object({
+  button: label(QUOTE_BUTTON_PRESETS[0]).default(QUOTE_BUTTON_PRESETS[0]),
+  priceText: label(QUOTE_PRICE_PRESETS[0]).default(QUOTE_PRICE_PRESETS[0]),
+});
+export type QuoteLabels = z.infer<typeof quoteLabelsSchema>;
+
 export const orderSettingsSchema = z.object({
   autoEmails: z.boolean().default(false),
   checkoutPaymentStep: z.boolean().default(true),
@@ -63,6 +81,7 @@ export const orderSettingsSchema = z.object({
   waitingUntil: z.string().default(""), // "" or not in the list = the default (see tidy)
   cancellation: cancellationSchema.default({}),
   returns: returnsSchema.default({}),
+  quote: quoteLabelsSchema.default({}),
 });
 export type OrderSettings = z.infer<typeof orderSettingsSchema>;
 
@@ -75,6 +94,7 @@ export const orderSettingsPatchSchema = z
     waitingUntil: z.string().trim().max(60).optional(),
     cancellation: cancellationSchema.partial().optional(),
     returns: returnsSchema.partial().optional(),
+    quote: quoteLabelsSchema.partial().optional(),
   })
   .strict();
 export type OrderSettingsPatch = z.infer<typeof orderSettingsPatchSchema>;
@@ -106,6 +126,7 @@ export type PublicOrderSettings = {
   statuses: string[];
   cancellation: { enabled: boolean; askReason: boolean; reasons: string[] };
   returns: { enabled: boolean; windowDays: number; reasons: string[]; statuses: string[] };
+  quote: QuoteLabels;
 };
 
 export const publicOrderSettings = (s: OrderSettings, c: StoreContact): PublicOrderSettings => ({
@@ -114,6 +135,7 @@ export const publicOrderSettings = (s: OrderSettings, c: StoreContact): PublicOr
   statuses: s.statuses,
   cancellation: { enabled: s.cancellation.enabled, askReason: s.cancellation.askReason, reasons: s.cancellation.reasons },
   returns: { enabled: s.returns.enabled, windowDays: s.returns.windowDays, reasons: s.returns.reasons, statuses: s.returns.statuses },
+  quote: { button: s.quote.button, priceText: s.quote.priceText },
 });
 
 /** Full settings of a store, or null when the store does not exist. For admin server pages. */
@@ -137,6 +159,7 @@ export async function updateOrderSettings(storeId: string, patch: OrderSettingsP
         ...patch,
         cancellation: { ...current.cancellation, ...patch.cancellation },
         returns: { ...current.returns, ...patch.returns },
+        quote: { ...current.quote, ...patch.quote },
       }),
     );
   });

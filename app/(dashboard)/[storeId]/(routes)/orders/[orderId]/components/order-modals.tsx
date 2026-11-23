@@ -23,10 +23,11 @@ const MarkdownEditor = dynamic(() => import("@/components/ui/markdown-editor"), 
 type FieldErrors = Record<string, string>;
 
 /**
- * Every small modal sends only its own fields in one PATCH (the API takes any subset).
- * Returns the save action plus the loading and error state, so each modal stays short.
+ * Every small modal sends only its own fields in one PATCH (the API takes any subset). The quote modal sends its
+ * prices to the order's /quote route instead (`to`). Returns the save action plus the loading and error state, so each
+ * modal stays short.
  */
-export function useOrderPatch(order: AdminOrder, onClose: () => void) {
+export function useOrderPatch(order: AdminOrder, onClose: () => void, to: { path: string; method: string; done: string } = { path: "", method: "PATCH", done: "Order updated." }) {
   const router = useRouter();
   const { storeId } = useParams<{ storeId: string }>();
   const [loading, setLoading] = useState(false);
@@ -42,8 +43,8 @@ export function useOrderPatch(order: AdminOrder, onClose: () => void) {
     }
     try {
       setLoading(true);
-      const res = await fetch(`/api/${storeId}/orders/${order.id}`, {
-        method: "PATCH",
+      const res = await fetch(`/api/${storeId}/orders/${order.id}${to.path}`, {
+        method: to.method,
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
       });
@@ -55,7 +56,7 @@ export function useOrderPatch(order: AdminOrder, onClose: () => void) {
         if (fe) setFieldErrors(Object.fromEntries(Object.entries(fe).map(([k, v]) => [k, v[0]])));
         return;
       }
-      toast.success(data?.changed ? "Order updated." : "Nothing changed.");
+      toast.success(data?.changed === false ? "Nothing changed." : to.done);
       onClose();
       router.refresh();
     } catch {
@@ -82,7 +83,7 @@ type ShellProps = {
   children: ReactNode;
 };
 
-const Shell = ({ title, description, isOpen, onClose, loading, formError, onSave, saveLabel, destructive, wide, children }: ShellProps) => (
+export const Shell = ({ title, description, isOpen, onClose, loading, formError, onSave, saveLabel, destructive, wide, children }: ShellProps) => (
   <Modal
     title={title}
     description={description ?? ""}
@@ -107,7 +108,7 @@ const Shell = ({ title, description, isOpen, onClose, loading, formError, onSave
   </Modal>
 );
 
-type ModalProps = { order: AdminOrder; isOpen: boolean; onClose: () => void };
+export type ModalProps = { order: AdminOrder; isOpen: boolean; onClose: () => void };
 
 // ---------------------------------------------------------------- Status
 

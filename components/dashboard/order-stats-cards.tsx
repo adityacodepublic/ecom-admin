@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { Banknote, IndianRupee, PackageCheck, ShoppingBag } from "lucide-react";
+import { Banknote, FileQuestion, IndianRupee, PackageCheck, ShoppingBag } from "lucide-react";
 
 import { statusTone } from "@/components/orders/status-badge";
 import { formatINR } from "@/lib/money";
 import type { OrderStats } from "@/lib/orders/queries";
-import { PAYMENT_STATUSES, PAYMENT_STATUS_LABELS, type PaymentStatus } from "@/lib/orders/status";
+import { PAYMENT_STATUSES, PAYMENT_STATUS_LABELS, QUOTE, type PaymentStatus } from "@/lib/orders/status";
 import { cn } from "@/lib/utils";
 
 import { dashCard, InsightCard, MinimizableGrid, plural, StatCard } from "./cards";
@@ -72,6 +72,21 @@ export const OrderStatsCards = async ({ storeId, data }: { storeId: string; data
       />,
     ),
   ];
+  // Only for stores that sell on quotes: the requests waiting for the seller's prices.
+  if (stats.quotes.open > 0)
+    numbers.push(
+      dashCard(
+        "orders-quotes",
+        "Quotes to price",
+        <StatCard
+          title="Quotes to price"
+          value={String(stats.quotes.toPrice)}
+          note={`Of ${plural(stats.quotes.open, "open quote")}: add the prices and send them`}
+          href={orders({ status: QUOTE })}
+          Icon={FileQuestion}
+        />,
+      ),
+    );
   const bars = [
     dashCard(
       "orders-by-status",
@@ -96,7 +111,7 @@ export const OrderStatsCards = async ({ storeId, data }: { storeId: string; data
 
   return (
     <>
-      <MinimizableGrid cards={numbers} className="sm:grid-cols-2 lg:grid-cols-4" />
+      <MinimizableGrid cards={numbers} className={cn("sm:grid-cols-2", numbers.length > 4 ? "lg:grid-cols-5" : "lg:grid-cols-4")} />
       <MinimizableGrid cards={bars} className="md:grid-cols-2" />
     </>
   );

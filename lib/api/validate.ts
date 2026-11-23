@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 
 import { getUserId } from "@/lib/agent/context";
+import { toPaise } from "@/lib/money";
 import prismadb from "@/lib/prismadb";
 
 /** Body checks shared by the product and category routes. They run BEFORE anything is written. */
@@ -17,6 +18,21 @@ const isWebUrl = (u: unknown): u is string => {
     return false;
   }
 };
+
+/**
+ * A product's price: rupees with at most 2 decimals, above 0 (the column is Decimal(12,2)), or null for
+ * "Price on request" (the product is bought through a quote). Missing / empty is refused: null must be meant.
+ */
+export function checkPrice(price: unknown): Checked<string | null> {
+  if (price === null) return { ok: true, data: null };
+  if (price === undefined || price === "") return { ok: false, error: "Price is required (or null for Price on request)" };
+  try {
+    if ((typeof price !== "string" && typeof price !== "number") || toPaise(price) <= 0) throw new Error();
+    return { ok: true, data: String(price) };
+  } catch {
+    return { ok: false, error: "Price must be a positive amount with at most 2 decimals" };
+  }
+}
 
 export type CheckedImage = { url: string; order?: number; href?: string };
 

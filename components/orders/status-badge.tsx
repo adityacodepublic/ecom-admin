@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { PaymentStatus, PAYMENT_STATUS_LABELS, isCancelled } from "@/lib/orders/status";
+import { PaymentStatus, PAYMENT_STATUS_LABELS, isCancelled, isQuote } from "@/lib/orders/status";
 
 // Tinted backgrounds with a text colour per theme, so they read in light and dark mode.
 export const TONES = {
@@ -11,9 +11,10 @@ export const TONES = {
 } as const;
 export type Tone = keyof typeof TONES;
 
-/** The colour follows the position in the store's list: first = grey, last = green, in between = blue. Cancelled = red. */
+/** The colour follows the position in the store's list: first = grey, last = green, in between = blue. Cancelled = red, Quote = amber. */
 export function statusTone(status: string, statuses: readonly string[]): Tone {
   if (isCancelled(status)) return "red";
+  if (isQuote(status)) return "amber";
   const i = statuses.indexOf(status);
   if (i < 0 || i === 0) return "slate";
   return i === statuses.length - 1 ? "green" : "blue";

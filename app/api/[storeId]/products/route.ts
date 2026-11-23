@@ -5,7 +5,7 @@ import prismadb from "@/lib/prismadb";
 import { toPaise } from "@/lib/money";
 import { categoryInStore, valuesInStore, isStockQuantity, isMaxQuantity } from "@/lib/api/store-refs";
 import { isPageError, pageBody, readPage } from "@/lib/api/paginate";
-import { callerOwnsStore,checkFilterItems, checkImages } from "@/lib/api/validate";
+import { callerOwnsStore,checkFilterItems, checkImages, checkPrice } from "@/lib/api/validate";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -58,15 +58,10 @@ export async function POST(
       return new NextResponse(checkedItems.error, { status: 400 });
     }
 
-    if (!price) {
-      return new NextResponse("Price is required", { status: 400 });
-    }
-
-    // Money is exact: rupees with at most 2 decimals (the column is Decimal(12,2)).
-    try {
-      if (toPaise(price) <= 0) throw new Error();
-    } catch {
-      return new NextResponse("Price must be a positive amount with at most 2 decimals", { status: 400 });
+    // Money is exact: rupees with at most 2 decimals (the column is Decimal(12,2)); null = "Price on request".
+    const checkedPrice = checkPrice(price);
+    if (!checkedPrice.ok) {
+      return new NextResponse(checkedPrice.error, { status: 400 });
     }
 
     if (quantity === undefined || quantity === null || quantity === "") {
@@ -117,7 +112,7 @@ export async function POST(
     const product = await prismadb.product.create({
       data: {
         name,
-        price,
+        price: checkedPrice.data,
         isFeatured,
         isArchived,
         categoryId,

@@ -3,7 +3,10 @@
  *
  * Order statuses are an ordered list the store owner writes in Settings (settings.orders.statuses, plain text labels).
  * The first one is where new orders start, the last one is the final stage (returns open there).
- * "Cancelled" is the only reserved word: it is not in the list, it is where a cancelled order ends.
+ * Two words are reserved, the system provides them (they are not in the list):
+ *   "Cancelled" is where a cancelled order ends.
+ *   "Quote" is where an order with a price-on-request product waits for the seller's price and the customer's yes
+ *   (details.quote holds which part). Accepting it moves the order to the first status of the list.
  * An order stores the status text itself. Text that is not in the list any more (renamed or removed) is an
  * "old" status: the admin replaces it with a current one.
  */
@@ -11,6 +14,7 @@
 export type OrderStatus = string;
 
 export const CANCELLED = "Cancelled";
+export const QUOTE = "Quote";
 export const DEFAULT_ORDER_STATUSES = ["Placed", "Confirmed", "Packed", "Shipped", "Out for delivery", "Delivered"];
 
 export const STATUS_MIN = 2;
@@ -19,9 +23,10 @@ export const STATUS_LABEL_MAX = 30;
 
 const key = (s: string) => s.trim().toLowerCase();
 export const isCancelled = (s: string) => key(s) === key(CANCELLED);
+export const isQuote = (s: string) => key(s) === key(QUOTE);
 
 /** Trims, drops blanks and duplicates, checks the limits. For the Settings text box. */
-export function cleanStatusList(input: readonly string[], reserved: readonly string[] = [CANCELLED]): { ok: true; list: string[] } | { ok: false; error: string } {
+export function cleanStatusList(input: readonly string[], reserved: readonly string[] = [CANCELLED, QUOTE]): { ok: true; list: string[] } | { ok: false; error: string } {
   const seen = new Set<string>();
   const list: string[] = [];
   for (const raw of input) {
@@ -47,9 +52,13 @@ export const prevStatus = (list: readonly string[], cur: string): string | null 
 };
 export const isFinalStatus = (list: readonly string[], cur: string) => list.length > 0 && cur === list[list.length - 1];
 
-/** Why the admin cannot move the order status at all: it is complete (final stage), or a return exists. Null = movable. */
-export type StatusLock = "FINAL" | "RETURN";
+/**
+ * Why the admin cannot move the order status: it is complete (final stage), a return exists, or it is a quote (it moves
+ * on when the customer accepts the price; it can still be cancelled). Null = movable.
+ */
+export type StatusLock = "FINAL" | "RETURN" | "QUOTE";
 export function statusLock(list: readonly string[], status: string, hasReturn: boolean): StatusLock | null {
+  if (isQuote(status)) return "QUOTE";
   if (isFinalStatus(list, status)) return "FINAL";
   if (hasReturn) return "RETURN";
   return null;
@@ -57,6 +66,7 @@ export function statusLock(list: readonly string[], status: string, hasReturn: b
 export const STATUS_LOCK_MESSAGES: Record<StatusLock, string> = {
   FINAL: "This order is complete and can't be moved.",
   RETURN: "A return is in progress.",
+  QUOTE: "A quote moves on by itself when the customer accepts the price.",
 };
 
 /**
@@ -68,14 +78,15 @@ export const STATUS_LOCK_MESSAGES: Record<StatusLock, string> = {
 export function canMoveStatus(list: readonly string[], from: string, to: string): boolean {
   if (from === to || isCancelled(from) || isFinalStatus(list, from)) return false;
   if (isCancelled(to)) return true;
+  if (isQuote(from) || isQuote(to)) return false; // a quote leaves only by the customer's yes (or a cancel)
   if (!list.includes(to)) return false;
   if (!list.includes(from)) return true;
   return to === nextStatus(list, from) || to === prevStatus(list, from);
 }
 
-/** The status options of a filter: the list, then Cancelled, then old statuses that orders still use. */
+/** The status options of a filter: Quote (when some order is one), the list, then Cancelled, then old statuses that orders still use. */
 export function statusOptions(list: readonly string[], used: readonly string[] = []): string[] {
-  const out = [...list, CANCELLED];
+  const out = [...(used.includes(QUOTE) ? [QUOTE] : []), ...list, CANCELLED];
   for (const s of used) if (!out.includes(s)) out.push(s);
   return out;
 }

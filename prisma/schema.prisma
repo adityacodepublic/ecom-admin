@@ -54,7 +54,7 @@ model Product {
   // variantId   String
   // variant     Variant      @relation("VariantToProduct", fields: [variantId], references: [id])
   name        String       @db.VarChar(255)
-  price       Decimal      @db.Decimal(12, 2) // rupees, exact (2 decimals). In code: integer paise (lib/money.ts)
+  price       Decimal?     @db.Decimal(12, 2) // rupees, exact (2 decimals). In code: integer paise (lib/money.ts). null = "Price on request" (a quote)
   isFeatured  Boolean      @default(false)
   isArchived  Boolean      @default(false)
   quantity    Int

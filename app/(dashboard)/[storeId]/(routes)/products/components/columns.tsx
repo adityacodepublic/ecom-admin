@@ -9,8 +9,8 @@ import { CellAction } from "./cell-action";
 export type ProductColumn = {
   id: string;
   name: string;
-  price: string; // formatted, for the cell
-  priceRupees: number; // for the price filter
+  price: string; // formatted, for the cell ("On request" for a price-on-request product)
+  priceRupees: number | null; // for the price filter (null: price on request)
   category: string;
   isFeatured: boolean;
   isArchived: boolean;

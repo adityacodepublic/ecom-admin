@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 
+import { MAX_PAISE, lineTotalPaise, sumPaise } from "@/lib/money";
 import { STATUS_LABEL_MAX } from "./status";
 
 /**
@@ -9,7 +10,7 @@ import { STATUS_LABEL_MAX } from "./status";
  * Writes go through lib/orders/update.ts (row lock + append) only.
  */
 
-export const EVENT_TYPES = ["status", "comment", "payment", "delivery", "return", "email", "system"] as const;
+export const EVENT_TYPES = ["status", "comment", "payment", "delivery", "return", "email", "system", "quote"] as const;
 export const EVENT_ACTORS = ["customer", "admin", "system"] as const;
 
 const isoDateTime = z.string().datetime({ offset: true });
@@ -56,10 +57,39 @@ export type OrderMoney = z.infer<typeof moneySchema>;
 export const orderItemSnapshotSchema = z.object({
   productId: z.string(),
   name: z.string(),
-  pricePaise: paise, // unit price when the order was placed
+  pricePaise: paise, // unit price when the order was placed; for an onRequest line, the seller's price in the quote (0 until set)
   quantity: z.number().int(),
+  onRequest: z.boolean().optional(), // the product had no price ("Price on request") when the order was placed
 });
 export type OrderItemSnapshot = z.infer<typeof orderItemSnapshotSchema>;
+
+/**
+ * An extra line of a quote, under the items: GST, shipping, packing, a discount. amountPaise is signed: a discount
+ * is negative. The order's total is the items plus these (never below 0).
+ */
+export const CHARGE_LABEL_MAX = 40;
+export const CHARGES_MAX = 10;
+export const orderChargeSchema = z.object({
+  label: z.string().trim().min(1).max(CHARGE_LABEL_MAX),
+  amountPaise: z.number().int().min(-MAX_PAISE).max(MAX_PAISE),
+});
+export type OrderCharge = z.infer<typeof orderChargeSchema>;
+
+/**
+ * The quote of an order that had a price-on-request product (Order.status is "Quote" while it is open):
+ *   requested  the customer asked; the seller fills in the prices
+ *   sent       the seller sent the prices; the customer may accept or decline (the seller may still change and resend)
+ *   accepted   the customer said yes: the order moved to the first status and took its stock. Prices are final.
+ *   declined   the customer said no: the order is cancelled
+ */
+export const QUOTE_STATES = ["requested", "sent", "accepted", "declined"] as const;
+export type QuoteState = (typeof QUOTE_STATES)[number];
+export const orderQuoteSchema = z.object({
+  state: z.enum(QUOTE_STATES),
+  sentAt: isoDateTime.nullable(),
+  decidedAt: isoDateTime.nullable(),
+});
+export type OrderQuote = z.infer<typeof orderQuoteSchema>;
 
 export const MARKDOWN_MAX = 20000;
 export const PRIVATE_NOTE_MAX = 2000;
@@ -83,6 +113,8 @@ export const orderDetailsSchema = z.object({
   adminContent: z.string().max(MARKDOWN_MAX).nullable(), // Markdown, written by the admin, shown to the customer
   money: moneySchema,
   items: z.array(orderItemSnapshotSchema),
+  charges: z.array(orderChargeSchema).max(CHARGES_MAX).default([]), // extra lines of a quote (old orders: none)
+  quote: orderQuoteSchema.nullable().default(null), // only orders that had a price-on-request product
   // True when this order took stock at checkout (all new orders). Old backfilled orders never did, so
   // cancelling them must not add stock. Set to false when the stock is given back. Server-only.
   // This one flag guards BOTH "Restore stock" (cancelled order) and "Put items back" (return): stock is added back
@@ -103,6 +135,10 @@ export function reachedStatusAt(details: OrderDetails, status: string): Date | n
   const e = details.events.find((x) => x.type === "status" && x.status === status);
   return e ? new Date(e.at) : null;
 }
+
+/** The total of the items plus the charges, in paise (never below 0). */
+export const orderTotalPaise = (items: { pricePaise: number; quantity: number }[], charges: OrderCharge[], shippingPaise = 0) =>
+  Math.max(0, sumPaise([...items.map((i) => lineTotalPaise(i.pricePaise, i.quantity)), shippingPaise, ...charges.map((c) => c.amountPaise)]));
 
 /** For writing to the Json column (the object was checked by orderDetailsSchema). */
 export const detailsToJson = (d: OrderDetails) => d as unknown as Prisma.InputJsonValue;

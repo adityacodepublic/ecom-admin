@@ -25,6 +25,8 @@ import * as returnRoute from "@/app/api/[storeId]/customer/orders/[orderId]/retu
 import * as meRoute from "@/app/api/[storeId]/customer/me/route";
 import * as addressRoute from "@/app/api/[storeId]/customer/addresses/[addressId]/route";
 import * as settingsRoute from "@/app/api/[storeId]/order-settings/route";
+import * as quoteRoute from "@/app/api/[storeId]/customer/orders/[orderId]/quote/route";
+import { adminSaveQuote } from "@/lib/orders/quote";
 
 const SECRET = "test-secret-0123456789-0123456789-abcdef";
 process.env.STORE_API_SECRET = SECRET;
@@ -568,6 +570,116 @@ async function main() {
   check("duplicate: 5 concurrent identical requests -> all 201 with ONE order id", par.every((r) => r.status === 201) && parIds.size === 1, par.map((r) => r.body));
   check("duplicate: 5 concurrent -> exactly one new order and one stock decrement (4)", (await dCount()) === countPre + 1 && (await stockOf(dp.id)) === stockPre - 4);
   check(`duplicate: the protection answered ${duplicateOrders.count - dupBefore} repeats`, duplicateOrders.count - dupBefore >= 6);
+
+  // ------------------------------------------------------------ 10d. quotes (price-on-request products)
+  const Q = await makeStore("Q");
+  const qc = `zz_ord_qc_${Date.now()}`;
+  createdUsers.push(qc);
+  const bolt = await Q.product("Bolt", "10.00", 100, 50);
+  const gate = await prismadb.product.create({ data: { storeId: Q.store.id, categoryId: bolt.categoryId, name: "Custom gate", price: null, quantity: 5, maxQuantity: 5 } });
+  const qCart = (quote?: boolean) => ({ items: [{ productId: bolt.id, quantity: 2 }, { productId: gate.id, quantity: 1 }], address: newAddress, contact: contact("qc"), ...(quote === undefined ? {} : { quote }) });
+  const qOrder = (id: string) => prismadb.order.findUniqueOrThrow({ where: { id } });
+  const decide = (orderId: string, body: object, customer = qc) => call(quoteRoute.POST, { method: "POST", params: { storeId: Q.store.id, orderId }, customer, body });
+  const qErr = async (p: Promise<unknown>) => {
+    try {
+      await p;
+      return "none";
+    } catch (e) {
+      return isOrderError(e) ? e.code : String(e);
+    }
+  };
+
+  const seenPriced = await checkout(Q.store.id, qc, { ...qCart(false), paymentMethod: "COD" });
+  check(
+    "quote: a cart the shopper saw as priced, with a price-on-request product -> PRICE_CHANGED, that line's price null",
+    seenPriced.status === 409 && seenPriced.body.error.code === "PRICE_CHANGED" && seenPriced.body.error.details.items.some((i: any) => i.productId === gate.id && i.pricePaise === null),
+    seenPriced.body,
+  );
+  const req1 = await checkout(Q.store.id, qc, { ...qCart(true), expectedTotalPaise: 2000 });
+  check("quote: request placed (201), status Quote, no payment method", req1.status === 201 && req1.body.order.status === "Quote" && req1.body.order.payment === "", req1.body);
+  const q1 = req1.body.order.id as string;
+  let qd = parseDetails(q1, (await qOrder(q1)).details);
+  check(
+    "quote: requested, no stock taken, the unpriced line is 0 and marked",
+    qd.quote?.state === "requested" && qd.stockReserved === false && (await stockOf(bolt.id)) === 100 && (await stockOf(gate.id)) === 5 && qd.items.find((i) => i.productId === gate.id)?.onRequest === true && qd.items.find((i) => i.productId === gate.id)?.pricePaise === 0,
+    qd,
+  );
+  let qView = (await call(orderRoute.GET, { params: { storeId: Q.store.id, orderId: q1 }, customer: qc })).body.order;
+  check("quote: shopper sees it as requested, may withdraw, may not decide yet", qView.quote?.state === "requested" && qView.canCancel === true && qView.canDecideQuote === false, qView);
+  const early = await decide(q1, { accept: true });
+  check("quote: accepting before the prices are sent -> QUOTE_NOT_OPEN", early.status === 409 && early.body.error.code === "QUOTE_NOT_OPEN", early.body);
+  check("quote: the admin cannot move it along the statuses", (await qErr(adminUpdateOrder(Q.store.id, { id: q1 }, OWNER, { status: "Confirmed" }))) === "STATUS_LOCKED");
+  check("quote: sending without a price for the price-on-request line -> VALIDATION", (await qErr(adminSaveQuote(Q.store.id, { id: q1 }, OWNER, { prices: [], charges: [] }))) === "VALIDATION");
+  check(
+    "quote: a price for a product not in the order -> VALIDATION",
+    (await qErr(adminSaveQuote(Q.store.id, { id: q1 }, OWNER, { prices: [{ productId: shirt.id, pricePaise: 100 }, { productId: gate.id, pricePaise: 100 }], charges: [] }))) === "VALIDATION",
+  );
+  await adminSaveQuote(Q.store.id, { id: q1 }, OWNER, {
+    prices: [
+      { productId: gate.id, pricePaise: 500000 },
+      { productId: bolt.id, pricePaise: 900 },
+    ],
+    charges: [
+      { label: "GST", amountPaise: 10000 },
+      { label: "Discount", amountPaise: -5000 },
+    ],
+  });
+  const q1Row = await qOrder(q1);
+  qd = parseDetails(q1, q1Row.details);
+  // 2 x 9.00 + 5000.00 + 100.00 - 50.00 = 5068.00
+  check("quote: sent; total = items + charges (5068.00) in details AND the total column", qd.quote?.state === "sent" && qd.money.totalPaise === 506800 && q1Row.total.toFixed(2) === "5068.00", { money: qd.money, total: q1Row.total });
+  qView = (await call(orderRoute.GET, { params: { storeId: Q.store.id, orderId: q1 }, customer: qc })).body.order;
+  check(
+    "quote: shopper sees the prices, the charges and Accept / Decline; no private data",
+    qView.canDecideQuote === true && qView.money.totalPaise === 506800 && qView.charges.length === 2 && qView.charges[1].amountPaise === -5000 && !("privateNote" in qView) && qView.events.every((e: any) => !("meta" in e)),
+    qView,
+  );
+  const qStats = await getOrderStats(Q.store.id);
+  check("quote: dashboard counts it as open, not waiting for a price, and not as a new order", qStats.quotes.open === 1 && qStats.quotes.toPrice === 0 && qStats.newOrders === 0, qStats.quotes);
+
+  const accepts = await Promise.all([decide(q1, { accept: true }), decide(q1, { accept: true })]);
+  check("quote: two accepts at once -> one 200, one QUOTE_NOT_OPEN", accepts.filter((r) => r.status === 200).length === 1 && accepts.some((r) => r.body?.error?.code === "QUOTE_NOT_OPEN"), accepts.map((r) => r.body));
+  const q1Done = await qOrder(q1);
+  qd = parseDetails(q1, q1Done.details);
+  check(
+    "quote: accepted -> first status, COD, stock taken once (bolt 98, gate 4)",
+    q1Done.status === "Placed" && q1Done.payment === "COD" && qd.quote?.state === "accepted" && qd.stockReserved === true && (await stockOf(bolt.id)) === 98 && (await stockOf(gate.id)) === 4,
+    { status: q1Done.status, payment: q1Done.payment, quote: qd.quote },
+  );
+  check("quote: prices are final after the yes -> QUOTE_NOT_OPEN", (await qErr(adminSaveQuote(Q.store.id, { id: q1 }, OWNER, { prices: [{ productId: gate.id, pricePaise: 1 }], charges: [] }))) === "QUOTE_NOT_OPEN");
+
+  // Sold out between the quote and the yes: refused, nothing changes.
+  await age(q1);
+  const req2 = await checkout(Q.store.id, qc, { ...qCart(true), expectedTotalPaise: 2000 });
+  const q2 = req2.body.order.id as string;
+  await adminSaveQuote(Q.store.id, { id: q2 }, OWNER, { prices: [{ productId: gate.id, pricePaise: 700000 }], charges: [] });
+  await prismadb.product.update({ where: { id: gate.id }, data: { quantity: 0 } });
+  const qSoldOut = await decide(q2, { accept: true });
+  const q2Row = await qOrder(q2);
+  check(
+    "quote: accepting when the stock ran out -> OUT_OF_STOCK, still an open quote, no stock taken",
+    qSoldOut.status === 409 && qSoldOut.body.error.code === "OUT_OF_STOCK" && q2Row.status === "Quote" && parseDetails(q2, q2Row.details).quote?.state === "sent" && (await stockOf(bolt.id)) === 98,
+    qSoldOut.body,
+  );
+  const declined = await decide(q2, { accept: false, reason: "Too expensive" });
+  const q2Done = await qOrder(q2);
+  check("quote: declined -> Cancelled, quote declined, the reason in the timeline", declined.status === 200 && q2Done.status === "Cancelled" && parseDetails(q2, q2Done.details).quote?.state === "declined" && declined.body.order.events.some((e: any) => e.message === "Quote declined: Too expensive"), declined.body);
+
+  // Withdrawn while the store prices it: allowed whatever the cancellation settings say.
+  await prismadb.product.update({ where: { id: gate.id }, data: { quantity: 5 } });
+  await age(q2);
+  await updateOrderSettings(Q.store.id, { cancellation: { enabled: false } });
+  const req3 = await checkout(Q.store.id, qc, { ...qCart(true), expectedTotalPaise: 2000 });
+  const withdrawn = await call(cancelRoute.POST, { method: "POST", params: { storeId: Q.store.id, orderId: req3.body.order.id }, customer: qc, body: {} });
+  check("quote: withdrawn by the shopper even with cancellation off -> Cancelled", withdrawn.status === 200 && withdrawn.body.order.status === "Cancelled" && withdrawn.body.order.quote?.state === "declined", withdrawn.body);
+  check("quote: someone else cannot answer it", (await decide(q1, { accept: false }, C2)).status === 404);
+  let reserved = false;
+  try {
+    await updateOrderSettings(Q.store.id, { statuses: ["Quote", "Done"] });
+  } catch {
+    reserved = true;
+  }
+  check('quote: "Quote" is reserved: not allowed in the status list', reserved);
 
   // ------------------------------------------------------------ 11. every order in the database matches the details schema
   const all = await prismadb.order.findMany({ select: { id: true, details: true } });

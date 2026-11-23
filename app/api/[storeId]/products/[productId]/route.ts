@@ -4,7 +4,7 @@ import { getUserId } from "@/lib/agent/context";
 import prismadb from "@/lib/prismadb";
 import { toPaise } from "@/lib/money";
 import { categoryInStore, valuesInStore, isStockQuantity, isMaxQuantity } from "@/lib/api/store-refs";
-import { callerOwnsStore, checkFilterItems, checkImages, inUseResponse } from "@/lib/api/validate";
+import { callerOwnsStore, checkFilterItems, checkImages, checkPrice, inUseResponse } from "@/lib/api/validate";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -181,15 +181,10 @@ export async function PATCH(
       return new NextResponse(checkedItems.error, { status: 400 });
     }
 
-    if (!price) {
-      return new NextResponse("Price is required", { status: 400 });
-    }
-
-    // Money is exact: rupees with at most 2 decimals (the column is Decimal(12,2)).
-    try {
-      if (toPaise(price) <= 0) throw new Error();
-    } catch {
-      return new NextResponse("Price must be a positive amount with at most 2 decimals", { status: 400 });
+    // Money is exact: rupees with at most 2 decimals (the column is Decimal(12,2)); null = "Price on request".
+    const checkedPrice = checkPrice(price);
+    if (!checkedPrice.ok) {
+      return new NextResponse(checkedPrice.error, { status: 400 });
     }
 
     if (quantity === undefined || quantity === null || quantity === "") {
@@ -258,7 +253,7 @@ export async function PATCH(
         where: { id: resolvedParams.productId },
         data: {
           name,
-          price,
+          price: checkedPrice.data,
           categoryId,
           description,
           ...(writeQuantity ? { quantity } : {}),

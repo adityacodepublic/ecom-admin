@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import prismadb from "@/lib/prismadb";
 import { toPaise } from "@/lib/money";
 import { nextShopDayStart, SHOP_UTC_OFFSET_MS, shopDayStart, todayShop } from "@/lib/shop-time";
-import { CustomerOrderEvent, OrderDetails, OrderEvent, OrderMoney, ShipTo, customerEvents, parseDetails, parseDetailsOrNull, reachedStatusAt } from "./details";
+import { CustomerOrderEvent, OrderCharge, OrderDetails, OrderEvent, OrderMoney, QuoteState, ShipTo, customerEvents, parseDetails, parseDetailsOrNull, reachedStatusAt } from "./details";
 import { OrderError } from "./errors";
 import { OrderSettings, getOrderSettings, parseOrderSettings } from "./settings";
 import {
@@ -16,6 +16,8 @@ import {
   mayWithdrawReturn,
   statusLock,
   isCancelled,
+  isQuote,
+  QUOTE,
   isFinalStatus,
   isRejected,
   nextStatus,
@@ -124,7 +126,12 @@ async function firstImages(productIds: string[]): Promise<Map<string, string>> {
   return map;
 }
 
-export type OrderItemView = { productId: string; name: string; pricePaise: number; quantity: number; lineTotalPaise: number; imageUrl: string | null };
+/** One line. onRequest: the product had no price at checkout (a quote); its price is the seller's (0 until the quote is sent). */
+export type OrderItemView = { productId: string; name: string; pricePaise: number; quantity: number; lineTotalPaise: number; imageUrl: string | null; onRequest: boolean };
+
+/** A quote's state and dates (null for an order that never was one). */
+export type QuoteView = { state: QuoteState; sentAt: string | null; decidedAt: string | null } | null;
+const quoteView = (d: OrderDetails | null): QuoteView => (d?.quote ? { state: d.quote.state, sentAt: d.quote.sentAt, decidedAt: d.quote.decidedAt } : null);
 
 const itemViews = (details: OrderDetails | null, images: Map<string, string>): OrderItemView[] =>
   (details?.items ?? []).map((i) => ({
@@ -134,6 +141,7 @@ const itemViews = (details: OrderDetails | null, images: Map<string, string>): O
     quantity: i.quantity,
     lineTotalPaise: i.pricePaise * i.quantity,
     imageUrl: images.get(i.productId) ?? null,
+    onRequest: i.onRequest === true,
   }));
 
 const refWhere = (ref: OrderRef): Prisma.OrderWhereInput => ("id" in ref ? { id: ref.id } : { orderNumber: ref.orderNumber });
@@ -241,6 +249,9 @@ export type AdminOrder = Omit<AdminOrderSummary, "itemNames" | "returnStatus" | 
   addressId: string;
   money: OrderMoney;
   items: OrderItemView[];
+  charges: OrderCharge[]; // a quote's extra lines (GST, shipping, discount): signed paise
+  quote: QuoteView;
+  canEditQuote: boolean; // the quote is open: the seller may (re)send its prices
   shipTo: ShipTo;
   expectedDelivery: string | null;
   privateNote: string | null; // ADMIN ONLY
@@ -299,6 +310,9 @@ export async function getAdminOrder(storeId: string, ref: OrderRef): Promise<Adm
     addressId: o.addressId,
     money: d.money,
     items: itemViews(d, images),
+    charges: d.charges,
+    quote: quoteView(d),
+    canEditQuote: isQuote(s.status) && (d.quote?.state === "requested" || d.quote?.state === "sent"),
     shipTo: d.shipTo,
     expectedDelivery: d.expectedDelivery,
     privateNote: d.privateNote,
@@ -310,7 +324,7 @@ export async function getAdminOrder(storeId: string, ref: OrderRef): Promise<Adm
     statusLock: lock,
     nextStatus: lock ? null : nextStatus(statuses, s.status),
     prevStatus: lock ? null : prevStatus(statuses, s.status),
-    canCancel: !lock && !isCancelled(s.status),
+    canCancel: (!lock || lock === "QUOTE") && !isCancelled(s.status), // an open quote may be cancelled
     canRestoreStock: isCancelled(s.status) && d.stockReserved === true,
     stockRestored: isCancelled(s.status) && d.stockReserved === false,
     returnsEnabled: returns.enabled,
@@ -346,6 +360,7 @@ export type OrderStats = {
   returned: number; // orders that have a return, any return status (a return is not an order status)
   byPaymentStatus: Record<PaymentStatus, number>;
   revenueByMonth: MonthRevenue[]; // the last 12 months, this one last (India time)
+  quotes: { toPrice: number; open: number }; // quotes waiting for the seller's prices; all open quotes (priced or not)
 };
 
 /** Paid revenue of one month (India time). from / to = its first and last day, the Orders page filter for it. */
@@ -404,7 +419,7 @@ export async function revenueLast12Months(storeId: string): Promise<MonthRevenue
 export async function getOrderStats(storeId: string): Promise<OrderStats> {
   const paid: Prisma.OrderWhereInput = { storeId, paymentStatus: "PAID", ...notCancelled };
   const cod: Prisma.OrderWhereInput = { storeId, payment: "COD", paymentStatus: "PENDING", ...notCancelled };
-  const [settings, byStatus, payGroups, revenue, codAgg, months, returnedRows] = await Promise.all([
+  const [settings, byStatus, payGroups, revenue, codAgg, months, returnedRows, quoteRows] = await Promise.all([
     getOrderSettings(storeId),
     countsByStatus({ storeId }),
     prismadb.order.groupBy({ by: ["paymentStatus"], where: { storeId }, _count: { _all: true } }),
@@ -412,6 +427,9 @@ export async function getOrderStats(storeId: string): Promise<OrderStats> {
     prismadb.order.aggregate({ where: cod, _sum: { total: true }, _count: { _all: true } }),
     revenueLast12Months(storeId),
     prismadb.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM "Order" WHERE "storeId" = ${storeId} AND ${HAS_RETURN}`,
+    prismadb.$queryRaw<{ toPrice: number }[]>`
+      SELECT count(*) FILTER (WHERE "details"->'quote'->>'state' = 'requested')::int AS "toPrice"
+      FROM "Order" WHERE "storeId" = ${storeId} AND "status" = ${QUOTE}`,
   ]);
   const byPaymentStatus = Object.fromEntries(PAYMENT_STATUSES.map((s) => [s, 0])) as Record<PaymentStatus, number>;
   for (const g of payGroups) byPaymentStatus[normalizePaymentStatus(g.paymentStatus)] += g._count._all;
@@ -429,6 +447,7 @@ export async function getOrderStats(storeId: string): Promise<OrderStats> {
     returned: returnedRows[0]?.n ?? 0,
     byPaymentStatus,
     revenueByMonth: months,
+    quotes: { toPrice: quoteRows[0]?.toPrice ?? 0, open: byStatus[QUOTE] ?? 0 },
   };
 }
 
@@ -443,7 +462,8 @@ export type CustomerOrderSummary = {
   payment: string;
   totalPaise: number;
   items: OrderItemView[];
-  canCancel: boolean; // cancellation is on and the status is one of the ticked ones
+  canCancel: boolean; // cancellation is on and the status is one of the ticked ones; or an open quote (always withdrawable)
+  quote: QuoteView;
   expectedDelivery: string | null; // YYYY-MM-DD
   returnStatus: string | null;
   canReturn: boolean; // returns on, final stage, no return yet, window open
@@ -456,6 +476,8 @@ export type CustomerOrder = CustomerOrderSummary & {
   shipTo: ShipTo;
   customerNote: string | null;
   adminContent: string | null; // Markdown from the seller
+  charges: OrderCharge[]; // a quote's extra lines: shown under the items
+  canDecideQuote: boolean; // the seller sent the prices: the customer may accept or decline
   return: { status: string; reason: string; note: string | null; requestedAt: string; canWithdraw: boolean; rejected: boolean } | null;
   events: CustomerOrderEvent[]; // only customer-visible events, oldest first, no meta
 };
@@ -492,7 +514,8 @@ function customerSummary(o: CustomerRow, d: OrderDetails | null, images: Map<str
     payment: o.payment,
     totalPaise: toPaise(o.total),
     items: itemViews(d, images),
-    canCancel: settings.cancellation.enabled && settings.cancellation.allowedAt.includes(o.status),
+    canCancel: isQuote(o.status) || (settings.cancellation.enabled && settings.cancellation.allowedAt.includes(o.status)),
+    quote: quoteView(d),
     expectedDelivery: d?.expectedDelivery ?? null,
     returnStatus: d?.return?.status ?? null,
     ...returnWindow(settings, o.status, d),
@@ -540,6 +563,8 @@ export async function getCustomerOrder(storeId: string, customerId: string, ref:
     shipTo: d.shipTo,
     customerNote: d.customerNote,
     adminContent: d.adminContent,
+    charges: d.charges.map((c) => ({ label: c.label, amountPaise: c.amountPaise })),
+    canDecideQuote: isQuote(o.status) && d.quote?.state === "sent",
     return: d.return
       ? {
           status: d.return.status,

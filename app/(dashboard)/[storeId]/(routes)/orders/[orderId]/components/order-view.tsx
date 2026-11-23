@@ -15,7 +15,7 @@ import { formatINR } from "@/lib/money";
 import { daysAgoLabel, formatDay, formatIstDateTime } from "@/lib/format-date";
 import type { AdminOrder } from "@/lib/orders/queries";
 import type { OrderEvent } from "@/lib/orders/details";
-import { STATUS_LOCK_MESSAGES, isCancelled } from "@/lib/orders/status";
+import { STATUS_LOCK_MESSAGES, isCancelled, isQuote } from "@/lib/orders/status";
 import { cn } from "@/lib/utils";
 
 import {
@@ -29,8 +29,17 @@ import {
   ReplaceStatusModal,
   useOrderPatch,
 } from "./order-modals";
+import { QuoteModal } from "./quote-modal";
 
-type ModalKey = "cancel" | "replace" | "reject" | "replaceReturn" | "delivery" | "payment" | "notes" | "message";
+type ModalKey = "cancel" | "replace" | "reject" | "replaceReturn" | "delivery" | "payment" | "notes" | "message" | "quote";
+
+/** Where a quote is, in the seller's words. */
+const QUOTE_NOTE: Record<NonNullable<AdminOrder["quote"]>["state"], string> = {
+  requested: "The customer asked for a quote. Add the prices with the pencil on Items and send them.",
+  sent: "Quote sent. Waiting for the customer to accept or decline. You can still change it and send it again.",
+  accepted: "The customer accepted the quote.",
+  declined: "The customer declined the quote.",
+};
 
 const PencilButton = ({ label, onClick }: { label: string; onClick: () => void }) => (
   <Button size="icon" variant="outline" className="h-8 w-8" aria-label={label} title={label} onClick={onClick}>
@@ -111,6 +120,19 @@ const StatusActions = ({ order, onCancel, onReplace }: { order: AdminOrder; onCa
           Restore stock
         </Button>
         <p className="text-xs text-muted-foreground">Adds the items back to your product stock. Do it when the items are back with you, or skip it if they are lost or damaged.</p>
+      </div>
+    );
+  }
+  if (order.statusLock === "QUOTE") {
+    // A quote moves on by itself when the customer accepts; until then it can only be cancelled.
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-sm text-muted-foreground">{STATUS_LOCK_MESSAGES.QUOTE}</p>
+        {order.canCancel && (
+          <Button size="sm" variant="outline" className="ml-auto text-destructive" onClick={onCancel}>
+            Cancel quote
+          </Button>
+        )}
       </div>
     );
   }
@@ -234,6 +256,8 @@ const ReturnCard = ({ order, onReject, onReplace }: { order: AdminOrder; onRejec
 
 export const OrderView = ({ order }: { order: AdminOrder }) => {
   const { storeId } = useParams<{ storeId: string }>();
+  // A price-on-request line before the quote is sent has no price yet.
+  const unpriced = (i: AdminOrder["items"][number]) => i.onRequest && order.quote?.state === "requested";
   const [modal, setModal] = useState<ModalKey | null>(null);
   const close = () => setModal(null);
   // A new key after every save or open, so each modal starts from the saved values.
@@ -261,6 +285,7 @@ export const OrderView = ({ order }: { order: AdminOrder }) => {
       <PaymentModal key={mk("payment")} order={order} isOpen={modal === "payment"} onClose={close} />
       <NotesModal key={mk("notes")} order={order} isOpen={modal === "notes"} onClose={close} />
       <MessageModal key={mk("message")} order={order} isOpen={modal === "message"} onClose={close} />
+      {order.canEditQuote && <QuoteModal key={mk("quote")} order={order} isOpen={modal === "quote"} onClose={close} />}
 
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -298,7 +323,10 @@ export const OrderView = ({ order }: { order: AdminOrder }) => {
               </span>
             </div>
           )}
-          {!order.statusKnown && !isCancelled(order.status) && (
+          {order.quote && (order.quote.state === "requested" || order.quote.state === "sent") && isQuote(order.status) && (
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-300">{QUOTE_NOTE[order.quote.state]}</div>
+          )}
+          {!order.statusKnown && !isCancelled(order.status) && !isQuote(order.status) && (
             <p className="text-sm text-muted-foreground">&quot;{order.status}&quot; is not in your status list any more.</p>
           )}
           <Stepper order={order} />
@@ -312,8 +340,9 @@ export const OrderView = ({ order }: { order: AdminOrder }) => {
         <div className="space-y-4 lg:col-span-2">
           {/* Items */}
           <Card>
-            <CardHeader className="pb-3">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
               <CardTitle className="text-base">Items ({order.itemCount})</CardTitle>
+              {order.canEditQuote && <PencilButton label="Set the quote prices" onClick={() => setModal("quote")} />}
             </CardHeader>
             <CardContent className="space-y-3">
               {order.items.map((i) => (
@@ -326,10 +355,10 @@ export const OrderView = ({ order }: { order: AdminOrder }) => {
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-medium">{i.name}</div>
                     <div className="text-sm text-muted-foreground">
-                      {formatINR(i.pricePaise)} x {i.quantity}
+                      {unpriced(i) ? "Price on request" : formatINR(i.pricePaise)} x {i.quantity}
                     </div>
                   </div>
-                  <div className="whitespace-nowrap font-medium">{formatINR(i.lineTotalPaise)}</div>
+                  <div className="whitespace-nowrap font-medium">{unpriced(i) ? "–" : formatINR(i.lineTotalPaise)}</div>
                 </div>
               ))}
               <Separator />
@@ -338,16 +367,30 @@ export const OrderView = ({ order }: { order: AdminOrder }) => {
                   <span className="text-muted-foreground">Subtotal</span>
                   <span>{formatINR(order.money.subtotalPaise)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Shipping</span>
-                  <span>{formatINR(order.money.shippingPaise)}</span>
-                </div>
+                {order.money.shippingPaise > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Shipping</span>
+                    <span>{formatINR(order.money.shippingPaise)}</span>
+                  </div>
+                )}
+                {order.charges.map((c, n) => (
+                  <div key={n} className="flex justify-between">
+                    <span className="text-muted-foreground">{c.label}</span>
+                    <span>{formatINR(c.amountPaise)}</span>
+                  </div>
+                ))}
                 <div className="flex justify-between text-base font-semibold">
                   <span>Total</span>
                   <span>{formatINR(order.money.totalPaise)}</span>
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground">Prices as they were when the order was placed.</p>
+              <p className="text-xs text-muted-foreground">
+                {order.quote
+                  ? order.quote.state === "requested"
+                    ? "A quote request: the total so far counts only the products that have a price."
+                    : "Prices from your quote."
+                  : "Prices as they were when the order was placed."}
+              </p>
             </CardContent>
           </Card>
 

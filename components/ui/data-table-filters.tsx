@@ -21,9 +21,11 @@ import { ClearFilter, ColumnFilter, OptionList, RangeFilter, SearchList } from "
 /** The row's value, as text, is the picked option. */
 const optionFilter: FilterFn<any> = (row, id, value: string) => String(row.getValue(id) ?? "") === value;
 
-/** The row's number is within [from, to]; an empty bound is open. */
+/** The row's number is within [from, to]; an empty bound is open. A row with no number (null) is left out by any bound. */
 const rangeFilter: FilterFn<any> = (row, id, [from, to]: [string, string]) => {
-  const v = Number(row.getValue(id));
+  const raw = row.getValue(id);
+  if (raw === null || raw === undefined) return from === "" && to === "";
+  const v = Number(raw);
   return (from === "" || v >= Number(from)) && (to === "" || v <= Number(to));
 };
 /* eslint-enable @typescript-eslint/no-explicit-any */

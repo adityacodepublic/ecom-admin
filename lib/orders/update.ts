@@ -7,6 +7,7 @@ import prismadb from "@/lib/prismadb";
 import { MARKDOWN_MAX, OrderDetails, detailsToJson, OrderEvent, orderDetailsSchema, parseDetails, expectedDeliverySchema, PRIVATE_NOTE_MAX, reachedStatusAt } from "./details";
 import { OrderError } from "./errors";
 import { OrderSettings, getOrderSettingsTx } from "./settings";
+import { notifyOrder, type OrderNotice } from "./notify";
 import {
   CANCELLED,
   PAYMENT_STATUSES,
@@ -22,6 +23,7 @@ import {
   canMovePayment,
   canMoveStatus,
   isCancelled,
+  isQuote,
   normalizePaymentStatus,
 } from "./status";
 
@@ -93,7 +95,7 @@ async function restoreStock(tx: Prisma.TransactionClient, orderId: string, store
 }
 
 /** Writes the new details (checked by the schema) and the changed columns. */
-async function saveOrder(
+export async function saveOrder(
   tx: Prisma.TransactionClient,
   orderId: string,
   details: OrderDetails,
@@ -131,6 +133,7 @@ export type AdminOrderUpdate = z.infer<typeof adminOrderUpdateSchema>;
 /** The admin status update action. Returns the order id. Throws OrderError. */
 export async function adminUpdateOrder(storeId: string, ref: OrderRef, adminUserId: string, input: AdminOrderUpdate) {
   let stockChanged = false;
+  const notices: [OrderNotice, string?][] = []; // for the shopper, sent once the change is saved
   const result = await prismadb.$transaction(async (tx) => {
     const order = await lockOrder(tx, storeId, ref);
     if (!order) throw new OrderError("NOT_FOUND", "Order not found");
@@ -147,12 +150,14 @@ export async function adminUpdateOrder(storeId: string, ref: OrderRef, adminUser
       const { statuses } = await loadSettings();
       // Frozen: complete orders (final stage) and orders with a return (any return state) cannot be moved any more.
       const lock = statusLock(statuses, from, details.return !== null);
-      if (lock) throw new OrderError("STATUS_LOCKED", STATUS_LOCK_MESSAGES[lock], { status: from, reason: lock });
+      // A quote cannot be moved along (the customer's yes does that), but the seller may cancel it.
+      if (lock && !(lock === "QUOTE" && isCancelled(input.status))) throw new OrderError("STATUS_LOCKED", STATUS_LOCK_MESSAGES[lock], { status: from, reason: lock });
       if (!canMoveStatus(statuses, from, input.status)) {
         throw new OrderError("INVALID_TRANSITION", `Cannot move an order from ${from} to ${input.status}`, { from, to: input.status });
       }
       current = isCancelled(input.status) ? CANCELLED : input.status;
       data.status = current;
+      notices.push(isCancelled(current) ? ["store-cancelled"] : ["status", current]);
       events.push(newEvent({ type: "status", status: current, actor: "admin", customerVisible: true, meta: { ...meta, from } }));
     }
 
@@ -176,6 +181,7 @@ export async function adminUpdateOrder(storeId: string, ref: OrderRef, adminUser
         }
         const to = isRejected(input.returnStatus) ? REJECTED : input.returnStatus;
         events.push(newEvent({ type: "return", status: to, message: `Return: ${to}`, actor: "admin", customerVisible: true, meta: { ...meta, from: ret.status } }));
+        notices.push(["return-status", to]);
         ret.status = to;
       }
       if (input.restock && !ret.restocked) {
@@ -261,6 +267,7 @@ export async function adminUpdateOrder(storeId: string, ref: OrderRef, adminUser
     return { id: order.id, changed: true };
   }, TX_OPTIONS);
   if (stockChanged) revalidateStoreCatalog(storeId); // stock went back: the storefront "out of stock" must follow
+  if (result.changed) for (const [notice, detail] of notices) notifyOrder(storeId, result.id, notice, detail);
   return result;
 }
 
@@ -273,23 +280,26 @@ export const customerCancelSchema = z.object({ reason: z.string().trim().max(500
  * statuses ticked in Settings (checked again here under the lock). Throws OrderError.
  */
 export async function customerCancelOrder(storeId: string, customerId: string, ref: OrderRef, reason?: string) {
-  return prismadb.$transaction(async (tx) => {
+  const result = await prismadb.$transaction(async (tx) => {
     const order = await lockOrder(tx, storeId, ref, customerId);
     if (!order) throw new OrderError("NOT_FOUND", "Order not found");
     const { cancellation } = await getOrderSettingsTx(tx, storeId);
-    if (!cancellation.enabled || !cancellation.allowedAt.includes(order.status)) {
+    // An open quote (no stock taken, nothing agreed) may always be withdrawn, whatever the cancellation settings say.
+    const quote = isQuote(order.status);
+    if (!quote && (!cancellation.enabled || !cancellation.allowedAt.includes(order.status))) {
       throw new OrderError("NOT_CANCELLABLE", "This order can no longer be cancelled here. Please contact the store.", { status: order.status });
     }
     const details = parseDetails(order.id, order.details);
     const why = reason?.trim() ?? "";
-    if (cancellation.askReason) {
+    if (cancellation.askReason && !quote) {
       if (!why) throw new OrderError("VALIDATION", "Please choose a reason");
     }
+    if (quote && details.quote) details.quote = { ...details.quote, state: "declined", decidedAt: new Date().toISOString() };
     details.events.push(
       newEvent({
         type: "status",
         status: CANCELLED,
-        message: why ? `Cancelled by customer: ${why}` : "Cancelled by customer",
+        message: quote ? (why ? `Quote withdrawn by customer: ${why}` : "Quote withdrawn by customer") : why ? `Cancelled by customer: ${why}` : "Cancelled by customer",
         actor: "customer",
         customerVisible: true,
       }),
@@ -297,6 +307,8 @@ export async function customerCancelOrder(storeId: string, customerId: string, r
     await saveOrder(tx, order.id, details, { status: CANCELLED });
     return { id: order.id };
   }, TX_OPTIONS);
+  notifyOrder(storeId, result.id, "customer-cancelled");
+  return result;
 }
 
 // ---------------------------------------------------------------- customer: return
@@ -312,7 +324,7 @@ export type CustomerReturnInput = z.infer<typeof customerReturnSchema>;
  * and the window (days since the final stage) still open. Checked again here under the lock. Throws OrderError.
  */
 export async function customerRequestReturn(storeId: string, customerId: string, ref: OrderRef, input: CustomerReturnInput) {
-  return prismadb.$transaction(async (tx) => {
+  const result = await prismadb.$transaction(async (tx) => {
     const order = await lockOrder(tx, storeId, ref, customerId);
     if (!order) throw new OrderError("NOT_FOUND", "Order not found");
     const { returns, statuses } = await getOrderSettingsTx(tx, storeId);
@@ -330,6 +342,8 @@ export async function customerRequestReturn(storeId: string, customerId: string,
     await saveOrder(tx, order.id, details, {});
     return { id: order.id };
   }, TX_OPTIONS);
+  notifyOrder(storeId, result.id, "return-requested");
+  return result;
 }
 
 /** The customer withdraws the return while it is still at the first return status. Throws OrderError. */

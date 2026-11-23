@@ -7,7 +7,7 @@ import prismadb from "@/lib/prismadb";
 import { lineTotalPaise, paiseToDecimalString, sumPaise, toPaise } from "@/lib/money";
 import { OrderDetails, OrderItemSnapshot, detailsToJson, orderDetailsSchema } from "./details";
 import { OrderError } from "./errors";
-import { CANCELLED, COD, PaymentStatus, normalizePaymentStatus } from "./status";
+import { CANCELLED, COD, PaymentStatus, QUOTE, isQuote, normalizePaymentStatus } from "./status";
 import { parseOrderSettings } from "./settings";
 import { TX_OPTIONS, newEvent } from "./update";
 import { notifyOrder } from "./notify";
@@ -22,6 +22,9 @@ import { COUNTRY } from "./india";
  *  - stock is taken in the SAME transaction (UPDATE ... WHERE quantity >= n), so it can never oversell
  *  - orderNumber = this store's max + 1, unique per store; a clash retries the whole transaction
  *  - the same cart by the same customer within 60 s returns the order that already exists (no second order, no second stock take)
+ *  - a cart with a price-on-request product (Product.price empty) becomes a QUOTE request: the order waits at the
+ *    reserved status "Quote", with no payment method and no stock taken; the products are only checked. The seller
+ *    sends the prices and the customer's yes takes the stock (lib/orders/quote.ts).
  */
 
 export const checkoutSchema = z
@@ -47,7 +50,11 @@ export const checkoutSchema = z
     // Required ("COD") when the store's checkoutPaymentStep is on. Ignored when it is off.
     paymentMethod: z.literal(COD).optional(),
     // The total the customer saw. If given and the server total differs, the order is refused (PRICE_CHANGED).
+    // For a quote: the total of the priced products.
     expectedTotalPaise: z.number().int().min(0).optional(),
+    // What the customer saw: a quote request (some product had no price) or a priced order. If given and the
+    // products say otherwise now (the seller switched "Price on request"), the order is refused (PRICE_CHANGED).
+    quote: z.boolean().optional(),
   })
   .strict();
 export type CheckoutInput = z.infer<typeof checkoutSchema>;
@@ -55,7 +62,7 @@ export type CheckoutInput = z.infer<typeof checkoutSchema>;
 export type CheckoutResult = {
   id: string;
   orderNumber: number;
-  status: string; // the first status of the store's list
+  status: string; // the first status of the store's list, or "Quote" for a quote request
   paymentStatus: PaymentStatus; // "PENDING" for a new order; a duplicate answer shows the existing order's current one
   payment: string;
   totalPaise: number;
@@ -95,7 +102,8 @@ export async function createOrder(storeId: string, customerId: string, input: Ch
   const settings = parseOrderSettings(store.settings);
 
   let payment = "";
-  if (settings.checkoutPaymentStep) {
+  // A quote request has no payment step: the method is set when the customer accepts the price.
+  if (settings.checkoutPaymentStep && input.quote !== true) {
     if (input.paymentMethod !== COD) throw new OrderError("PAYMENT_METHOD_REQUIRED", "Choose a payment method (Cash on delivery)");
     payment = COD;
   }
@@ -122,8 +130,8 @@ export async function createOrder(storeId: string, customerId: string, input: Ch
       const { result, duplicate } = await prismadb.$transaction((tx) => placeOrder(tx, storeId, customerId, payment, settings.statuses[0], input, profile!, address), TX_OPTIONS);
       if (duplicate) duplicateOrders.count++;
       else {
-        revalidateStoreCatalog(storeId); // stock was taken
-        if (settings.autoEmails) void notifyOrder(storeId, result.id, "placed"); // emails: off unless autoEmails (no query when off), not built yet
+        if (!isQuote(result.status)) revalidateStoreCatalog(storeId); // stock was taken
+        notifyOrder(storeId, result.id, isQuote(result.status) ? "quote-requested" : "placed");
       }
       return result;
     } catch (error) {
@@ -165,9 +173,9 @@ async function findDuplicate(tx: Prisma.TransactionClient, storeId: string, cust
   if (same.length === 0) return null;
   // Same cart: it is the same order only when the price is the same too (read only on this rare path).
   const ids = input.items.map((i) => i.productId);
-  const prices = await tx.$queryRaw<{ id: string; price: Prisma.Decimal }[]>`SELECT id, price FROM "Product" WHERE id = ANY(${ids}::text[]) AND "storeId" = ${storeId}`;
+  const prices = await tx.$queryRaw<{ id: string; price: Prisma.Decimal | null }[]>`SELECT id, price FROM "Product" WHERE id = ANY(${ids}::text[]) AND "storeId" = ${storeId}`;
   if (prices.length !== ids.length) return null;
-  const unit = new Map(prices.map((p) => [p.id, toPaise(p.price)]));
+  const unit = new Map(prices.map((p) => [p.id, p.price === null ? 0 : toPaise(p.price)])); // a price-on-request line counts 0, as in the order
   const totalPaise = sumPaise(input.items.map((i) => lineTotalPaise(unit.get(i.productId)!, i.quantity)));
   const hit = same.find((c) => toPaise(c.total) === totalPaise);
   return hit ? { id: hit.id, orderNumber: hit.orderNumber, status: hit.status, paymentStatus: normalizePaymentStatus(hit.paymentStatus), payment: hit.payment, totalPaise } : null;
@@ -199,58 +207,37 @@ async function placeOrder(
     });
   }
 
-  // 2. Take the stock of ALL products in ONE statement. The rows are locked first in id order (no deadlocks), then the
-  //    WHERE is the guard: only this store, not archived, enough left. A missing row means a refusal: the transaction
-  //    rolls back (the products we did change get their stock back).
-  const wanted = [...input.items].sort((a, b) => (a.productId < b.productId ? -1 : a.productId > b.productId ? 1 : 0));
-  const ids = wanted.map((i) => i.productId);
-  const qtys = wanted.map((i) => i.quantity);
-  const rows = await tx.$queryRaw<{ id: string; name: string; price: Prisma.Decimal; maxQuantity: number }[]>`
-    WITH want AS (SELECT * FROM unnest(${ids}::text[], ${qtys}::int[]) AS w(id, qty)),
-    locked AS (SELECT p.id FROM "Product" p WHERE p.id = ANY(${ids}::text[]) AND p."storeId" = ${storeId} ORDER BY p.id FOR UPDATE)
-    UPDATE "Product" p SET quantity = p.quantity - want.qty, "updatedAt" = now()
-    FROM want, locked
-    WHERE p.id = want.id AND p.id = locked.id AND p."isArchived" = false AND p.quantity >= want.qty
-    RETURNING p.id, p.name, p.price, p."maxQuantity"`;
-  const taken = new Map(rows.map((r) => [r.id, r]));
-  // Refuse with the first problem in id order (same answers as before: unavailable / out of stock / quantity limit).
-  let missing: Map<string, { name: string; quantity: number; isArchived: boolean }> | null = null;
-  for (const item of wanted) {
-    const p = taken.get(item.productId);
-    if (!p) {
-      missing ??= new Map(
-        (await tx.product.findMany({ where: { id: { in: ids.filter((id) => !taken.has(id)) }, storeId }, select: { id: true, name: true, quantity: true, isArchived: true } })).map((r) => [r.id, r]),
-      );
-      const m = missing.get(item.productId);
-      if (!m || m.isArchived) {
-        throw new OrderError("PRODUCT_UNAVAILABLE", m ? `${m.name} is no longer sold` : "A product in the cart is not sold in this store", { productId: item.productId });
-      }
-      throw new OrderError("OUT_OF_STOCK", `Only ${Math.max(m.quantity, 0)} of ${m.name} left`, { productId: item.productId, available: Math.max(m.quantity, 0) });
-    }
-    if (item.quantity > p.maxQuantity) {
-      throw new OrderError("QUANTITY_LIMIT", `At most ${p.maxQuantity} of ${p.name} per order`, { productId: item.productId, maxQuantity: p.maxQuantity });
-    }
-  }
+  // 2. Which order this is: a cart with a price-on-request product (no price) is a quote request. A priced order takes
+  //    its stock now; a quote only checks the products (its stock is taken when the customer accepts the price).
+  const products = await tx.product.findMany({ where: { id: { in: input.items.map((i) => i.productId) }, storeId }, select: productCheckSelect });
+  const quote = products.some((p) => p.price === null);
+  const taken = quote ? checkProducts(input.items, products) : await takeStock(tx, storeId, input.items);
+  if (!quote && Array.from(taken.values()).some((p) => p.price === null)) quoteMismatch(); // switched to "Price on request" just now
 
-  // 3. Money, exact, from the database prices. Items keep the cart's order.
+  // 3. Money, exact, from the database prices. Items keep the cart's order. A price-on-request line is 0 until the seller prices it.
   const items: OrderItemSnapshot[] = input.items.map((i) => {
     const p = taken.get(i.productId)!;
-    return { productId: i.productId, name: p.name, pricePaise: toPaise(p.price), quantity: i.quantity };
+    return p.price === null
+      ? { productId: i.productId, name: p.name, pricePaise: 0, quantity: i.quantity, onRequest: true }
+      : { productId: i.productId, name: p.name, pricePaise: toPaise(p.price), quantity: i.quantity };
   });
   const subtotalPaise = sumPaise(items.map((i) => lineTotalPaise(i.pricePaise, i.quantity)));
   const shippingPaise = 0; // no shipping rules yet
   const totalPaise = sumPaise([subtotalPaise, shippingPaise]);
-  if (input.expectedTotalPaise !== undefined && input.expectedTotalPaise !== totalPaise) {
-    throw new OrderError("PRICE_CHANGED", "Prices changed since you opened the cart. Please check the new total.", {
+  const changed = () =>
+    new OrderError("PRICE_CHANGED", "Prices changed since you opened the cart. Please check the new total.", {
       totalPaise,
-      items: items.map(({ productId, name, pricePaise }) => ({ productId, name, pricePaise })),
+      quote,
+      items: items.map(({ productId, name, pricePaise, onRequest }) => ({ productId, name, pricePaise: onRequest ? null : pricePaise })),
     });
-  }
+  if (input.quote !== undefined && input.quote !== quote) throw changed();
+  if (input.expectedTotalPaise !== undefined && input.expectedTotalPaise !== totalPaise) throw changed();
 
   // 4. The frozen details.
+  const status = quote ? QUOTE : startStatus;
   const details: OrderDetails = orderDetailsSchema.parse({
     v: 1,
-    events: [newEvent({ type: "status", status: startStatus, message: "Order placed", actor: "customer", customerVisible: true })],
+    events: [newEvent({ type: "status", status, message: quote ? "Quote requested" : "Order placed", actor: "customer", customerVisible: true })],
     shipTo: {
       name: input.contact?.fname ?? profile.fname,
       phone: input.contact?.phone ?? profile.phone,
@@ -267,10 +254,13 @@ async function placeOrder(
     adminContent: null,
     money: { subtotalPaise, shippingPaise, totalPaise },
     items,
-    stockReserved: true,
+    charges: [],
+    quote: quote ? { state: "requested", sentAt: null, decidedAt: null } : null,
+    stockReserved: !quote,
     returnWithdrawals: 0,
     return: null,
   });
+  if (quote) payment = ""; // agreed when the customer accepts the price
 
   // 5. The order, its items AND its number in ONE statement. The number is this store's max + 1; a parallel order may
   //    take the same one: the unique index then refuses ours and createOrder retries the whole transaction (stock included).
@@ -282,7 +272,7 @@ async function placeOrder(
     WITH o AS (
       INSERT INTO "Order" (id, "storeId", "orderNumber", "usersId", "addressId", total, details, payment, "paymentStatus", status, "createdAt", "updatedAt")
       SELECT ${orderId}, ${storeId}, COALESCE(max("orderNumber"), 0) + 1, ${customerId}, ${address.id}, ${paiseToDecimalString(totalPaise)}::numeric,
-             ${JSON.stringify(detailsToJson(details))}::jsonb, ${payment}, 'PENDING', ${startStatus}, ${now}::timestamp, ${now}::timestamp
+             ${JSON.stringify(detailsToJson(details))}::jsonb, ${payment}, 'PENDING', ${status}, ${now}::timestamp, ${now}::timestamp
       FROM "Order" WHERE "storeId" = ${storeId}
       RETURNING id, "orderNumber"
     ), i AS (
@@ -294,5 +284,78 @@ async function placeOrder(
   // 6. The ordered products leave the shopper's saved cart (lib/cart.ts), whatever the browser does next.
   await tx.cartItem.deleteMany({ where: { storeId, customerId, productId: { in: items.map((i) => i.productId) } } });
 
-  return { result: { id: order.id, orderNumber: order.orderNumber, status: startStatus, paymentStatus: "PENDING", payment, totalPaise }, duplicate: false };
+  return { result: { id: order.id, orderNumber: order.orderNumber, status, paymentStatus: "PENDING", payment, totalPaise }, duplicate: false };
+}
+
+// ---------------------------------------------------------------- stock
+
+type Wanted = { productId: string; quantity: number };
+type ProductRow = { id: string; name: string; price: Prisma.Decimal | null; maxQuantity: number };
+
+const productCheckSelect = { id: true, name: true, price: true, quantity: true, maxQuantity: true, isArchived: true } satisfies Prisma.ProductSelect;
+type CheckedProduct = Prisma.ProductGetPayload<{ select: typeof productCheckSelect }>;
+
+const byId = (a: Wanted, b: Wanted) => (a.productId < b.productId ? -1 : a.productId > b.productId ? 1 : 0);
+
+/** The refusals of a checkout, in one place: not sold here (or archived), or not enough stock. */
+function refuse(item: Wanted, p: { name: string; quantity: number; isArchived: boolean } | undefined): never {
+  if (!p || p.isArchived) {
+    throw new OrderError("PRODUCT_UNAVAILABLE", p ? `${p.name} is no longer sold` : "A product in the cart is not sold in this store", { productId: item.productId });
+  }
+  throw new OrderError("OUT_OF_STOCK", `Only ${Math.max(p.quantity, 0)} of ${p.name} left`, { productId: item.productId, available: Math.max(p.quantity, 0) });
+}
+/** ... and over the per-order limit. */
+function checkLimit(item: Wanted, p: ProductRow) {
+  if (item.quantity > p.maxQuantity) {
+    throw new OrderError("QUANTITY_LIMIT", `At most ${p.maxQuantity} of ${p.name} per order`, { productId: item.productId, maxQuantity: p.maxQuantity });
+  }
+}
+
+/** The seller switched a product's "Price on request" between our two reads: the customer must look again. */
+function quoteMismatch(): never {
+  throw new OrderError("PRICE_CHANGED", "Prices changed since you opened the cart. Please check your cart again.");
+}
+
+/** A quote request: the same checks as taking the stock, without taking it (first problem in id order). */
+function checkProducts(items: Wanted[], products: CheckedProduct[]): Map<string, ProductRow> {
+  const found = new Map(products.map((p) => [p.id, p]));
+  for (const item of [...items].sort(byId)) {
+    const p = found.get(item.productId);
+    if (!p || p.isArchived || p.quantity < item.quantity) refuse(item, p);
+    checkLimit(item, p);
+  }
+  return found;
+}
+
+/**
+ * Takes the stock of ALL products in ONE statement. The rows are locked first in id order (no deadlocks), then the
+ * WHERE is the guard: only this store, not archived, enough left. A missing row means a refusal (OrderError): the
+ * caller's transaction rolls back, so the products we did change get their stock back. Used by checkout and by a
+ * customer accepting a quote (lib/orders/quote.ts).
+ */
+export async function takeStock(tx: Prisma.TransactionClient, storeId: string, items: Wanted[]): Promise<Map<string, ProductRow>> {
+  const wanted = [...items].sort(byId);
+  const ids = wanted.map((i) => i.productId);
+  const qtys = wanted.map((i) => i.quantity);
+  const rows = await tx.$queryRaw<ProductRow[]>`
+    WITH want AS (SELECT * FROM unnest(${ids}::text[], ${qtys}::int[]) AS w(id, qty)),
+    locked AS (SELECT p.id FROM "Product" p WHERE p.id = ANY(${ids}::text[]) AND p."storeId" = ${storeId} ORDER BY p.id FOR UPDATE)
+    UPDATE "Product" p SET quantity = p.quantity - want.qty, "updatedAt" = now()
+    FROM want, locked
+    WHERE p.id = want.id AND p.id = locked.id AND p."isArchived" = false AND p.quantity >= want.qty
+    RETURNING p.id, p.name, p.price, p."maxQuantity"`;
+  const taken = new Map(rows.map((r) => [r.id, r]));
+  // Refuse with the first problem in id order (unavailable / out of stock / quantity limit).
+  let missing: Map<string, { name: string; quantity: number; isArchived: boolean }> | null = null;
+  for (const item of wanted) {
+    const p = taken.get(item.productId);
+    if (!p) {
+      missing ??= new Map(
+        (await tx.product.findMany({ where: { id: { in: ids.filter((id) => !taken.has(id)) }, storeId }, select: { id: true, name: true, quantity: true, isArchived: true } })).map((r) => [r.id, r]),
+      );
+      refuse(item, missing.get(item.productId));
+    }
+    checkLimit(item, p);
+  }
+  return taken;
 }

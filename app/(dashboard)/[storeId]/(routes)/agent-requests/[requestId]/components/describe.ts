@@ -106,7 +106,7 @@ export function summarize(r: RequestLike, lookups: Lookups = {}): Summary {
   // Key fields, in human labels.
   if (feature === "products") {
     add("Name", body.name);
-    add("Price (₹)", body.price);
+    add("Price (₹)", body.price === null ? "On request (a quote)" : body.price);
     add("Quantity in stock", body.quantity);
     add("Max per order", body.maxQuantity);
     if (body.categoryId !== undefined) add("Category", lookups.categoryName ?? `id ${String(body.categoryId)}`);

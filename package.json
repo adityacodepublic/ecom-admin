@@ -63,6 +63,7 @@
     "react-hook-form": "^7.71.1",
     "react-hot-toast": "^2.6.0",
     "react-markdown": "^10.1.0",
+    "react-onesignal": "^3.5.6",
     "react-spinners": "^0.17.0",
     "recharts": "^2.7.1",
     "remark-gfm": "^4.0.1",

@@ -44,7 +44,9 @@ const MarkdownEditor = dynamic(() => import("@/components/ui/markdown-editor"), 
 const formSchema = z.object({
   name: z.string().min(1).max(255),
   images: z.object({ url: z.string(), order: z.number() }).array(),
-  price: z.coerce.number().min(1),
+  price: z.coerce.number().optional(),
+  // "Price on request": no price; customers ask for a quote and the price is set on their order.
+  priceOnRequest: z.boolean().default(false),
   quantity: z.coerce.number().int().min(0),
   maxQuantity: z.coerce.number().int().min(1),
   categoryId: z.string().min(1),
@@ -59,6 +61,10 @@ const formSchema = z.object({
   isFeatured: z.boolean().default(false).optional(),
   isArchived: z.boolean().default(false).optional(),
   description: z.string().optional(),
+}).superRefine((v, ctx) => {
+  if (!v.priceOnRequest && !(typeof v.price === "number" && v.price >= 1)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["price"], message: "Enter a price of at least ₹1, or turn on Price on request" });
+  }
 });
 
 type ProductFormValues = z.infer<typeof formSchema>;
@@ -135,7 +141,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     ? {
         ...initialData,
         description: initialData.description ?? "",
-        price: parseFloat(String(initialData?.price)),
+        price: initialData.price === null ? undefined : parseFloat(String(initialData.price)),
+        priceOnRequest: initialData.price === null,
         filteritems: prefillFilterItems,
         images: initialData.images
           .sort((a, b) => a.order - b.order)
@@ -148,6 +155,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         name: "",
         images: [],
         price: 0,
+        priceOnRequest: false,
         quantity: 0,
         maxQuantity: 0,
         categoryId: "",
@@ -162,6 +170,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     defaultValues,
   });
 
+  const onRequest = form.watch("priceOnRequest");
+
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "filteritems",
@@ -175,8 +185,10 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   const onSubmit = async (data: ProductFormValues) => {
     try {
       setLoading(true);
+      const { priceOnRequest, ...rest } = data;
       const submitData = {
-        ...data,
+        ...rest,
+        price: priceOnRequest ? null : data.price, // null = "Price on request"
         filteritems: data.filteritems || [],
       };
       if (initialData) {
@@ -296,14 +308,39 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Price</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      disabled={loading}
-                      placeholder="9.99"
-                      {...field}
-                    />
-                  </FormControl>
+                  {onRequest ? (
+                    <p className="flex h-9 items-center text-sm text-muted-foreground">No price: customers ask for a quote.</p>
+                  ) : (
+                    <FormControl>
+                      <Input type="number" disabled={loading} placeholder="9.99" {...field} value={field.value ?? ""} />
+                    </FormControl>
+                  )}
+                  <FormField
+                    control={form.control}
+                    name="priceOnRequest"
+                    render={({ field: toggle }) => (
+                      // The label sits next to the checkbox (not around it): a button inside a label toggles twice.
+                      <div className="flex w-fit items-center gap-2 text-sm">
+                        <Checkbox
+                          id="price-on-request"
+                          disabled={loading}
+                          checked={toggle.value}
+                          onCheckedChange={(v) => {
+                            toggle.onChange(v === true);
+                            form.clearErrors("price");
+                          }}
+                        />
+                        <label htmlFor="price-on-request" className="cursor-pointer">
+                          Price on request
+                        </label>
+                      </div>
+                    )}
+                  />
+                  <FormDescription>
+                    {onRequest
+                      ? "The store shows your \"price on request\" text. You add the price on each order and send it as a quote."
+                      : "Turn on Price on request when the price depends on the order (custom work, bulk)."}
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
