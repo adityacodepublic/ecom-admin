@@ -326,7 +326,8 @@ export async function getAdminOrder(storeId: string, ref: OrderRef): Promise<Adm
     prevStatus: lock ? null : prevStatus(statuses, s.status),
     canCancel: (!lock || lock === "QUOTE") && !isCancelled(s.status), // an open quote may be cancelled
     canRestoreStock: isCancelled(s.status) && d.stockReserved === true,
-    stockRestored: isCancelled(s.status) && d.stockReserved === false,
+    // A quote that was never accepted took no stock: nothing was "restored".
+    stockRestored: isCancelled(s.status) && d.stockReserved === false && (!d.quote || d.quote.state === "accepted"),
     returnsEnabled: returns.enabled,
     returnStatuses: returns.statuses,
     return: d.return

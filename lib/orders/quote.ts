@@ -74,6 +74,8 @@ export async function adminSaveQuote(storeId: string, ref: OrderRef, adminUserId
 export const customerQuoteSchema = z
   .object({
     accept: z.boolean(),
+    // The total the customer saw. The store may resend the quote meanwhile: a different total refuses the yes (PRICE_CHANGED).
+    expectedTotalPaise: z.number().int().min(0).optional(),
     reason: z.string().trim().max(500).optional(), // why not (decline only, optional)
   })
   .strict();
@@ -99,7 +101,11 @@ export async function customerDecideQuote(storeId: string, customerId: string, r
       return { id: order.id, accepted: false };
     }
 
-    // Accepted: the stock is taken now (refused, and nothing changes, when there is not enough any more).
+    // Accepted, at the price on the customer's screen only.
+    if (input.expectedTotalPaise !== undefined && input.expectedTotalPaise !== details.money.totalPaise) {
+      throw new OrderError("PRICE_CHANGED", "The store changed the quote. Please check the new price.", { totalPaise: details.money.totalPaise });
+    }
+    // The stock is taken now (refused, and nothing changes, when there is not enough any more).
     await takeStock(tx, storeId, details.items);
     const settings = await getOrderSettingsTx(tx, storeId);
     const first = settings.statuses[0];

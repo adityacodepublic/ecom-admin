@@ -69,7 +69,7 @@ async function send(storeId: string, orderId: string, notice: OrderNotice, detai
     title: owner ? `${o.store.name}: ${title}` : title, // an owner may run several stores: the store's name leads
     message,
     url: owner ? `${adminOrigin()}/${storeId}/orders/${o.orderNumber}` : `${storeUrl(o.store.slug)}/orders/${o.orderNumber}`,
-    topic: `order-${orderId}`,
+    topic: orderId.replace(/-/g, ""), // Web Push topics are at most 32 characters: the uuid without dashes
   });
 }
 

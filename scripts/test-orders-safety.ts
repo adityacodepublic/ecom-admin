@@ -637,7 +637,24 @@ async function main() {
   const qStats = await getOrderStats(Q.store.id);
   check("quote: dashboard counts it as open, not waiting for a price, and not as a new order", qStats.quotes.open === 1 && qStats.quotes.toPrice === 0 && qStats.newOrders === 0, qStats.quotes);
 
-  const accepts = await Promise.all([decide(q1, { accept: true }), decide(q1, { accept: true })]);
+  // The store resends a new price while the customer looks at the old one: the yes to the old price is refused.
+  await adminSaveQuote(Q.store.id, { id: q1 }, OWNER, {
+    prices: [
+      { productId: gate.id, pricePaise: 510000 },
+      { productId: bolt.id, pricePaise: 900 },
+    ],
+    charges: [
+      { label: "GST", amountPaise: 10000 },
+      { label: "Discount", amountPaise: -5000 },
+    ],
+  });
+  const stale = await decide(q1, { accept: true, expectedTotalPaise: 506800 });
+  check(
+    "quote: accepting a price that was changed meanwhile -> PRICE_CHANGED with the new total, nothing taken",
+    stale.status === 409 && stale.body.error.code === "PRICE_CHANGED" && stale.body.error.details.totalPaise === 516800 && (await stockOf(gate.id)) === 5,
+    stale.body,
+  );
+  const accepts = await Promise.all([decide(q1, { accept: true, expectedTotalPaise: 516800 }), decide(q1, { accept: true, expectedTotalPaise: 516800 })]);
   check("quote: two accepts at once -> one 200, one QUOTE_NOT_OPEN", accepts.filter((r) => r.status === 200).length === 1 && accepts.some((r) => r.body?.error?.code === "QUOTE_NOT_OPEN"), accepts.map((r) => r.body));
   const q1Done = await qOrder(q1);
   qd = parseDetails(q1, q1Done.details);
@@ -663,6 +680,7 @@ async function main() {
   );
   const declined = await decide(q2, { accept: false, reason: "Too expensive" });
   const q2Done = await qOrder(q2);
+  check("quote: a declined quote never took stock, so the admin does not say it was restored", (await getAdminOrder(Q.store.id, { id: q2 }))?.stockRestored === false);
   check("quote: declined -> Cancelled, quote declined, the reason in the timeline", declined.status === 200 && q2Done.status === "Cancelled" && parseDetails(q2, q2Done.details).quote?.state === "declined" && declined.body.order.events.some((e: any) => e.message === "Quote declined: Too expensive"), declined.body);
 
   // Withdrawn while the store prices it: allowed whatever the cancellation settings say.
