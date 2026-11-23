@@ -68,8 +68,6 @@ const DashboardPage: React.FC<DashboardPageProps> = async ({ params, searchParam
         <Heading title="Dashboard" description="Overview of your store" />
         <Separator />
         <MinimizeProvider storeId={storeId} initial={minimized}>
-          {/* The one list of minimized cards for the whole page: a minimized card waits here, a click brings it back. */}
-          <MinimizedList />
           <SectionError title="the totals">
             <Suspense fallback={<CardGridSkeleton count={3} className="sm:grid-cols-3" />}>
               <TotalCards data={totals} />
@@ -113,6 +111,9 @@ const DashboardPage: React.FC<DashboardPageProps> = async ({ params, searchParam
               <ClarityVisitors storeId={storeId} data={visitors} />
             </Suspense>
           </SectionError>
+          {/* The one list of minimized cards for the whole page, at the end (out of the way of the numbers): a
+              minimized card waits here, a click brings it back. Minimizing scrolls down to it. */}
+          <MinimizedList />
         </MinimizeProvider>
       </div>
     </div>
