@@ -23,7 +23,10 @@ interface MarkdownEditorProps {
 const MarkdownEditor: React.FC<MarkdownEditorProps> = ({ value, onChange, disabled }) => {
   const rootRef = useRef<HTMLDivElement>(null);
   const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   const params = useParams();
   const storeIdRef = useRef(params.storeId as string);

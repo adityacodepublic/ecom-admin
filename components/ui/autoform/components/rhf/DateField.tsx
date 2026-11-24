@@ -70,14 +70,13 @@ export const DateField: React.FC<AutoFormFieldProps> = ({
   const { field } = useController({ name: id });
   const { value, onChange, ref, ...restField } = field;
   const selectedDate = toDate(value);
+  const selectedTime = selectedDate?.getTime();
   const [open, setOpen] = React.useState(false);
-  const [month, setMonth] = React.useState<Date | undefined>(selectedDate);
-  const [inputValue, setInputValue] = React.useState(formatDate(selectedDate));
+  const [monthOverride, setMonthOverride] = React.useState<{ forTime: number | undefined; month: Date | undefined } | null>(null);
+  const [draftInput, setDraftInput] = React.useState<{ forValue: unknown; text: string } | null>(null);
 
-  React.useEffect(() => {
-    setInputValue(formatDate(selectedDate));
-    setMonth(selectedDate);
-  }, [selectedDate?.getTime()]);
+  const month = monthOverride && monthOverride.forTime === selectedTime ? monthOverride.month : selectedDate;
+  const inputValue = draftInput && draftInput.forValue === value ? draftInput.text : formatDate(selectedDate);
 
   return (
     <>
@@ -103,13 +102,15 @@ export const DateField: React.FC<AutoFormFieldProps> = ({
             const nextValue = e.target.value;
             const nextDate = new Date(nextValue);
 
-            setInputValue(nextValue);
-
             if (isValidDate(nextDate)) {
               onChange(formatDate(nextDate));
-              setMonth(nextDate);
+              setDraftInput(null);
+              setMonthOverride({ forTime: nextDate.getTime(), month: nextDate });
             } else if (!nextValue) {
               onChange("");
+              setDraftInput(null);
+            } else {
+              setDraftInput({ forValue: value, text: nextValue });
             }
           }}
           onKeyDown={(e) => {
@@ -150,11 +151,11 @@ export const DateField: React.FC<AutoFormFieldProps> = ({
               captionLayout="dropdown"
               selected={selectedDate}
               month={month}
-              onMonthChange={setMonth}
+              onMonthChange={(nextMonth) => setMonthOverride({ forTime: selectedTime, month: nextMonth })}
               onSelect={(date) => {
                 onChange(formatDate(date));
-                setInputValue(formatDate(date));
-                setMonth(date);
+                setDraftInput(null);
+                setMonthOverride(null);
                 setOpen(false);
               }}
             />

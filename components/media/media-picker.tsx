@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -21,19 +21,16 @@ interface MediaPickerProps {
 }
 
 /** One picker for every image field: upload, paste a link, or choose from the store's library. */
-export function MediaPicker({ open, onOpenChange, multiple = true, existingUrls = [], onSelect }: MediaPickerProps) {
+export function MediaPicker({ open, ...props }: MediaPickerProps) {
+  if (!open) return null;
+  return <MediaPickerContent {...props} />;
+}
+
+function MediaPickerContent({ onOpenChange, multiple = true, existingUrls = [], onSelect }: Omit<MediaPickerProps, "open">) {
   const params = useParams();
   const storeId = params.storeId as string;
   const [tab, setTab] = useState("library");
   const [selected, setSelected] = useState<MediaItem[]>([]);
-
-  // Start clean every time it opens.
-  useEffect(() => {
-    if (open) {
-      setSelected([]);
-      setTab("library");
-    }
-  }, [open]);
 
   const toggle = (item: MediaItem) => {
     setSelected((cur) => {
@@ -56,7 +53,7 @@ export function MediaPicker({ open, onOpenChange, multiple = true, existingUrls 
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open onOpenChange={onOpenChange}>
       <DialogContent
         className="flex h-[100dvh] w-screen max-w-none flex-col gap-0 overflow-hidden rounded-none p-0 sm:h-[85vh] sm:w-[calc(100%-2rem)] sm:max-w-4xl sm:rounded-lg"
       >

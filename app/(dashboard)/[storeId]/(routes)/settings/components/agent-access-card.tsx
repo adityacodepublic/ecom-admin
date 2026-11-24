@@ -203,16 +203,30 @@ export const AgentAccessCard = ({ storeId }: { storeId: string }) => {
   const manage = useOpen();
   const [createdUrl, setCreatedUrl] = useState<string | null>(null);
 
+  const applyLink = useCallback((data: any, error: string | null) => {
+    if (error || !data) {
+      setFailed(true);
+      return;
+    }
+    setFailed(false);
+    setLink({ exists: !!data.exists, mode: data.mode ?? null, createdAt: data.createdAt ?? null, log: data.log ?? [] });
+  }, []);
+
   const load = useCallback(async () => {
     setFailed(false);
     const { data, error } = await call(`/api/${storeId}/agent-link`);
-    if (error || !data) return setFailed(true);
-    setLink({ exists: !!data.exists, mode: data.mode ?? null, createdAt: data.createdAt ?? null, log: data.log ?? [] });
-  }, [storeId]);
+    applyLink(data, error);
+  }, [storeId, applyLink]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    let cancelled = false;
+    call(`/api/${storeId}/agent-link`).then(({ data, error }) => {
+      if (!cancelled) applyLink(data, error);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [storeId, applyLink]);
 
   const summary = failed
     ? "Could not load."

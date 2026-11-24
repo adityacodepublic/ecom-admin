@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { useMounted } from "@/hooks/use-mounted";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Image from "next/image";
@@ -21,26 +22,25 @@ interface BillboardImageUploadProps {
   value: BillboardOrderedImage[];
 }
 
+const sortByOrder = (images: BillboardOrderedImage[]) =>
+  [...images].sort((a, b) => a.order - b.order);
+
+const renumberImages = (images: BillboardOrderedImage[]) =>
+  images.map((img, index) => ({ ...img, order: index + 1 }));
+
 const BillboardImageUpload: React.FC<BillboardImageUploadProps> = ({
   disabled,
   onChange,
   value,
 }) => {
-  const [isMounted, setIsMounted] = useState(false);
+  const isMounted = useMounted();
   const [pickerOpen, setPickerOpen] = useState(false);
 
   useEffect(() => {
-    setIsMounted(true);
     const currentImages = sortByOrder(value || []);
     const newImages = renumberImages([...currentImages]);
     onChange(newImages);
   }, []);
-
-  const sortByOrder = (images: BillboardOrderedImage[]) =>
-    [...images].sort((a, b) => a.order - b.order);
-
-  const renumberImages = (images: BillboardOrderedImage[]) =>
-    images.map((img, index) => ({ ...img, order: index + 1 }));
 
   // Called by the picker. Picking the same image twice is not allowed (the url is the key).
   const onPick = (items: MediaItem[]) => {

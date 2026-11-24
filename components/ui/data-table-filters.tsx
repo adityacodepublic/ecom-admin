@@ -16,7 +16,6 @@ import { ClearFilter, ColumnFilter, OptionList, RangeFilter, SearchList } from "
  */
 
 // Typed for any row, like tanstack's own filter functions, so one function serves every table.
-/* eslint-disable @typescript-eslint/no-explicit-any */
 
 /** The row's value, as text, is the picked option. */
 const optionFilter: FilterFn<any> = (row, id, value: string) => String(row.getValue(id) ?? "") === value;
@@ -28,7 +27,6 @@ const rangeFilter: FilterFn<any> = (row, id, [from, to]: [string, string]) => {
   const v = Number(raw);
   return (from === "" || v >= Number(from)) && (to === "" || v <= Number(to));
 };
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
 /** Yes / No for true / false values. */
 export const yesNo = (v: string) => (v === "true" ? "Yes" : v === "false" ? "No" : v);

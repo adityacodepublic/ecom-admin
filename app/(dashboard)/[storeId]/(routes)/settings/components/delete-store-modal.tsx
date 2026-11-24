@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { AlertTriangle } from "lucide-react";
 
 import { Modal } from "@/components/ui/modal";
@@ -18,12 +18,13 @@ interface DeleteStoreModalProps {
 }
 
 /** Deleting a store is not like deleting a row: it removes the whole store, so the owner types its name to confirm. */
-export const DeleteStoreModal = ({ storeName, storeUrl, isOpen, loading, onClose, onConfirm }: DeleteStoreModalProps) => {
-  const [typed, setTyped] = useState("");
+export const DeleteStoreModal = ({ isOpen, ...props }: DeleteStoreModalProps) => {
+  if (!isOpen) return null;
+  return <DeleteStoreModalContent {...props} />;
+};
 
-  useEffect(() => {
-    if (isOpen) setTyped("");
-  }, [isOpen]);
+const DeleteStoreModalContent = ({ storeName, storeUrl, loading, onClose, onConfirm }: Omit<DeleteStoreModalProps, "isOpen">) => {
+  const [typed, setTyped] = useState("");
 
   const matches = typed.trim() === storeName;
 
@@ -31,7 +32,7 @@ export const DeleteStoreModal = ({ storeName, storeUrl, isOpen, loading, onClose
     <Modal
       title={`Delete the store "${storeName}"?`}
       description="This deletes the entire store, not only this page."
-      isOpen={isOpen}
+      isOpen
       onClose={onClose}
     >
       <div className="space-y-4 py-2">

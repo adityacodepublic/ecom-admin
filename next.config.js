@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  reactCompiler: true,
   // The agent skill routes read agent-skills/*.md with fs at runtime.
   outputFileTracingIncludes: {
     "/api/agent/[token]/skill": ["./agent-skills/**/*"],

@@ -40,7 +40,6 @@ interface DataTableProps<TData, TValue> {
 }
 
 declare module "@tanstack/react-table" {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   interface ColumnMeta<TData extends RowData, TValue> {
     /** Keep the column at the right edge while the table scrolls sideways (a column of row buttons). */
     pinned?: "right";

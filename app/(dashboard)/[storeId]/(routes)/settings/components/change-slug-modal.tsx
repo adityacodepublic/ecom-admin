@@ -1,7 +1,7 @@
 "use client";
 
 import axios from "axios";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { AlertTriangle } from "lucide-react";
@@ -23,19 +23,16 @@ interface ChangeSlugModalProps {
 
 /** Renames the store URL. The old URL stops working right away (no redirect), so the modal says so. */
 export const ChangeSlugModal = ({ storeId, currentSlug, isOpen, onClose }: ChangeSlugModalProps) => {
+  if (!isOpen) return null;
+  return <ChangeSlugModalContent storeId={storeId} currentSlug={currentSlug} onClose={onClose} />;
+};
+
+const ChangeSlugModalContent = ({ storeId, currentSlug, onClose }: Omit<ChangeSlugModalProps, "isOpen">) => {
   const router = useRouter();
   const [slug, setSlug] = useState(currentSlug);
   const [serverError, setServerError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const hint = useSlugAvailability(slug, storeId);
-
-  // Start from the current slug each time the modal opens.
-  useEffect(() => {
-    if (isOpen) {
-      setSlug(currentSlug);
-      setServerError(null);
-    }
-  }, [isOpen, currentSlug]);
 
   const unchanged = slug === currentSlug;
   const invalid = slugError(slug);
@@ -57,7 +54,7 @@ export const ChangeSlugModal = ({ storeId, currentSlug, isOpen, onClose }: Chang
   };
 
   return (
-    <Modal title="Change store URL" description={`Current: ${storeUrl(currentSlug)}`} isOpen={isOpen} onClose={onClose}>
+    <Modal title="Change store URL" description={`Current: ${storeUrl(currentSlug)}`} isOpen onClose={onClose}>
       <div className="space-y-4 py-2">
         <div className="space-y-2">
           <Label htmlFor="store-slug">Store URL name</Label>

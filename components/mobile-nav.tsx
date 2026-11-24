@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { useMounted } from "@/hooks/use-mounted";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -15,7 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export function MobileNav() {
-  const [isMounted, setIsMounted] = useState(false);
+  const isMounted = useMounted();
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
   const params = useParams();
@@ -62,10 +63,6 @@ export function MobileNav() {
       active: pathname === `/${params.storeId}/settings`,
     },
   ];
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
 
   useEffect(() => {
     if (isOpen) {

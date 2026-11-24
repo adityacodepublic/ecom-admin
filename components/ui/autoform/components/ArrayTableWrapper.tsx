@@ -201,7 +201,12 @@ function useGridKeyboard(rowCount: number, columnCount: number, actionColumn: nu
     }
   };
 
-  return { tableRef, active, editing, setActive, setEditing, focusCell, startEditing, onKeyDown, onKeyDownCapture };
+  return {
+    tableRef,
+    onKeyDown,
+    onKeyDownCapture,
+    grid: { active, editing, setActive, setEditing, focusCell, startEditing },
+  };
 }
 
 // ── Array wrapper ────────────────────────────────────────────────────────────
@@ -235,7 +240,11 @@ export function ArrayTableWrapper({ label, error, children, onAddItem, inputProp
   const removable = !options.fixedRows;
   const canAdd = !options.fixedRows && (options.maxRows === undefined || rows.length < options.maxRows);
   // With remove buttons, the last grid column holds them.
-  const grid = useGridKeyboard(rows.length, columns.length + (removable ? 1 : 0), removable ? columns.length : null);
+  const { tableRef, onKeyDown, onKeyDownCapture, grid } = useGridKeyboard(
+    rows.length,
+    columns.length + (removable ? 1 : 0),
+    removable ? columns.length : null,
+  );
   const addButtonRef = React.useRef<HTMLButtonElement>(null);
   const { getValues, setValue } = useFormContext();
 
@@ -281,12 +290,12 @@ export function ArrayTableWrapper({ label, error, children, onAddItem, inputProp
 
       <div className={cn("overflow-x-auto rounded-lg border", error ? "border-destructive" : undefined, "has-[td[aria-invalid=true]]:border-destructive")}>
         <table
-          ref={grid.tableRef}
+          ref={tableRef}
           role="grid"
           aria-label={labelText(parsedField)}
           className={cn("w-full text-sm", GRID_STYLES)}
-          onKeyDownCapture={grid.onKeyDownCapture}
-          onKeyDown={grid.onKeyDown}
+          onKeyDownCapture={onKeyDownCapture}
+          onKeyDown={onKeyDown}
         >
           <thead className="bg-muted/40">
             <tr className="border-b">
@@ -360,7 +369,7 @@ export function ArrayTableWrapper({ label, error, children, onAddItem, inputProp
 
 // ── Cell ─────────────────────────────────────────────────────────────────────
 
-type GridState = ReturnType<typeof useGridKeyboard>;
+type GridState = ReturnType<typeof useGridKeyboard>["grid"];
 
 /** One grid cell around the column's AutoForm component. */
 function ArrayTableCell({ grid, cell, column, path, last }: { grid: GridState; cell: Cell; column: ParsedField; path: string[]; last: boolean }) {

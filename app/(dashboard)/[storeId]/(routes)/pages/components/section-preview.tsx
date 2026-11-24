@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import type { PageKind, PageSection } from "@/lib/home-layout";
+
+const emptySubscribe = () => () => {};
+const getViewportHeight = () => window.innerHeight;
 
 /**
  * The real store component for one section, rendered by the store's /preview/section
@@ -13,8 +16,7 @@ export const SectionPreview = ({ storeUrl, page, itemId, section }: { storeUrl: 
   const frame = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(160);
   // The admin window height: the store sizes some images in vh, and the small iframe's vh would be wrong.
-  const [viewportHeight, setViewportHeight] = useState<number | null>(null);
-  useEffect(() => setViewportHeight(window.innerHeight), []);
+  const viewportHeight = useSyncExternalStore(emptySubscribe, getViewportHeight, () => null);
   const src = useDebounced(
     viewportHeight &&
       `${storeUrl}/preview/section?vh=${viewportHeight}&page=${page}${itemId ? `&${page === "product" ? "productId" : "categoryId"}=${encodeURIComponent(itemId)}` : ""}&section=${encodeURIComponent(JSON.stringify(section))}`,

@@ -148,16 +148,30 @@ export const TransferCard = ({ storeId }: { storeId: string }) => {
   const manage = useOpen();
   const [created, setCreated] = useState<{ url: string; email: string } | null>(null);
 
+  const applyPending = useCallback((data: any, error: string | null) => {
+    if (error || !data) {
+      setFailed(true);
+      return;
+    }
+    setFailed(false);
+    setPending(data.pending ? { email: data.email, createdAt: data.createdAt, expired: !!data.expired } : null);
+  }, []);
+
   const load = useCallback(async () => {
     setFailed(false);
     const { data, error } = await call(`/api/${storeId}/transfer`);
-    if (error || !data) return setFailed(true);
-    setPending(data.pending ? { email: data.email, createdAt: data.createdAt, expired: !!data.expired } : null);
-  }, [storeId]);
+    applyPending(data, error);
+  }, [storeId, applyPending]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    let cancelled = false;
+    call(`/api/${storeId}/transfer`).then(({ data, error }) => {
+      if (!cancelled) applyPending(data, error);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [storeId, applyPending]);
 
   const summary = failed
     ? "Could not load."

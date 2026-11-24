@@ -88,7 +88,7 @@ const DataHelp = ({ page }: { page: PageKind }) => (
       <p>
         <b>Categories</b>: <code>id, name, image, url</code>
       </p>
-      <p className="text-muted-foreground">Search works like the store search box ("under 2000", "phone"). Names: letters, digits and _ . About 200 KB of data in total.</p>
+      <p className="text-muted-foreground">Search works like the store search box (&quot;under 2000&quot;, &quot;phone&quot;). Names: letters, digits and _ . About 200 KB of data in total.</p>
     </PopoverContent>
   </Popover>
 );
@@ -101,10 +101,14 @@ const DataHelp = ({ page }: { page: PageKind }) => (
 export const dataQueriesField = (categories: Option[], page: PageKind = "home") => {
   const DataQueriesField = ({ id }: AutoFormFieldProps) => {
     const { field } = useController({ name: id });
-    const nextKey = useRef(0);
-    const [rows, setRows] = useState<Row[]>(() =>
-      Object.entries((field.value ?? {}) as Record<string, DataQuery>).map(([name, query]) => ({ key: nextKey.current++, name, query })),
-    );
+    const [{ rows, nextKey }, setState] = useState<{ rows: Row[]; nextKey: number }>(() => {
+      const initial = Object.entries((field.value ?? {}) as Record<string, DataQuery>).map(([name, query], index) => ({
+        key: index,
+        name,
+        query,
+      }));
+      return { rows: initial, nextKey: initial.length };
+    });
     const lastGood = useRef(new Map<number, string>());
 
     const duplicates = (list: Row[]) => {
@@ -114,10 +118,10 @@ export const dataQueriesField = (categories: Option[], page: PageKind = "home") 
       return dupes;
     };
 
-    const commit = (next: Row[]) => {
+    const commit = (next: Row[], nextId = nextKey) => {
       const dupes = duplicates(next);
       for (const r of next) if (!dupes.has(r.key)) lastGood.current.set(r.key, r.name);
-      setRows(next);
+      setState({ rows: next, nextKey: nextId });
       field.onChange(toRecord(next, dupes, lastGood.current));
     };
 
@@ -136,7 +140,7 @@ export const dataQueriesField = (categories: Option[], page: PageKind = "home") 
       let n = 1;
       const names = new Set(rows.map((r) => r.name));
       while (names.has(n === 1 ? "products" : `products${n}`)) n++;
-      commit([...rows, { key: nextKey.current++, name: n === 1 ? "products" : `products${n}`, query: emptyQuery("products") }]);
+      commit([...rows, { key: nextKey, name: n === 1 ? "products" : `products${n}`, query: emptyQuery("products") }], nextKey + 1);
     };
 
     const dupes = duplicates(rows);

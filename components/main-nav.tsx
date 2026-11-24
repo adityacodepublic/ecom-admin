@@ -4,13 +4,13 @@ import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
-import { useEffect, useState } from "react";
+import { useMounted } from "@/hooks/use-mounted";
 
 export function MainNav({
   className,
   ...props
 }: React.HTMLAttributes<HTMLElement>) {
-  const [isMounted, setIsMounted] = useState(false);
+  const isMounted = useMounted();
   const pathname = usePathname();
   const params = useParams();
 
@@ -56,10 +56,6 @@ export function MainNav({
       active: pathname === `/${params.storeId}/settings`,
     },
   ];
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
 
   if (!isMounted) {
     return null;

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { useMounted } from "@/hooks/use-mounted";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import { MediaPicker } from "@/components/media/media-picker";
@@ -27,27 +28,26 @@ interface ImageUploadProps {
   multiple?: boolean;
 }
 
+const sortByOrder = (images: OrderedImage[]) =>
+  [...images].sort((a, b) => a.order - b.order);
+
+const renumberImages = (images: OrderedImage[]) =>
+  images.map((img, index) => ({ ...img, order: index + 1 }));
+
 const ImageUpload: React.FC<ImageUploadProps> = ({
   disabled,
   onChange,
   value,
   multiple = true,
 }) => {
-  const [isMounted, setIsMounted] = useState(false);
+  const isMounted = useMounted();
   const [pickerOpen, setPickerOpen] = useState(false);
 
   useEffect(() => {
-    setIsMounted(true);
     const currentImages = sortByOrder(value || []);
     const newImages = renumberImages([...currentImages]);
     onChange(newImages);
   }, []);
-
-  const sortByOrder = (images: OrderedImage[]) =>
-    [...images].sort((a, b) => a.order - b.order);
-
-  const renumberImages = (images: OrderedImage[]) =>
-    images.map((img, index) => ({ ...img, order: index + 1 }));
 
   // Called by the picker. A single-image field (category) replaces what it has.
   const onPick = (items: MediaItem[]) => {

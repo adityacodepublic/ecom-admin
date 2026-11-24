@@ -25,6 +25,10 @@ interface Props {
   onGoUpload: () => void;
 }
 
+function fetchMediaPage(storeId: string, params: { q: string; sort: string; filter: string; page: number }) {
+  return axios.get<{ items: MediaItem[]; hasMore: boolean }>(`/api/${storeId}/media`, { params });
+}
+
 /** Library tab: the images this store already has. Search, sort, Unused filter, details and delete. */
 export function MediaLibrary({ storeId, multiple, selected, existingUrls, onToggle, onDeleted, onGoUpload }: Props) {
   const [items, setItems] = useState<MediaItem[]>([]);
@@ -38,38 +42,60 @@ export function MediaLibrary({ storeId, multiple, selected, existingUrls, onTogg
   const [filter, setFilter] = useState("all");
   const [details, setDetails] = useState<MediaItem | null>(null);
   const requestId = useRef(0);
+  const prevQ = useRef("");
 
   // Wait a moment after typing before searching.
   useEffect(() => {
-    const t = setTimeout(() => setQ(search.trim()), 300);
+    const t = setTimeout(() => {
+      const next = search.trim();
+      if (next !== prevQ.current) {
+        prevQ.current = next;
+        setLoading(true);
+        setFailed(false);
+        setQ(next);
+      }
+    }, 300);
     return () => clearTimeout(t);
   }, [search]);
 
-  const load = useCallback(
-    async (p: number) => {
-      const id = ++requestId.current;
-      setLoading(true);
-      setFailed(false);
-      try {
-        const { data } = await axios.get<{ items: MediaItem[]; hasMore: boolean }>(`/api/${storeId}/media`, {
-          params: { q, sort, filter, page: p },
-        });
-        if (id !== requestId.current) return; // an older request: ignore
-        setItems((cur) => (p === 0 ? data.items : [...cur, ...data.items]));
-        setHasMore(data.hasMore);
-        setPage(p);
-      } catch {
-        if (id === requestId.current) setFailed(true);
-      } finally {
-        if (id === requestId.current) setLoading(false);
-      }
-    },
-    [storeId, q, sort, filter],
-  );
+  const applyPageResult = useCallback((p: number, data: { items: MediaItem[]; hasMore: boolean }) => {
+    setItems((cur) => (p === 0 ? data.items : [...cur, ...data.items]));
+    setHasMore(data.hasMore);
+    setPage(p);
+    setFailed(false);
+  }, []);
 
   useEffect(() => {
-    load(0);
-  }, [load]);
+    let active = true;
+    const id = ++requestId.current;
+    fetchMediaPage(storeId, { q, sort, filter, page: 0 })
+      .then(({ data }) => {
+        if (active && id === requestId.current) applyPageResult(0, data);
+      })
+      .catch(() => {
+        if (active && id === requestId.current) setFailed(true);
+      })
+      .finally(() => {
+        if (active && id === requestId.current) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [storeId, q, sort, filter, applyPageResult]);
+
+  const load = async (p: number) => {
+    const id = ++requestId.current;
+    setLoading(true);
+    setFailed(false);
+    try {
+      const { data } = await fetchMediaPage(storeId, { q, sort, filter, page: p });
+      if (id === requestId.current) applyPageResult(p, data);
+    } catch {
+      if (id === requestId.current) setFailed(true);
+    } finally {
+      if (id === requestId.current) setLoading(false);
+    }
+  };
 
   const isSelected = (url: string) => selected.findIndex((s) => s.url === url);
   const filtering = q !== "" || filter !== "all";
@@ -93,12 +119,30 @@ export function MediaLibrary({ storeId, multiple, selected, existingUrls, onTogg
             aria-label="Search by file name"
           />
         </div>
-        <select className={selectClass} value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort">
+        <select
+          className={selectClass}
+          value={sort}
+          onChange={(e) => {
+            setLoading(true);
+            setFailed(false);
+            setSort(e.target.value);
+          }}
+          aria-label="Sort"
+        >
           <option value="newest">Newest first</option>
           <option value="oldest">Oldest first</option>
           <option value="name">Name A-Z</option>
         </select>
-        <select className={selectClass} value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Show">
+        <select
+          className={selectClass}
+          value={filter}
+          onChange={(e) => {
+            setLoading(true);
+            setFailed(false);
+            setFilter(e.target.value);
+          }}
+          aria-label="Show"
+        >
           <option value="all">All images</option>
           <option value="unused">Unused only</option>
         </select>

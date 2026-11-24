@@ -1,16 +1,6 @@
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
-export const useOrigin = () => {
-  const [mounted, setMounted] = useState(false);
-  const origin = typeof window !== 'undefined' && window.location.origin ? window.location.origin : '';
+const emptySubscribe = () => () => {};
+const getOrigin = () => (typeof window !== 'undefined' && window.location.origin ? window.location.origin : '');
 
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  if (!mounted) {
-    return ''
-  }
-
-  return origin;
-};
+export const useOrigin = () => useSyncExternalStore(emptySubscribe, getOrigin, () => '');
