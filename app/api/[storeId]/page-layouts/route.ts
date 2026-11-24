@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { requireStoreOwnerResponse } from "@/lib/api/admin-auth";
 import { PAGES } from "@/lib/home-layout";
 import { createCustomPage, listCustomRoutes } from "@/lib/page-layouts";
+import { revalidateStorePageLayouts } from "@/lib/store-revalidate";
 
 type Ctx = { params: Promise<{ storeId: string }> };
 
@@ -26,6 +27,7 @@ export async function POST(req: Request, { params }: Ctx) {
     if (!result.ok) {
       return typeof result.body === "string" ? new NextResponse(result.body, { status: result.status }) : NextResponse.json(result.body, { status: result.status });
     }
+    revalidateStorePageLayouts(storeId);
     return NextResponse.json({ route: result.route, blocks: [] }, { status: 201 });
   } catch (error) {
     console.log("[PAGE_LAYOUTS_POST]", error);

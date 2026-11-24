@@ -51,6 +51,11 @@ export function revalidateStoreOrderSettings(storeId: string) {
   schedule([`order-settings-${storeId}`]);
 }
 
+/** The saved layouts of the store's pages (home, category, product and custom pages). */
+export function revalidateStorePageLayouts(storeId: string) {
+  schedule([`page-layouts-${storeId}`]);
+}
+
 /** The store's name and logo (the store app caches its slug -> store lookup under store-<slug>). */
 export function revalidateStoreInfo(slug: string) {
   schedule([`store-${slug}`]);
