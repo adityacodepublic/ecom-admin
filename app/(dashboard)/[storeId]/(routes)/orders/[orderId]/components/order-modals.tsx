@@ -76,20 +76,32 @@ type ShellProps = {
   onClose: () => void;
   loading: boolean;
   formError: string;
-  onSave: () => void;
+  /** The save button runs onSave, or (formId) submits that form, which then validates and saves itself. */
+  onSave?: () => void;
+  formId?: string;
   saveLabel?: string;
   destructive?: boolean;
+  /** wide: a table (the quote); editor: room for the Markdown editor and its toolbar. */
   wide?: boolean;
+  editor?: boolean;
   children: ReactNode;
 };
 
-export const Shell = ({ title, description, isOpen, onClose, loading, formError, onSave, saveLabel, destructive, wide, children }: ShellProps) => (
+export const Shell = ({ title, description, isOpen, onClose, loading, formError, onSave, formId, saveLabel, destructive, wide, editor, children }: ShellProps) => (
   <Modal
     title={title}
     description={description ?? ""}
     isOpen={isOpen}
     onClose={onClose}
-    className={wide ? "max-h-[90vh] overflow-y-auto sm:max-w-2xl" : "max-h-[90vh] overflow-y-auto sm:max-w-md"}
+    className={
+      editor
+        ? // The editor's menus ("/", images) float past the modal's edge, so on a screen tall enough for it the modal
+          // does not clip (no scroll box); a short screen keeps the scroll.
+          "max-h-[92vh] w-[calc(100vw-1.5rem)] max-w-4xl overflow-y-auto sm:max-w-4xl [@media(min-height:700px)]:max-h-none [@media(min-height:700px)]:overflow-visible"
+        : wide
+          ? "max-h-[90vh] overflow-y-auto sm:max-w-2xl"
+          : "max-h-[90vh] overflow-y-auto sm:max-w-md"
+    }
   >
     <div className="space-y-4">
       {children}
@@ -100,7 +112,7 @@ export const Shell = ({ title, description, isOpen, onClose, loading, formError,
         <Button variant="outline" disabled={loading} onClick={onClose}>
           Close
         </Button>
-        <Button disabled={loading} variant={destructive ? "destructive" : "default"} onClick={onSave}>
+        <Button disabled={loading} variant={destructive ? "destructive" : "default"} type={formId ? "submit" : "button"} form={formId} onClick={formId ? undefined : onSave}>
           {loading ? "Saving..." : saveLabel ?? "Save"}
         </Button>
       </div>
@@ -371,9 +383,9 @@ export const MessageModal = ({ order, isOpen, onClose }: ModalProps) => {
       loading={loading}
       formError={formError}
       onSave={onSave}
-      wide
+      editor
     >
-      <div className="grid gap-2">
+      <div className="grid gap-2 [&_.milkdown_.ProseMirror]:!min-h-[min(26rem,58vh)]">
         <MarkdownEditor value={order.adminContent ?? ""} onChange={setContent} />
         {fieldErrors.adminContent && <p className="text-sm text-destructive">{fieldErrors.adminContent}</p>}
       </div>

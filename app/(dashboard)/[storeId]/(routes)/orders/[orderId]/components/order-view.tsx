@@ -30,6 +30,7 @@ import {
   useOrderPatch,
 } from "./order-modals";
 import { QuoteModal } from "./quote-modal";
+import { CallLink } from "@/components/ui/call-link";
 
 type ModalKey = "cancel" | "replace" | "reject" | "replaceReturn" | "delivery" | "payment" | "notes" | "message" | "quote";
 
@@ -123,19 +124,7 @@ const StatusActions = ({ order, onCancel, onReplace }: { order: AdminOrder; onCa
       </div>
     );
   }
-  if (order.statusLock === "QUOTE") {
-    // A quote moves on by itself when the customer accepts; until then it can only be cancelled.
-    return (
-      <div className="flex flex-wrap items-center gap-2">
-        <p className="text-sm text-muted-foreground">{STATUS_LOCK_MESSAGES.QUOTE}</p>
-        {order.canCancel && (
-          <Button size="sm" variant="outline" className="ml-auto text-destructive" onClick={onCancel}>
-            Cancel quote
-          </Button>
-        )}
-      </div>
-    );
-  }
+  if (order.statusLock === "QUOTE") return <p className="text-sm text-muted-foreground">{STATUS_LOCK_MESSAGES.QUOTE}</p>;
   if (order.statusLock) {
     // Frozen: a complete order (final stage) or an order with a return cannot be moved, back or cancelled any more.
     return <p className="text-sm text-muted-foreground">{STATUS_LOCK_MESSAGES[order.statusLock]}</p>;
@@ -256,6 +245,9 @@ const ReturnCard = ({ order, onReject, onReplace }: { order: AdminOrder; onRejec
 
 export const OrderView = ({ order }: { order: AdminOrder }) => {
   const { storeId } = useParams<{ storeId: string }>();
+  // An open quote (the customer asked, or the prices are sent and wait for a yes): the Items card holds it, and the
+  // Status card stays hidden until the quote is accepted (an order to move on) or closed.
+  const quoteOpen = !!order.quote && (order.quote.state === "requested" || order.quote.state === "sent") && isQuote(order.status);
   // A price-on-request line before the quote is sent has no price yet.
   const unpriced = (i: AdminOrder["items"][number]) => i.onRequest && order.quote?.state === "requested";
   const [modal, setModal] = useState<ModalKey | null>(null);
@@ -305,34 +297,33 @@ export const OrderView = ({ order }: { order: AdminOrder }) => {
       <Separator />
 
       {/* Status */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Status</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {isCancelled(order.status) && (
-            <div className="flex items-center gap-2 rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300">
-              <XCircle className="h-4 w-4 shrink-0" />
-              <span>
-                This order was cancelled.{" "}
-                {order.stockRestored
-                  ? order.events.find((e) => e.type === "system" && e.message?.startsWith("Stock restored"))?.message ?? "Its items are back in stock."
-                  : order.canRestoreStock
-                    ? "Stock was not changed: the items are still counted as sold."
-                    : ""}
-              </span>
-            </div>
-          )}
-          {order.quote && (order.quote.state === "requested" || order.quote.state === "sent") && isQuote(order.status) && (
-            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-300">{QUOTE_NOTE[order.quote.state]}</div>
-          )}
-          {!order.statusKnown && !isCancelled(order.status) && !isQuote(order.status) && (
-            <p className="text-sm text-muted-foreground">&quot;{order.status}&quot; is not in your status list any more.</p>
-          )}
-          <Stepper order={order} />
-          <StatusActions order={order} onCancel={() => setModal("cancel")} onReplace={() => setModal("replace")} />
-        </CardContent>
-      </Card>
+      {!quoteOpen && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Status</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {isCancelled(order.status) && (
+              <div className="flex items-center gap-2 rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300">
+                <XCircle className="h-4 w-4 shrink-0" />
+                <span>
+                  This order was cancelled.{" "}
+                  {order.stockRestored
+                    ? order.events.find((e) => e.type === "system" && e.message?.startsWith("Stock restored"))?.message ?? "Its items are back in stock."
+                    : order.canRestoreStock
+                      ? "Stock was not changed: the items are still counted as sold."
+                      : ""}
+                </span>
+              </div>
+            )}
+            {!order.statusKnown && !isCancelled(order.status) && !isQuote(order.status) && (
+              <p className="text-sm text-muted-foreground">&quot;{order.status}&quot; is not in your status list any more.</p>
+            )}
+            <Stepper order={order} />
+            <StatusActions order={order} onCancel={() => setModal("cancel")} onReplace={() => setModal("replace")} />
+          </CardContent>
+        </Card>
+      )}
 
       <ReturnCard order={order} onReject={() => setModal("reject")} onReplace={() => setModal("replaceReturn")} />
 
@@ -345,15 +336,29 @@ export const OrderView = ({ order }: { order: AdminOrder }) => {
               {order.canEditQuote && <PencilButton label="Set the quote prices" onClick={() => setModal("quote")} />}
             </CardHeader>
             <CardContent className="space-y-3">
+              {quoteOpen && order.quote && (
+                <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-300">
+                  <span className="min-w-0 flex-1">{QUOTE_NOTE[order.quote.state]}</span>
+                  {order.canCancel && (
+                    <Button size="sm" variant="outline" className="shrink-0 border-red-500/40 bg-background text-red-700 hover:bg-red-500/10 hover:text-red-700 dark:text-red-300 dark:hover:text-red-300" onClick={() => setModal("cancel")}>
+                      Cancel quote
+                    </Button>
+                  )}
+                </div>
+              )}
               {order.items.map((i) => (
                 <div key={i.productId} className="flex items-center gap-3">
-                  {i.imageUrl ? (
-                    <img src={i.imageUrl} alt="" className="h-12 w-12 shrink-0 rounded-md border object-cover" />
-                  ) : (
-                    <div className="h-12 w-12 shrink-0 rounded-md border bg-muted" />
-                  )}
+                  <Link href={`/${storeId}/products/${i.productId}`} className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Open ${i.name}`}>
+                    {i.imageUrl ? (
+                      <img src={i.imageUrl} alt="" className="h-12 w-12 rounded-md border object-cover" />
+                    ) : (
+                      <div className="h-12 w-12 rounded-md border bg-muted" />
+                    )}
+                  </Link>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate font-medium">{i.name}</div>
+                    <Link href={`/${storeId}/products/${i.productId}`} className="block truncate font-medium hover:underline">
+                      {i.name}
+                    </Link>
                     <div className="text-sm text-muted-foreground">
                       {unpriced(i) ? "Price on request" : formatINR(i.pricePaise)} x {i.quantity}
                     </div>
@@ -457,9 +462,9 @@ export const OrderView = ({ order }: { order: AdminOrder }) => {
               {phone && (
                 <div className="flex flex-wrap gap-2 pt-1">
                   <Button size="sm" variant="outline" asChild>
-                    <a href={`tel:${phone.replace(/[^\d+]/g, "")}`}>
+                    <CallLink phone={phone}>
                       <Phone className="mr-1 h-4 w-4" /> Call
-                    </a>
+                    </CallLink>
                   </Button>
                   <Button size="sm" variant="outline" asChild>
                     <a href={`https://wa.me/${waNumber(phone)}`} target="_blank" rel="noopener noreferrer">

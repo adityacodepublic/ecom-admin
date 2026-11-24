@@ -1,5 +1,5 @@
 import { revalidateStoreCatalog } from "@/lib/store-revalidate";
-import { randomUUID } from "crypto";
+import { randomInt, randomUUID } from "crypto";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
@@ -20,7 +20,8 @@ import { COUNTRY } from "./india";
  *  - products must belong to this store and not be archived; quantity 1..maxQuantity and <= stock
  *  - prices come from the database; the whole order is refused on any problem
  *  - stock is taken in the SAME transaction (UPDATE ... WHERE quantity >= n), so it can never oversell
- *  - orderNumber = this store's max + 1, unique per store; a clash retries the whole transaction
+ *  - orderNumber = a random 8-digit number, unique per store (a clash retries the whole transaction). Not a count: a
+ *    shopper must not learn from #N how many orders the store has had
  *  - the same cart by the same customer within 60 s returns the order that already exists (no second order, no second stock take)
  *  - a cart with a price-on-request product (Product.price empty) becomes a QUOTE request: the order waits at the
  *    reserved status "Quote", with no payment method and no stock taken; the products are only checked. The seller
@@ -75,6 +76,8 @@ export const DUPLICATE_WINDOW_MS = 60_000;
 
 /** How many times an order-number clash made us retry (since start). For the safety test and logs. */
 export const orderNumberRetries = { count: 0 };
+/** Where order numbers come from: random 10000000..99999999. The safety test swaps `next` to force clashes. */
+export const orderNumbers = { next: () => randomInt(10_000_000, 100_000_000) };
 /** How many checkouts were answered with an order that already existed (duplicate protection). For the safety test and logs. */
 export const duplicateOrders = { count: 0 };
 
@@ -262,8 +265,8 @@ async function placeOrder(
   });
   if (quote) payment = ""; // agreed when the customer accepts the price
 
-  // 5. The order, its items AND its number in ONE statement. The number is this store's max + 1; a parallel order may
-  //    take the same one: the unique index then refuses ours and createOrder retries the whole transaction (stock included).
+  // 5. The order, its items AND its number in ONE statement. The number is random; if this store already has it, the
+  //    unique index refuses ours and createOrder retries the whole transaction (stock included) with a new one.
   //    Times are written as UTC text (the columns are timestamp without time zone, like Prisma writes them).
   const now = new Date().toISOString();
   const orderId = randomUUID();
@@ -271,9 +274,8 @@ async function placeOrder(
   const [order] = await tx.$queryRaw<{ id: string; orderNumber: number }[]>`
     WITH o AS (
       INSERT INTO "Order" (id, "storeId", "orderNumber", "usersId", "addressId", total, details, payment, "paymentStatus", status, "createdAt", "updatedAt")
-      SELECT ${orderId}, ${storeId}, COALESCE(max("orderNumber"), 0) + 1, ${customerId}, ${address.id}, ${paiseToDecimalString(totalPaise)}::numeric,
-             ${JSON.stringify(detailsToJson(details))}::jsonb, ${payment}, 'PENDING', ${status}, ${now}::timestamp, ${now}::timestamp
-      FROM "Order" WHERE "storeId" = ${storeId}
+      VALUES (${orderId}, ${storeId}, ${orderNumbers.next()}, ${customerId}, ${address.id}, ${paiseToDecimalString(totalPaise)}::numeric,
+             ${JSON.stringify(detailsToJson(details))}::jsonb, ${payment}, 'PENDING', ${status}, ${now}::timestamp, ${now}::timestamp)
       RETURNING id, "orderNumber"
     ), i AS (
       INSERT INTO "OrderItem" (id, "orderId", "productId", "orderQuantity")

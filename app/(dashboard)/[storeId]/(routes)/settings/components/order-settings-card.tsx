@@ -184,14 +184,13 @@ const QuoteWordsModal = ({ storeId, initial, onClose }: ModalProps) => {
   const [button, setButton] = useState(initial.quote.button);
   const [priceText, setPriceText] = useState(initial.quote.priceText);
   return (
-    <SettingsModal title="Price on request" isOpen onClose={onClose} onSave={() => save({ quote: { button, priceText } })} loading={loading} error={error}>
+    <SettingsModal title="Quotes & enquiries" isOpen onClose={onClose} onSave={() => save({ quote: { button, priceText } })} loading={loading} error={error}>
       <p className="text-sm text-muted-foreground">
-        For products with Price on request turned on. Customers add them to the cart as usual; at checkout they send a request instead of paying, and you
-        send the price on the order.
+        For Price on request items, customers can request a quote right from the product page or add items in their cart to submit at checkout. Instead of paying upfront; they send a request, and you set the price on the order.
       </p>
       <LabelPicker
         id="quote-price"
-        label="Shown in place of the price"
+        label="Text shown in place of the price"
         help="On the product page, product cards and the cart."
         presets={QUOTE_PRICE_PRESETS}
         value={priceText}
@@ -200,8 +199,8 @@ const QuoteWordsModal = ({ storeId, initial, onClose }: ModalProps) => {
       />
       <LabelPicker
         id="quote-button"
-        label="Checkout button"
-        help="The button that sends the request, when the cart has a price-on-request product."
+        label="Checkout button text"
+        help="The button that sends the request, in product page and when the cart has a price-on-request product."
         presets={QUOTE_BUTTON_PRESETS}
         value={button}
         onChange={setButton}
@@ -252,9 +251,9 @@ export const OrderSettingsCard = ({ storeId, initial }: { storeId: string; initi
         />
         <SettingRow title="Returns" summary={r.enabled ? `On · ${r.windowDays} days` : "Off"} action={<EditButton onClick={returns.show} label="Edit returns" />} />
         <SettingRow
-          title="Price on request"
+          title="Quotes & enquiries"
           summary={`"${initial.quote.priceText}" · button "${initial.quote.button}"`}
-          action={<EditButton onClick={quote.show} label="Edit the price-on-request words" />}
+          action={<EditButton onClick={quote.show} label="Edit quotes and enquiries" />}
         />
       </SettingsList>
       {statuses.open && <StatusesModal storeId={storeId} initial={initial} onClose={statuses.hide} />}
