@@ -1,6 +1,6 @@
 import { revalidateStoreCatalog } from "@/lib/store-revalidate";
 import { NextResponse } from "next/server";
-import { getUserId } from "@/lib/agent/context";
+import { requireStoreOwnerResponse } from "@/lib/api/admin-auth";
 import prismadb from "@/lib/prismadb";
 import { isPageError, pageBody, readPage } from "@/lib/api/paginate";
 import { readBanner } from "@/lib/api/category-banner";
@@ -21,15 +21,12 @@ export async function POST(
 ) {
   try {
     const resolvedParams = await params;
-    const userId = await getUserId();
+    const owner = await requireStoreOwnerResponse(resolvedParams.storeId);
+    if ("error" in owner) return owner.error;
 
     const body = await req.json();
 
     const { name, imageUrl } = body;
-
-    if (!userId) {
-      return new NextResponse("Unauthenticated", { status: 403 });
-    }
 
     if (!name) {
       return new NextResponse("Name is required", { status: 400 });
@@ -42,23 +39,6 @@ export async function POST(
     // banner: optional, the category's billboard images.
     const banner = readBanner(body.banner);
     if (!banner.ok) return new NextResponse(banner.error, { status: 400 });
-
-    if (!resolvedParams.storeId) {
-      return new NextResponse("Store id is required", { status: 400 });
-    }
-
-
-    const storeByUserId = await prismadb.store.findFirst({
-      where: {
-        id: resolvedParams.storeId,
-        userId,
-      },
-      select: { id: true },
-    });
-
-    if (!storeByUserId) {
-      return new NextResponse("Unauthorized", { status: 405 });
-    }
 
     const category = await prismadb.category.create({
       data: {

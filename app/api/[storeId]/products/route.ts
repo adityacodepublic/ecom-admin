@@ -1,11 +1,11 @@
 import { revalidateStoreCatalog } from "@/lib/store-revalidate";
 import { NextResponse } from "next/server";
-import { getUserId } from "@/lib/agent/context";
+import { callerOwnsStore, requireStoreOwnerResponse } from "@/lib/api/admin-auth";
 import prismadb from "@/lib/prismadb";
 import { toPaise } from "@/lib/money";
 import { categoryInStore, valuesInStore, isStockQuantity, isMaxQuantity } from "@/lib/api/store-refs";
 import { isPageError, pageBody, readPage } from "@/lib/api/paginate";
-import { callerOwnsStore,checkFilterItems, checkImages, checkPrice } from "@/lib/api/validate";
+import { checkFilterItems, checkImages, checkPrice } from "@/lib/api/validate";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -23,7 +23,8 @@ export async function POST(
 ) {
   try {
     const resolvedParams = await params;
-    const userId = await getUserId();
+    const owner = await requireStoreOwnerResponse(resolvedParams.storeId);
+    if ("error" in owner) return owner.error;
 
     const body = await req.json();
 
@@ -39,10 +40,6 @@ export async function POST(
       filteritems,
       description,
     } = body;
-
-    if (!userId) {
-      return new NextResponse("Unauthenticated", { status: 403 });
-    }
 
     if (!name) {
       return new NextResponse("Name is required", { status: 400 });
@@ -82,23 +79,6 @@ export async function POST(
 
     if (!categoryId) {
       return new NextResponse("Category id is required", { status: 400 });
-    }
-
-    if (!resolvedParams.storeId) {
-      return new NextResponse("Store id is required", { status: 400 });
-    }
-
-
-    const storeByUserId = await prismadb.store.findFirst({
-      where: {
-        id: resolvedParams.storeId,
-        userId,
-      },
-      select: { id: true },
-    });
-
-    if (!storeByUserId) {
-      return new NextResponse("Unauthorized", { status: 405 });
     }
 
     if (!(await categoryInStore(resolvedParams.storeId, categoryId))) {
@@ -157,12 +137,24 @@ export async function GET(
     const isArchived = searchParams.get("isArchived") || undefined;
     const price = Number(searchParams.get("price")) || undefined;
 
-    const filters: string[][] = searchParams.get("filterId")
-      ? JSON.parse(searchParams.get("filterId")!)
-      : [];
-    // console.log("Filters:", searchParams.entries());
+    let filtersRaw: unknown = [];
+    const rawFilterId = searchParams.get("filterId");
+    if (rawFilterId) {
+      try {
+        filtersRaw = JSON.parse(rawFilterId);
+      } catch {
+        return new NextResponse("Invalid filterId parameter", { status: 400, headers: corsHeaders });
+      }
+      if (!filtersRaw || typeof filtersRaw !== "object") {
+        return new NextResponse("Invalid filterId parameter", { status: 400, headers: corsHeaders });
+      }
+    }
+    const filterGroups = Object.values(filtersRaw as Record<string, unknown>);
+    if (!filterGroups.every((group) => Array.isArray(group) && group.every((id) => typeof id === "string"))) {
+      return new NextResponse("Invalid filterId parameter", { status: 400, headers: corsHeaders });
+    }
 
-    const filterConditions = Object.values(filters).map((valueIds) => ({
+    const filterConditions = (filterGroups as string[][]).map((valueIds) => ({
       filteritems: {
         some: {
           valueId: {

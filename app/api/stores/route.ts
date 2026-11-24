@@ -1,25 +1,23 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 
+import { requireSessionUserResponse } from "@/lib/api/admin-auth";
 import { createStore } from "@/lib/store-slug";
 
 export async function POST(req: Request) {
   try {
-    const { userId } = await auth();
+    const session = await requireSessionUserResponse();
+    if ("error" in session) return session.error;
+
     const body = await req.json();
 
     const name = typeof body?.name === "string" ? body.name.trim() : "";
-
-    if (!userId) {
-      return new NextResponse("Unauthorized", { status: 403 });
-    }
 
     if (!name) {
       return new NextResponse("Name is required", { status: 400 });
     }
 
     // The slug is the owner's choice, used as typed. 400 = not allowed, 409 = taken. Never auto-changed.
-    const result = await createStore(name, userId, body?.slug);
+    const result = await createStore(name, session.userId, body?.slug);
     if (!result.ok) {
       return NextResponse.json({ field: "slug", error: result.error }, { status: result.status });
     }

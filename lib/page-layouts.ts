@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 
+import { isStoreOwner } from "@/lib/api/admin-auth";
 import prismadb from "@/lib/prismadb";
 import {
   CURRENT_CATEGORY,
@@ -53,9 +54,6 @@ export async function listCustomRoutes(storeId: string): Promise<string[] | unde
 type Fail = { ok: false; status: number; body: unknown };
 export type SaveResult = { ok: true; layout: PageLayout } | Fail;
 
-const ownsStore = async (storeId: string, userId: string) =>
-  !!(await prismadb.store.findFirst({ where: { id: storeId, userId }, select: { id: true } }));
-
 /** Validates a whole layout for a page kind; blocks without an id get one. Categories named in blocks must belong to the store. */
 async function checkLayout(storeId: string, kind: PageKind, body: unknown): Promise<{ ok: true; layout: PageLayout } | Fail> {
   const withIds = Array.isArray(body) ? body.map((section) => ({ ...section, id: section?.id || randomUUID() })) : body;
@@ -81,7 +79,7 @@ const noPage = (route: string): Fail => ({ ok: false, status: 404, body: `No pag
 
 /** Validates and saves a whole layout (owner only): a built-in page by name, or an existing custom page by route. */
 export async function saveLayout(storeId: string, userId: string, page: string, body: unknown): Promise<SaveResult> {
-  if (!(await ownsStore(storeId, userId))) return { ok: false, status: 405, body: "Unauthorized" };
+  if (!(await isStoreOwner(storeId, userId))) return { ok: false, status: 403, body: "Forbidden" };
   const checked = await checkLayout(storeId, isPage(page) ? page : "custom", body);
   if (!checked.ok) return checked;
   const json = JSON.stringify(checked.layout);
@@ -115,7 +113,7 @@ export async function checkNewRoute(storeId: string, body: unknown): Promise<{ o
 
 /** Creates an empty custom page (owner only). */
 export async function createCustomPage(storeId: string, userId: string, body: unknown): Promise<{ ok: true; route: string } | Fail> {
-  if (!(await ownsStore(storeId, userId))) return { ok: false, status: 405, body: "Unauthorized" };
+  if (!(await isStoreOwner(storeId, userId))) return { ok: false, status: 403, body: "Forbidden" };
   const checked = await checkNewRoute(storeId, body);
   if (!checked.ok) return checked;
   const { route } = checked;
@@ -134,7 +132,7 @@ export async function createCustomPage(storeId: string, userId: string, body: un
 
 /** Deletes a custom page and its blocks (owner only). */
 export async function deleteCustomPage(storeId: string, userId: string, route: string): Promise<{ ok: true } | Fail> {
-  if (!(await ownsStore(storeId, userId))) return { ok: false, status: 405, body: "Unauthorized" };
+  if (!(await isStoreOwner(storeId, userId))) return { ok: false, status: 403, body: "Forbidden" };
   const deleted = await prismadb.$executeRaw`UPDATE "Store" SET "pageLayouts" = "pageLayouts" #- ARRAY['custom', ${route}]::text[], "updatedAt" = now() WHERE "id" = ${storeId} AND "userId" = ${userId} AND "pageLayouts"->'custom'->${route} IS NOT NULL`;
   return deleted ? { ok: true } : { ok: false, status: 404, body: `No page at /${route}.` };
 }

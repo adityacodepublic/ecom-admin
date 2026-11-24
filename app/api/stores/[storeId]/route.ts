@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 
+import { requireSessionStoreOwnerResponse } from "@/lib/api/admin-auth";
 import prismadb from "@/lib/prismadb";
 import { inUseResponse } from "@/lib/api/validate";
 export const revalidate = 0;
@@ -11,15 +11,9 @@ export async function DELETE(
 ): Promise<NextResponse> {
   try {
     const resolvedParams = await params;
-    const { userId } = await auth();
-
-    if (!userId) {
-      return new NextResponse("Unauthenticated", { status: 403 });
-    }
-
-    if (!resolvedParams.storeId) {
-      return new NextResponse("Store id is required", { status: 400 });
-    }
+    const owner = await requireSessionStoreOwnerResponse(resolvedParams.storeId);
+    if ("error" in owner) return owner.error;
+    const { userId } = owner;
 
     // Library rows first, then the store, in ONE transaction: if the store delete fails
     // (it still has products etc.) the library rows come back. Cloudinary files stay.

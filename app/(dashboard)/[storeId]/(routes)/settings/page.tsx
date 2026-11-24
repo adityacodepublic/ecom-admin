@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { auth } from "@clerk/nextjs/server";
 
+import { requireStoreOwnerPage } from "@/lib/api/admin-auth";
 import prismadb from "@/lib/prismadb";
 
 import { parseContact } from "@/lib/contact";
@@ -20,11 +20,7 @@ const SettingsPage = async ({
   params: Promise<{ storeId: string }>;
 }) => {
   const resolvedParams = await params;
-  const { userId } = await auth();
-
-  if (!userId) {
-    redirect("/sign-in");
-  }
+  const userId = await requireStoreOwnerPage(resolvedParams.storeId);
 
   const store = await prismadb.store.findFirst({
     where: {

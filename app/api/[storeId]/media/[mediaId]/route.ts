@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import prismadb from "@/lib/prismadb";
-import { checkStoreOwner } from "@/lib/media-auth";
+import { requireStoreOwnerResponse } from "@/lib/api/admin-auth";
 import { fileStillReferenced, getUsage } from "@/lib/media-usage";
 import { destroyImage } from "@/lib/cloudinary";
 
@@ -9,8 +9,8 @@ import { destroyImage } from "@/lib/cloudinary";
 export async function DELETE(_req: Request, { params }: { params: Promise<{ storeId: string; mediaId: string }> }) {
   try {
     const { storeId, mediaId } = await params;
-    const denied = await checkStoreOwner(storeId);
-    if (denied) return denied;
+    const owner = await requireStoreOwnerResponse(storeId);
+    if ("error" in owner) return owner.error;
 
     const media = await prismadb.mediaImage.findFirst({ where: { id: mediaId, storeId } });
     if (!media) return new NextResponse("Not found", { status: 404 });

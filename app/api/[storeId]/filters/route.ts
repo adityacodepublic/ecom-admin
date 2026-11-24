@@ -1,6 +1,6 @@
 import { revalidateStoreCatalog } from "@/lib/store-revalidate";
 import { NextResponse } from "next/server";
-import { getUserId } from "@/lib/agent/context";
+import { requireStoreOwnerResponse } from "@/lib/api/admin-auth";
 import prismadb from "@/lib/prismadb";
 import { Decimal } from "@prisma/client/runtime/library";
 import { Prisma } from "@prisma/client";
@@ -22,15 +22,12 @@ export async function POST(
 ) {
   try {
     const resolvedParams = await params;
-    const userId = await getUserId();
+    const owner = await requireStoreOwnerResponse(resolvedParams.storeId);
+    if ("error" in owner) return owner.error;
 
     const body = await req.json();
 
     const { name, value } = body;
-
-    if (!userId) {
-      return new NextResponse("Unauthenticated", { status: 403 });
-    }
 
     if (!name) {
       return new NextResponse("Name is required", { status: 400 });
@@ -39,23 +36,6 @@ export async function POST(
     if (!value) {
       return new NextResponse("Value is required", { status: 400 });
     }
-
-    if (!resolvedParams.storeId) {
-      return new NextResponse("Store id is required", { status: 400 });
-    }
-
-    const storeByUserId = await prismadb.store.findFirst({
-      where: {
-        id: resolvedParams.storeId,
-        userId,
-      },
-      select: { id: true },
-    });
-
-    if (!storeByUserId) {
-      return new NextResponse("Unauthorized", { status: 405 });
-    }
-
 
     const duplicate = await prismadb.filter.findFirst({
       where: { storeId: resolvedParams.storeId, name },

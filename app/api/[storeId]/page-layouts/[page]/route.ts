@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getUserId } from "@/lib/agent/context";
+import { requireStoreOwnerResponse } from "@/lib/api/admin-auth";
 import { deleteCustomPage, isPage, readLayout, saveLayout } from "@/lib/page-layouts";
 
 const corsHeaders = {
@@ -34,10 +34,10 @@ export async function GET(_req: Request, { params }: Ctx) {
 export async function PUT(req: Request, { params }: Ctx) {
   try {
     const { storeId, page } = await params;
-    const userId = await getUserId();
-    if (!userId) return new NextResponse("Unauthenticated", { status: 403 });
+    const owner = await requireStoreOwnerResponse(storeId);
+    if ("error" in owner) return owner.error;
 
-    const result = await saveLayout(storeId, userId, page, await req.json());
+    const result = await saveLayout(storeId, owner.userId, page, await req.json());
     if (!result.ok) return reply(result.status, result.body);
     return NextResponse.json(result.layout, { headers: corsHeaders });
   } catch (error) {
@@ -50,11 +50,11 @@ export async function PUT(req: Request, { params }: Ctx) {
 export async function DELETE(_req: Request, { params }: Ctx) {
   try {
     const { storeId, page } = await params;
+    const owner = await requireStoreOwnerResponse(storeId);
+    if ("error" in owner) return owner.error;
     if (isPage(page)) return new NextResponse(`The ${page} page cannot be deleted. Save an empty layout instead.`, { status: 400 });
-    const userId = await getUserId();
-    if (!userId) return new NextResponse("Unauthenticated", { status: 403 });
 
-    const result = await deleteCustomPage(storeId, userId, page);
+    const result = await deleteCustomPage(storeId, owner.userId, page);
     if (!result.ok) return reply(result.status, result.body);
     return NextResponse.json({ deleted: page });
   } catch (error) {

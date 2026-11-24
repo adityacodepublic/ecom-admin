@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 
-import { getUserId } from "@/lib/agent/context";
 import { toPaise } from "@/lib/money";
-import prismadb from "@/lib/prismadb";
+
+export { callerOwnsStore } from "@/lib/api/admin-auth";
 
 /** Body checks shared by the product and category routes. They run BEFORE anything is written. */
 
@@ -72,21 +72,6 @@ export function checkFilterItems(items: unknown): Checked<string[]> {
     ids.push(v);
   }
   return { ok: true, data: ids };
-}
-
-/**
- * True only when the caller is the signed-in owner of this store (browser session or the agent proxy).
- * Never throws: no session (store front, scripts) simply means "public".
- */
-export async function callerOwnsStore(storeId: string | undefined): Promise<boolean> {
-  if (!storeId) return false;
-  try {
-    const userId = await getUserId();
-    if (!userId) return false;
-    return !!(await prismadb.store.findFirst({ where: { id: storeId, userId }, select: { id: true } }));
-  } catch {
-    return false;
-  }
 }
 
 /** 409 for "still in use" delete failures (Prisma P2014 / P2003), otherwise null. */

@@ -40,4 +40,4 @@ POST {{BASE}}/categories
 | 400 `Name is required` or `Thumbnail (imageUrl) is required` | Send both fields. |
 | 400 `banner...` | Send an array of at most 20 `{ url, href }` with `http(s)` URLs. |
 | 500 `Internal error` on DELETE | Products still use the category. Move or delete them first (`{{BASE}}/skill/products`). Also check blocks that filter by this `categoryId` (`{{BASE}}/skill/pages`). |
-| 405 | The link no longer owns the store. |
+| 403 | The link no longer owns the store. |

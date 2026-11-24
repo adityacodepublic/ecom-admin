@@ -122,11 +122,11 @@ async function main() {
     check("a product list with a category of another store is refused", foreignList.status === 400 && foreignList.text.includes("Category not found"), foreignList);
 
     // only the owner
-    check("another account cannot save", (await put(a.id, "user_zz_b", "category", [])).status === 405);
+    check("another account cannot save", (await put(a.id, "user_zz_b", "category", [])).status === 403);
     const anon = await agentContext.run({ userId: "", storeId: a.id }, () =>
       route.PUT(new Request("http://x/x", { method: "PUT", body: "[]" }), { params: Promise.resolve({ storeId: a.id, page: "category" }) }),
     );
-    check("no account cannot save", anon.status === 403, anon.status);
+    check("no account cannot save", anon.status === 401, anon.status);
 
     // ---- Markdown block
     const md = { type: "markdown", settings: { markdown: "**7 days**" } };
@@ -151,7 +151,7 @@ async function main() {
       check(`bad route "${r.slice(0, 12)}": 400`, (await create(b.id, B, { route: r })).status === 400);
     }
     check("unknown field: 400", (await create(b.id, B, { route: "x", title: "y" })).status === 400);
-    check("another account cannot create", (await create(b.id, A, { route: "mine" })).status === 405);
+    check("another account cannot create", (await create(b.id, A, { route: "mine" })).status === 403);
     const saved = await put(b.id, B, "summer-sale", [carousel(), list({ categoryId: "current" }), custom(), { type: "markdown", settings: { markdown: "hi" } }]);
     check("custom page saves Billboard, Product list and Custom component", saved.status === 200, saved);
     check("custom page reads back", (await get(b.id, "summer-sale")).body.length === 4);
@@ -164,7 +164,7 @@ async function main() {
     await put(b.id, B, "home", [carousel()]);
     check("custom pages and home do not overwrite each other", (await get(b.id, "summer-sale")).body.length === 4 && (await get(b.id, "home")).body.length === 1 && JSON.stringify((await get(b.id, "about")).body) === "[]");
     check("the home page cannot be deleted", (await del(b.id, B, "home")).status === 400);
-    check("another account cannot delete", (await del(b.id, A, "about")).status === 405);
+    check("another account cannot delete", (await del(b.id, A, "about")).status === 403);
     check("delete a custom page", (await del(b.id, B, "about")).status === 200 && (await get(b.id, "about")).status === 404);
     check("delete again: 404", (await del(b.id, B, "about")).status === 404);
     check("the route is free again after delete", (await create(b.id, B, { route: "about" })).status === 201);

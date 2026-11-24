@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import prismadb from "@/lib/prismadb";
-import { checkStoreOwner } from "@/lib/media-auth";
+import { requireStoreOwnerResponse } from "@/lib/api/admin-auth";
 
 /**
  * Owner only. A customer of THIS store (someone with an order here). Before, GET was public and returned
@@ -15,8 +15,8 @@ type Params = { params: Promise<{ usersId: string; storeId: string }> };
 export async function GET(req: Request, { params }: Params) {
   try {
     const { storeId, usersId } = await params;
-    const denied = await checkStoreOwner(storeId);
-    if (denied) return denied;
+    const owner = await requireStoreOwnerResponse(storeId);
+    if ("error" in owner) return owner.error;
 
     const user = await prismadb.users.findFirst({
       where: { id: usersId, orders: { some: { storeId } } },

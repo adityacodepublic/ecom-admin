@@ -1,10 +1,10 @@
 import { revalidateStoreCatalog } from "@/lib/store-revalidate";
 import { NextResponse } from "next/server";
-import { getUserId } from "@/lib/agent/context";
+import { callerOwnsStore, requireStoreOwnerResponse } from "@/lib/api/admin-auth";
 import prismadb from "@/lib/prismadb";
 import { toPaise } from "@/lib/money";
 import { categoryInStore, valuesInStore, isStockQuantity, isMaxQuantity } from "@/lib/api/store-refs";
-import { callerOwnsStore, checkFilterItems, checkImages, checkPrice, inUseResponse } from "@/lib/api/validate";
+import { checkFilterItems, checkImages, checkPrice, inUseResponse } from "@/lib/api/validate";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -86,27 +86,11 @@ export async function DELETE(
 ) {
   try {
     const resolvedParams = await params;
-    const userId = await getUserId();
-
-    if (!userId) {
-      return new NextResponse("Unauthenticated", { status: 403 });
-    }
+    const owner = await requireStoreOwnerResponse(resolvedParams.storeId);
+    if ("error" in owner) return owner.error;
 
     if (!resolvedParams.productId) {
       return new NextResponse("Product id is required", { status: 400 });
-    }
-
-
-    const storeByUserId = await prismadb.store.findFirst({
-      where: {
-        id: resolvedParams.storeId,
-        userId,
-      },
-      select: { id: true },
-    });
-
-    if (!storeByUserId) {
-      return new NextResponse("Unauthorized", { status: 405 });
     }
 
     // The record must belong to THIS store (ids alone are not enough).
@@ -141,7 +125,8 @@ export async function PATCH(
 ) {
   try {
     const resolvedParams = await params;
-    const userId = await getUserId();
+    const owner = await requireStoreOwnerResponse(resolvedParams.storeId);
+    if ("error" in owner) return owner.error;
 
     const body = await req.json();
 
@@ -158,10 +143,6 @@ export async function PATCH(
       filteritems,
       description,
     } = body;
-
-    if (!userId) {
-      return new NextResponse("Unauthenticated", { status: 403 });
-    }
 
     if (!resolvedParams.productId) {
       return new NextResponse("Product id is required", { status: 400 });
@@ -212,19 +193,6 @@ export async function PATCH(
 
     if (!categoryId) {
       return new NextResponse("Category id is required", { status: 400 });
-    }
-
-
-    const storeByUserId = await prismadb.store.findFirst({
-      where: {
-        id: resolvedParams.storeId,
-        userId,
-      },
-      select: { id: true },
-    });
-
-    if (!storeByUserId) {
-      return new NextResponse("Unauthorized", { status: 405 });
     }
 
     // The record must belong to THIS store (ids alone are not enough).

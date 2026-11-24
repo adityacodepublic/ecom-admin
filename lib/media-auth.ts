@@ -1,15 +1,12 @@
 import { NextResponse } from "next/server";
-import { getUserId } from "@/lib/agent/context";
-import prismadb from "@/lib/prismadb";
+import { requireStoreOwnerResponse } from "@/lib/api/admin-auth";
 
 /**
- * Every media route calls this first. /api/* is public in proxy.ts, so the check lives here:
- * the user must be signed in and must own the store. Returns an error response, or null if fine.
+ * @deprecated Use `requireStoreOwnerResponse` from `@/lib/api/admin-auth` directly.
+ * Every media/users route checks that the caller is signed in and owns the store.
+ * Returns an error response (401/403), or null if fine.
  */
 export async function checkStoreOwner(storeId: string): Promise<NextResponse | null> {
-  const userId = await getUserId();
-  if (!userId) return new NextResponse("Unauthenticated", { status: 403 });
-  const store = await prismadb.store.findFirst({ where: { id: storeId, userId }, select: { id: true } });
-  if (!store) return new NextResponse("Unauthorized", { status: 405 });
-  return null;
+  const owner = await requireStoreOwnerResponse(storeId);
+  return "error" in owner ? owner.error : null;
 }

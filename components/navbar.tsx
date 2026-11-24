@@ -1,6 +1,5 @@
 import { UserButton } from "@clerk/nextjs";
 import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 
 import StoreSwitcher from "@/components/store-switcher";
 import { MainNav } from "@/components/main-nav";
@@ -9,10 +8,10 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import prismadb from "@/lib/prismadb";
 
 const Navbar = async () => {
-  const { userId } = await auth();
+  const { userId, redirectToSignIn } = await auth();
 
   if (!userId) {
-    redirect("/sign-in");
+    return redirectToSignIn();
   }
 
   const stores = await prismadb.store.findMany({
@@ -33,7 +32,7 @@ const Navbar = async () => {
             <MobileNav />
           </div>
           <ThemeToggle />
-          <UserButton afterSignOutUrl="/" />
+          <UserButton />
         </div>
       </div>
     </div>

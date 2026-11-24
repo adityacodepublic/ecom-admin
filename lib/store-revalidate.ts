@@ -18,10 +18,12 @@ function configured() {
 }
 
 async function post(tags: string[]) {
+  const secret = process.env.STORE_API_SECRET ?? "";
+  if (!secret) return;
   try {
     await fetch(`${storeAppOrigin()}/api/revalidate`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-store-secret": secret },
       body: JSON.stringify({ tag: tags }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });

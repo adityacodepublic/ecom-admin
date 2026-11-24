@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { requireStoreOwnerPage } from "@/lib/api/admin-auth";
 import prismadb from "@/lib/prismadb";
 
 import { FilterForm } from "./components/filter-form";
@@ -10,6 +11,7 @@ const FilterPage = async ({
   params: Promise<{ filterId: string; storeId: string }>;
 }) => {
   const resolvedParams = await params;
+  await requireStoreOwnerPage(resolvedParams.storeId);
   const filter = await prismadb.filter.findFirst({
     where: {
       id: resolvedParams.filterId,

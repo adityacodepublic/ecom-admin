@@ -9,8 +9,8 @@ import { AcceptModal } from "./accept-modal";
 /** The page the new owner opens from the link. proxy.ts makes them sign in first and brings them back here. */
 const TransferPage = async ({ params }: { params: Promise<{ storeId: string; token: string }> }) => {
   const { storeId, token } = await params;
-  const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
+  const { userId, redirectToSignIn } = await auth();
+  if (!userId) return redirectToSignIn();
 
   const owns = await prismadb.store.findFirst({ where: { id: storeId, userId }, select: { id: true } });
   if (owns) redirect(`/${storeId}`);

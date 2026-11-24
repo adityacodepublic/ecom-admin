@@ -116,6 +116,7 @@ export const sectionSettingsSchemas = {
       .record(z.string().regex(CUSTOM_DATA_NAME, "Data names: letters, digits, _ (start with a letter, 32 at most)"), dataQuerySchema)
       .default({})
       .refine((d) => !("store" in d), 'The data name "store" is reserved')
+      .refine((d) => Object.keys(d).length <= 10, "At most 10 data queries")
       .describe("Named data queries, available as STORE_DATA.<name>"),
   }),
   // ---- fixed blocks: they show the store's own data, which is edited elsewhere in the admin. Once per page.

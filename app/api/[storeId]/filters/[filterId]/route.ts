@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 import prismadb from "@/lib/prismadb";
 import { inUseResponse } from "@/lib/api/validate";
-import { getUserId } from "@/lib/agent/context";
+import { requireStoreOwnerResponse } from "@/lib/api/admin-auth";
 import { Prisma } from "@prisma/client";
 
 const corsHeaders = {
@@ -57,26 +57,11 @@ export async function DELETE(
 ) {
   try {
     const resolvedParams = await params;
-    const userId = await getUserId();
-
-    if (!userId) {
-      return new NextResponse("Unauthenticated", { status: 403 });
-    }
+    const owner = await requireStoreOwnerResponse(resolvedParams.storeId);
+    if ("error" in owner) return owner.error;
 
     if (!resolvedParams.filterId) {
       return new NextResponse("Filter id is required", { status: 400 });
-    }
-
-    const storeByUserId = await prismadb.store.findFirst({
-      where: {
-        id: resolvedParams.storeId,
-        userId,
-      },
-      select: { id: true },
-    });
-
-    if (!storeByUserId) {
-      return new NextResponse("Unauthorized", { status: 405 });
     }
 
     // The record must belong to THIS store (ids alone are not enough).
@@ -112,15 +97,12 @@ export async function PATCH(
 ) {
   try {
     const resolvedParams = await params;
-    const userId = await getUserId();
+    const owner = await requireStoreOwnerResponse(resolvedParams.storeId);
+    if ("error" in owner) return owner.error;
 
     const body = await req.json();
 
     const { name, value } = body;
-
-    if (!userId) {
-      return new NextResponse("Unauthenticated", { status: 403 });
-    }
 
     if (!name) {
       return new NextResponse("Name is required", { status: 400 });
@@ -132,22 +114,6 @@ export async function PATCH(
 
     if (!resolvedParams.filterId) {
       return new NextResponse("Filter id is required", { status: 400 });
-    }
-
-    if (!resolvedParams.storeId) {
-      return new NextResponse("Filter id is required", { status: 400 });
-    }
-
-    const storeByUserId = await prismadb.store.findFirst({
-      where: {
-        id: resolvedParams.storeId,
-        userId,
-      },
-      select: { id: true },
-    });
-
-    if (!storeByUserId) {
-      return new NextResponse("Unauthorized", { status: 405 });
     }
 
     // The record must belong to THIS store (ids alone are not enough).

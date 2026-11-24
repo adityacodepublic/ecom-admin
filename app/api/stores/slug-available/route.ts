@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 
+import { requireSessionUserResponse } from "@/lib/api/admin-auth";
 import prismadb from "@/lib/prismadb";
 import { SLUG_TAKEN_MESSAGE, slugError } from "@/lib/slug";
 import { normalizeSlug } from "@/lib/store-slug";
@@ -11,10 +11,9 @@ import { normalizeSlug } from "@/lib/store-slug";
  * With storeId (rename), that store's own current slug counts as available.
  */
 export async function GET(req: Request) {
-  const { userId } = await auth();
-  if (!userId) {
-    return new NextResponse("Unauthenticated", { status: 403 });
-  }
+  const session = await requireSessionUserResponse();
+  if ("error" in session) return session.error;
+  const { userId } = session;
   const { searchParams } = new URL(req.url);
   const slug = normalizeSlug(searchParams.get("slug"));
   const storeId = searchParams.get("storeId");

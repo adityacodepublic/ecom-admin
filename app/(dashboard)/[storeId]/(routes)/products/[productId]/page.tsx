@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { requireStoreOwnerPage } from "@/lib/api/admin-auth";
 import prismadb from "@/lib/prismadb";
 
 import { ProductForm } from "./components/product-form";
@@ -10,6 +11,7 @@ const ProductPage = async ({
   params: Promise<{ productId: string; storeId: string }>;
 }) => {
   const resolvedParams = await params;
+  await requireStoreOwnerPage(resolvedParams.storeId);
   const product = await prismadb.product.findFirst({
     where: {
       id: resolvedParams.productId,

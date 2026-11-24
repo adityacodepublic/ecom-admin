@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { requireStoreOwnerPage } from "@/lib/api/admin-auth";
 import prismadb from "@/lib/prismadb";
 
 import { CategoryForm } from "./components/category-form";
@@ -10,6 +11,7 @@ const CategoryPage = async ({
   params: Promise<{ categoryId: string; storeId: string }>;
 }) => {
   const resolvedParams = await params;
+  await requireStoreOwnerPage(resolvedParams.storeId);
   const category = await prismadb.category.findFirst({
     where: {
       id: resolvedParams.categoryId,

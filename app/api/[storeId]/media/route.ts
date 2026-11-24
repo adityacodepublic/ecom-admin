@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 
 import prismadb from "@/lib/prismadb";
-import { checkStoreOwner } from "@/lib/media-auth";
+import { requireStoreOwnerResponse } from "@/lib/api/admin-auth";
 import { getUsage } from "@/lib/media-usage";
 import { cloudName, storeFolder } from "@/lib/cloudinary";
 import { escapeLike, nameFromUrl, type MediaItem } from "@/lib/media";
@@ -13,8 +13,8 @@ const PAGE = 40;
 export async function GET(req: Request, { params }: { params: Promise<{ storeId: string }> }) {
   try {
     const { storeId } = await params;
-    const denied = await checkStoreOwner(storeId);
-    if (denied) return denied;
+    const owner = await requireStoreOwnerResponse(storeId);
+    if ("error" in owner) return owner.error;
 
     const sp = new URL(req.url).searchParams;
     const q = (sp.get("q") || "").trim().slice(0, 100);
@@ -75,8 +75,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ storeId:
 export async function POST(req: Request, { params }: { params: Promise<{ storeId: string }> }) {
   try {
     const { storeId } = await params;
-    const denied = await checkStoreOwner(storeId);
-    if (denied) return denied;
+    const owner = await requireStoreOwnerResponse(storeId);
+    if ("error" in owner) return owner.error;
 
     const body = await req.json();
     const url = String(body.url || "");

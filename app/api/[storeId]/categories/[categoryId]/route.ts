@@ -1,6 +1,6 @@
 import { revalidateStoreCatalog } from "@/lib/store-revalidate";
 import { NextResponse } from "next/server";
-import { getUserId } from "@/lib/agent/context";
+import { requireStoreOwnerResponse } from "@/lib/api/admin-auth";
 import prismadb from "@/lib/prismadb";
 import { inUseResponse } from "@/lib/api/validate";
 import { readBanner } from "@/lib/api/category-banner";
@@ -46,27 +46,11 @@ export async function DELETE(
 ) {
   try {
     const resolvedParams = await params;
-    const userId = await getUserId();
-
-    if (!userId) {
-      return new NextResponse("Unauthenticated", { status: 403 });
-    }
+    const owner = await requireStoreOwnerResponse(resolvedParams.storeId);
+    if ("error" in owner) return owner.error;
 
     if (!resolvedParams.categoryId) {
       return new NextResponse("Category id is required", { status: 400 });
-    }
-
-
-    const storeByUserId = await prismadb.store.findFirst({
-      where: {
-        id: resolvedParams.storeId,
-        userId,
-      },
-      select: { id: true },
-    });
-
-    if (!storeByUserId) {
-      return new NextResponse("Unauthorized", { status: 405 });
     }
 
     // The record must belong to THIS store (ids alone are not enough).
@@ -101,15 +85,12 @@ export async function PATCH(
 ) {
   try {
     const resolvedParams = await params;
-    const userId = await getUserId();
+    const owner = await requireStoreOwnerResponse(resolvedParams.storeId);
+    if ("error" in owner) return owner.error;
 
     const body = await req.json();
 
     const { name, imageUrl } = body;
-
-    if (!userId) {
-      return new NextResponse("Unauthenticated", { status: 403 });
-    }
 
     if (!name) {
       return new NextResponse("Name is required", { status: 400 });
@@ -125,19 +106,6 @@ export async function PATCH(
 
     if (!resolvedParams.categoryId) {
       return new NextResponse("Category id is required", { status: 400 });
-    }
-
-
-    const storeByUserId = await prismadb.store.findFirst({
-      where: {
-        id: resolvedParams.storeId,
-        userId,
-      },
-      select: { id: true },
-    });
-
-    if (!storeByUserId) {
-      return new NextResponse("Unauthorized", { status: 405 });
     }
 
     // The record must belong to THIS store (ids alone are not enough).

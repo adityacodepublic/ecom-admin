@@ -56,10 +56,12 @@ export async function changeStoreSlug(storeId: string, userId: string, rawSlug: 
  * so the old URL is a 404 and the new one works right away. Best effort: on failure the cache runs out in 60s.
  */
 async function revalidateStoreLookup(slugs: string[]) {
+  const secret = process.env.STORE_API_SECRET ?? "";
+  if (!secret) return;
   try {
     await fetch(`${storeAppOrigin()}/api/revalidate`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-store-secret": secret },
       body: JSON.stringify({ tag: slugs.map((s) => `store-${s}`) }),
       signal: AbortSignal.timeout(3000),
     });

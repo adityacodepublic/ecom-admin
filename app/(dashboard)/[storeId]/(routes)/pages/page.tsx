@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { requireStoreOwnerPage } from "@/lib/api/admin-auth";
 import prismadb from "@/lib/prismadb";
 import { customPageLayoutSchema, defaultLayouts, PAGES, pageLayoutSchemas, type PageLayout, type PageName } from "@/lib/home-layout";
 import { customPagesOf } from "@/lib/page-layouts";
@@ -11,6 +12,7 @@ const PREVIEW_PRODUCTS = 100;
 
 const PagesPage = async ({ params }: { params: Promise<{ storeId: string }> }) => {
   const { storeId } = await params;
+  await requireStoreOwnerPage(storeId);
   const [store, categories, products] = await Promise.all([
     prismadb.store.findUnique({ where: { id: storeId }, select: { slug: true, pageLayouts: true } }),
     prismadb.category.findMany({ where: { storeId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),

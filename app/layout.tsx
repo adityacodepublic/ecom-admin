@@ -21,13 +21,13 @@ export const metadata = {
   appleWebApp: { capable: true, title: "Admin", statusBarStyle: "default" as const },
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <ClerkProvider>
+    <ClerkProvider afterSignOutUrl="/">
       <html lang="en" suppressHydrationWarning>
         <body className={inter.className}>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem>

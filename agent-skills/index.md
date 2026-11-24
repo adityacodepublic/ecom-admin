@@ -71,8 +71,8 @@ Create order: category, then (optional) filter, then product. Delete in reverse 
 - Image fields hold plain `https://` URLs. Get one with `POST {{BASE}}/upload-url` + a direct Cloudinary upload (max 6 MB, see media) or reuse an existing https URL (`POST {{BASE}}/media { "url": "https://...", "source": "url" }`).
 - Responses over about 3.5 MB are refused with `413 { "error": "Response too large. Use ?page=1&pageSize=50" }`. On the lists `products`, `categories` and `filters`, add `?page=1&pageSize=50` (pageSize max 100, default 50). With `page` the answer is `{ "items": [...], "page", "pageSize", "hasMore" }` instead of a plain array; keep requesting the next `page` while `hasMore` is true. Without `page` you get the full plain array as before. Request bodies are limited to about 200 KB.
 - PATCH on categories, products and filters is a full replace of the listed fields. Send every required field, not only the changed one. GET the record first and send it back modified.
-- Errors: older routes return a plain-text body (`Name is required`, `Internal error`) with 400/403/405/500. Orders, order-settings, contact and branding return `{ "error": { "code", "message", "details" } }`. Proxy errors return `{ "error": "..." }`.
-- `405` from a feature route means the store/owner check failed, not "method not allowed".
+- Errors: older routes return a plain-text body (`Name is required`, `Internal error`) with 400/401/403/500. Orders, order-settings, contact and branding return `{ "error": { "code", "message", "details" } }`. Proxy errors return `{ "error": "..." }`.
+- `403` from a feature route means the store/owner check failed.
 - Do not retry a `500 Internal error` blindly. Re-read the matching skill's failure table.
 - If you have codemode like tools, then use them to compose different requests.
 - Never delete data unless the user asked for it.

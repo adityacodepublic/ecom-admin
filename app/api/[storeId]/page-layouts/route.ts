@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getUserId } from "@/lib/agent/context";
+import { requireStoreOwnerResponse } from "@/lib/api/admin-auth";
 import { PAGES } from "@/lib/home-layout";
 import { createCustomPage, listCustomRoutes } from "@/lib/page-layouts";
 
@@ -18,11 +18,11 @@ export async function GET(_req: Request, { params }: Ctx) {
 export async function POST(req: Request, { params }: Ctx) {
   try {
     const { storeId } = await params;
-    const userId = await getUserId();
-    if (!userId) return new NextResponse("Unauthenticated", { status: 403 });
+    const owner = await requireStoreOwnerResponse(storeId);
+    if ("error" in owner) return owner.error;
 
     const body = await req.json().catch(() => null);
-    const result = await createCustomPage(storeId, userId, body);
+    const result = await createCustomPage(storeId, owner.userId, body);
     if (!result.ok) {
       return typeof result.body === "string" ? new NextResponse(result.body, { status: result.status }) : NextResponse.json(result.body, { status: result.status });
     }

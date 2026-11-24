@@ -264,7 +264,7 @@ const banner = [{ url: "https://x.test/b1.png", href: "" }, { url: "https://x.te
   check("users: pageSize 101 -> 400", (await getUsers("?pageSize=101")).status === 400);
   check("users: page 0 / text / 100001 -> 400", (await getUsers("?page=0")).status === 400 && (await getUsers("?page=abc")).status === 400 && (await getUsers("?page=100001")).status === 400);
   const noAuth = await run(() => usersRoute.GET(req("GET", `/api/${S}/users`), { params: Promise.resolve({ storeId: S }) }), "someone-else", S);
-  check("users: non-owner still refused", noAuth.status === 405, noAuth.status);
+  check("users: non-owner still refused", noAuth.status === 403, noAuth.status);
 
   // ------------------------------------------------------------ 7. orders page cap
   check("orders: page 100000 ok", orderListQuerySchema.safeParse({ page: "100000" }).success);

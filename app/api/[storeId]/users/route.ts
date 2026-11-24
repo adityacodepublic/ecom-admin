@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import prismadb from "@/lib/prismadb";
-import { checkStoreOwner } from "@/lib/media-auth";
+import { requireStoreOwnerResponse } from "@/lib/api/admin-auth";
 import { parsePaging } from "@/lib/api/validate";
 
 /**
@@ -13,8 +13,8 @@ import { parsePaging } from "@/lib/api/validate";
 export async function GET(req: Request, { params }: { params: Promise<{ storeId: string }> }) {
   try {
     const { storeId } = await params;
-    const denied = await checkStoreOwner(storeId);
-    if (denied) return denied;
+    const owner = await requireStoreOwnerResponse(storeId);
+    if ("error" in owner) return owner.error;
 
     const paging = parsePaging(new URL(req.url).searchParams);
     if (!paging.ok) return new NextResponse(paging.error, { status: 400 });
