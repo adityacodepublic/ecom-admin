@@ -176,7 +176,7 @@ async function main() {
   check("checkout: total 19.99 x 3 + 0.10 = 60.07 (6007 paise)", o1?.totalPaise === 6007);
   const row1 = await prismadb.order.findUniqueOrThrow({ where: { id: o1.id } });
   check("checkout: DB total column is 60.07", row1.total.toFixed(2) === "60.07");
-  check("checkout: payment COD, PENDING, Placed, a random 8-digit number", row1.payment === "COD" && row1.paymentStatus === "PENDING" && row1.status === "Placed" && row1.orderNumber >= 10_000_000 && row1.orderNumber < 100_000_000);
+  check("checkout: payment COD, PENDING, Placed, a random 5-digit number", row1.payment === "COD" && row1.paymentStatus === "PENDING" && row1.status === "Placed" && row1.orderNumber >= 10_000 && row1.orderNumber < 100_000);
   const d1 = parseDetails(row1.id, row1.details);
   check("checkout: frozen items + shipTo", d1.items[0].pricePaise === 1999 && d1.items[0].name === "Shirt" && d1.shipTo.name === "Test c1" && d1.shipTo.pincode === "411001" && d1.shipTo.street === "12 MG Road" && d1.shipTo.city === "Pune" && d1.shipTo.state === "Maharashtra" && d1.shipTo.country === "India");
   const savedAddr = await prismadb.address.findUniqueOrThrow({ where: { id: row1.addressId } });
@@ -229,18 +229,18 @@ async function main() {
   );
   check("parallel: 20 more orders at once all placed", race2.every((r) => r.status === 201), race2.filter((r) => r.status !== 201).map((r) => r.body));
   const numbers = (await prismadb.order.findMany({ where: { storeId: P.store.id }, select: { orderNumber: true } })).map((o) => o.orderNumber).sort((a, b) => a - b);
-  check(`parallel: ${numbers.length} order numbers are unique 8-digit numbers`, new Set(numbers).size === numbers.length && numbers.every((n) => n >= 10_000_000 && n < 100_000_000), numbers);
+  check(`parallel: ${numbers.length} order numbers are unique 5-digit numbers`, new Set(numbers).size === numbers.length && numbers.every((n) => n >= 10_000 && n < 100_000), numbers);
   check("parallel: the numbers are not a count (not 1..N)", !numbers.every((n, i) => n === i + 1), numbers);
   check("parallel: plenty stock = 1000 - 40", (await stockOf(plenty.id)) === 960);
 
-  // Different products per buyer: no shared stock row lock. The numbers are random, so a clash is forced: the source
-  // hands out only 5 numbers for the first 60 draws (the losers of each clash retry and then get a fresh random one).
+  // Different products per buyer: no shared stock row lock. The numbers are random, so a clash is forced: every 5-digit
+  // number drawn is 12345. The buyers at the same moment all pick it, one wins, the rest clash and retry; on the retry
+  // 12345 is taken, so they get a 6-digit number (the "5 digits are full" path).
   const N = await makeStore("N");
   const own = await Promise.all(buyers.map((_, i) => N.product(`Own ${i}`, "10.00", 5, 5)));
   const retriesBefore = orderNumberRetries.count;
   const realNext = orderNumbers.next;
-  let draws = 0;
-  orderNumbers.next = () => (draws++ < 60 ? 11_111_111 + (draws % 5) : realNext());
+  orderNumbers.next = (digits) => (digits === 5 ? 12_345 : realNext(digits));
   const race3 = await Promise.all(
     buyers.map((b, i) => checkout(N.store.id, b, { items: [{ productId: own[i].id, quantity: 1 }], address: newAddress, paymentMethod: "COD" })),
   );
@@ -250,6 +250,11 @@ async function main() {
   const numbers3 = (await prismadb.order.findMany({ where: { storeId: N.store.id }, select: { orderNumber: true } })).map((o) => o.orderNumber).sort((a, b) => a - b);
   check("parallel: those 25 numbers are unique", numbers3.length === 25 && new Set(numbers3).size === 25, numbers3);
   check("parallel: the retry path was really used (clashes > 0)", retries > 0, retries);
+  check(
+    "parallel: one order got 12345, the rest 6 digits (all 5-digit tries taken)",
+    numbers3.filter((n) => n === 12_345).length === 1 && numbers3.every((n) => n === 12_345 || (n >= 100_000 && n < 1_000_000)),
+    numbers3,
+  );
 
   // ------------------------------------------------------------ 6. parallel cancel: one cancel wins; stock is restored only by the admin button, once
   const shirtBefore = await stockOf(shirt.id);

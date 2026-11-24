@@ -20,8 +20,9 @@ import { COUNTRY } from "./india";
  *  - products must belong to this store and not be archived; quantity 1..maxQuantity and <= stock
  *  - prices come from the database; the whole order is refused on any problem
  *  - stock is taken in the SAME transaction (UPDATE ... WHERE quantity >= n), so it can never oversell
- *  - orderNumber = a random 8-digit number, unique per store (a clash retries the whole transaction). Not a count: a
- *    shopper must not learn from #N how many orders the store has had
+ *  - orderNumber = a random 5-digit number that this store has not used yet (never repeats: a unique index, and a clash
+ *    retries the whole transaction). Not a count: a shopper must not learn from #N how many orders the store has had.
+ *    Only when a store has used nearly all 90,000 five-digit numbers do new ones get 6 (then 7) digits
  *  - the same cart by the same customer within 60 s returns the order that already exists (no second order, no second stock take)
  *  - a cart with a price-on-request product (Product.price empty) becomes a QUOTE request: the order waits at the
  *    reserved status "Quote", with no payment method and no stock taken; the products are only checked. The seller
@@ -76,18 +77,27 @@ export const DUPLICATE_WINDOW_MS = 60_000;
 
 /** How many times an order-number clash made us retry (since start). For the safety test and logs. */
 export const orderNumberRetries = { count: 0 };
-/** Where order numbers come from: random 10000000..99999999. The safety test swaps `next` to force clashes. */
-export const orderNumbers = { next: () => randomInt(10_000_000, 100_000_000) };
+/** Where order numbers come from: a random number with this many digits (5 -> 10000..99999). The safety test swaps `next` to force clashes. */
+export const orderNumbers = { next: (digits: number) => randomInt(10 ** (digits - 1), 10 ** digits) };
+/** Numbers tried per order, in this order: mostly 5 digits; wider ones only if all the 5-digit ones are taken. */
+const NUMBER_TRIES: [digits: number, count: number][] = [
+  [5, 24],
+  [6, 8],
+  [7, 8],
+];
+/** Every tried number is taken (only when a store has used almost all of them): retried like a clash. */
+class NoFreeOrderNumber extends Error {}
 /** How many checkouts were answered with an order that already existed (duplicate protection). For the safety test and logs. */
 export const duplicateOrders = { count: 0 };
 
 /** A raw statement that failed: Prisma wraps the Postgres error (code in meta.code, e.g. 23505 unique, 40P01 deadlock). */
 const pgCode = (e: Prisma.PrismaClientKnownRequestError) => String((e.meta as { code?: unknown } | undefined)?.code ?? "");
 const isOrderNumberClash = (e: unknown) =>
-  e instanceof Prisma.PrismaClientKnownRequestError &&
+  e instanceof NoFreeOrderNumber ||
+  (e instanceof Prisma.PrismaClientKnownRequestError &&
   (e.code === "P2034" ||
     (e.code === "P2002" && JSON.stringify(e.meta ?? {}).includes("orderNumber")) ||
-    (e.code === "P2010" && (pgCode(e) === "40P01" || pgCode(e) === "40001" || (pgCode(e) === "23505" && JSON.stringify(e.meta ?? {}).includes("orderNumber")))));
+    (e.code === "P2010" && (pgCode(e) === "40P01" || pgCode(e) === "40001" || (pgCode(e) === "23505" && JSON.stringify(e.meta ?? {}).includes("orderNumber"))))));
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -265,8 +275,17 @@ async function placeOrder(
   });
   if (quote) payment = ""; // agreed when the customer accepts the price
 
-  // 5. The order, its items AND its number in ONE statement. The number is random; if this store already has it, the
-  //    unique index refuses ours and createOrder retries the whole transaction (stock included) with a new one.
+  // 5. The number: the first of some random ones that this store does not have yet. Two orders at the same moment can
+  //    still pick the same one; then the unique index refuses the second and createOrder retries the whole transaction
+  //    (stock included) with new numbers. So a number never repeats in a store.
+  const candidates = NUMBER_TRIES.flatMap(([digits, count]) => Array.from({ length: count }, () => orderNumbers.next(digits)));
+  const [free] = await tx.$queryRaw<{ n: number }[]>`
+    SELECT c.n FROM unnest(${candidates}::int[]) WITH ORDINALITY AS c(n, k)
+    WHERE NOT EXISTS (SELECT 1 FROM "Order" x WHERE x."storeId" = ${storeId} AND x."orderNumber" = c.n)
+    ORDER BY c.k LIMIT 1`;
+  if (!free) throw new NoFreeOrderNumber();
+
+  // 6. The order and its items in ONE statement.
   //    Times are written as UTC text (the columns are timestamp without time zone, like Prisma writes them).
   const now = new Date().toISOString();
   const orderId = randomUUID();
@@ -274,7 +293,7 @@ async function placeOrder(
   const [order] = await tx.$queryRaw<{ id: string; orderNumber: number }[]>`
     WITH o AS (
       INSERT INTO "Order" (id, "storeId", "orderNumber", "usersId", "addressId", total, details, payment, "paymentStatus", status, "createdAt", "updatedAt")
-      VALUES (${orderId}, ${storeId}, ${orderNumbers.next()}, ${customerId}, ${address.id}, ${paiseToDecimalString(totalPaise)}::numeric,
+      VALUES (${orderId}, ${storeId}, ${free.n}, ${customerId}, ${address.id}, ${paiseToDecimalString(totalPaise)}::numeric,
              ${JSON.stringify(detailsToJson(details))}::jsonb, ${payment}, 'PENDING', ${status}, ${now}::timestamp, ${now}::timestamp)
       RETURNING id, "orderNumber"
     ), i AS (
@@ -283,7 +302,7 @@ async function placeOrder(
     )
     SELECT id, "orderNumber" FROM o`;
 
-  // 6. The ordered products leave the shopper's saved cart (lib/cart.ts), whatever the browser does next.
+  // 7. The ordered products leave the shopper's saved cart (lib/cart.ts), whatever the browser does next.
   await tx.cartItem.deleteMany({ where: { storeId, customerId, productId: { in: items.map((i) => i.productId) } } });
 
   return { result: { id: order.id, orderNumber: order.orderNumber, status, paymentStatus: "PENDING", payment, totalPaise }, duplicate: false };
