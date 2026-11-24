@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import axios from "axios";
@@ -22,9 +23,16 @@ import {
   type PageSection,
   type SectionType,
 } from "@/lib/home-layout";
-import { SectionForm, type Option } from "./section-form";
+import type { Option } from "./section-form";
 import { SectionPreview } from "./section-preview";
 import { fixedBlockInfo } from "./fixed-blocks";
+
+// The block form (AutoForm, zod, the date picker) is only shown inside the edit dialog, so it loads on the first
+// "edit" click instead of with the page.
+const SectionForm = dynamic(() => import("./section-form").then((m) => m.SectionForm), {
+  ssr: false,
+  loading: () => <div className="h-40 rounded-md border bg-muted/40" />,
+});
 
 // A new custom component starts as a working example (it reads the store name from STORE_DATA).
 const STARTER_HTML =

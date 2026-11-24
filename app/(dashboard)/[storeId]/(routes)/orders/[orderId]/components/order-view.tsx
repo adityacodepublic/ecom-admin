@@ -1,15 +1,15 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { toast } from "react-hot-toast";
 import { ArrowLeft, ArrowRight, Check, Copy, Lock, MessageCircle, Pencil, Phone, Mail, XCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { MarkdownView } from "@/components/ui/markdown-view";
 import { PaymentBadge, StatusBadge, paymentMethodLabel } from "@/components/orders/status-badge";
 import { formatINR } from "@/lib/money";
 import { daysAgoLabel, formatDay, formatIstDateTime } from "@/lib/format-date";
@@ -29,7 +29,11 @@ import {
   ReplaceStatusModal,
   useOrderPatch,
 } from "./order-modals";
-import { QuoteModal } from "./quote-modal";
+
+// The quote form (AutoForm, zod, the date picker) is only needed once the seller opens it: its own chunk, loaded on
+// that click. The modal is mounted only while open (its key already changed on every open and close, so it was
+// remounted then anyway).
+const QuoteModal = dynamic(() => import("./quote-modal").then((m) => m.QuoteModal), { ssr: false });
 import { CallLink } from "@/components/ui/call-link";
 
 type ModalKey = "cancel" | "replace" | "reject" | "replaceReturn" | "delivery" | "payment" | "notes" | "message" | "quote";
@@ -243,7 +247,14 @@ const ReturnCard = ({ order, onReject, onReplace }: { order: AdminOrder; onRejec
   );
 };
 
-export const OrderView = ({ order }: { order: AdminOrder }) => {
+/**
+ * The three notes are Markdown. The page renders them on the server (MarkdownView) and hands them down as ready
+ * elements, so the Markdown parser stays out of this client bundle. A saved edit calls router.refresh(), which
+ * re-renders the page and brings new elements.
+ */
+export type OrderMarkdown = { adminContent: ReactNode; customerNote: ReactNode; privateNote: ReactNode };
+
+export const OrderView = ({ order, markdown }: { order: AdminOrder; markdown: OrderMarkdown }) => {
   const { storeId } = useParams<{ storeId: string }>();
   // An open quote (the customer asked, or the prices are sent and wait for a yes): the Items card holds it, and the
   // Status card stays hidden until the quote is accepted (an order to move on) or closed.
@@ -277,7 +288,7 @@ export const OrderView = ({ order }: { order: AdminOrder }) => {
       <PaymentModal key={mk("payment")} order={order} isOpen={modal === "payment"} onClose={close} />
       <NotesModal key={mk("notes")} order={order} isOpen={modal === "notes"} onClose={close} />
       <MessageModal key={mk("message")} order={order} isOpen={modal === "message"} onClose={close} />
-      {order.canEditQuote && <QuoteModal key={mk("quote")} order={order} isOpen={modal === "quote"} onClose={close} />}
+      {order.canEditQuote && modal === "quote" && <QuoteModal key={mk("quote")} order={order} isOpen onClose={close} />}
 
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -437,7 +448,7 @@ export const OrderView = ({ order }: { order: AdminOrder }) => {
             <CardContent>
               <p className="mb-2 text-xs text-muted-foreground">Shown on the customer&apos;s order page.</p>
               {order.adminContent ? (
-                <MarkdownView>{order.adminContent}</MarkdownView>
+                markdown.adminContent
               ) : (
                 <p className="text-sm text-muted-foreground">No message yet. For example how to pay, or a thank you note.</p>
               )}
@@ -493,7 +504,7 @@ export const OrderView = ({ order }: { order: AdminOrder }) => {
               {order.shipTo.instructions && <div className="text-muted-foreground">Delivery instructions: {order.shipTo.instructions}</div>}
               <Separator className="my-2" />
               <div className="text-xs font-medium text-muted-foreground">Note from the buyer</div>
-              {order.customerNote ? <MarkdownView>{order.customerNote}</MarkdownView> : <p className="text-muted-foreground">No note.</p>}
+              {order.customerNote ? markdown.customerNote : <p className="text-muted-foreground">No note.</p>}
             </CardContent>
           </Card>
 
@@ -540,7 +551,7 @@ export const OrderView = ({ order }: { order: AdminOrder }) => {
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               <p className="text-xs text-muted-foreground">Only you can see this. The customer never sees it.</p>
-              {order.privateNote ? <MarkdownView>{order.privateNote}</MarkdownView> : <p className="text-muted-foreground">No notes.</p>}
+              {order.privateNote ? markdown.privateNote : <p className="text-muted-foreground">No notes.</p>}
             </CardContent>
           </Card>
         </div>

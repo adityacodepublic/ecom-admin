@@ -1,41 +1,20 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { use } from "react";
-import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis, type TooltipProps } from "recharts";
 
-import { formatINR } from "@/lib/money";
 import type { MonthRevenue } from "@/lib/orders/queries";
 
-import { Empty, InsightCard, plural } from "./cards";
+import { Empty, InsightCard } from "./cards";
 
-const BLUE = "#3b82f6"; // the theme blue of the other dashboard bars (bg-blue-500)
-
-/** Rupees on the axis, the Indian way: ₹1.2 Cr, ₹30 L, ₹45k. */
-const shortRupees = (rupees: number) => {
-  const short = (n: number, unit: string) => `₹${Number.isInteger(n) ? n : n.toFixed(1)}${unit}`;
-  if (rupees >= 1e7) return short(rupees / 1e7, " Cr");
-  if (rupees >= 1e5) return short(rupees / 1e5, " L");
-  if (rupees >= 1e3) return short(Math.round(rupees / 1e3), "k");
-  return `₹${rupees}`;
-};
-
-const MonthTip = ({ active, payload }: TooltipProps<number, string>) => {
-  const m = payload?.[0]?.payload as MonthRevenue | undefined;
-  if (!active || !m) return null;
-  return (
-    <div className="rounded-md border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-md">
-      <div className="font-medium">
-        {m.label} {m.month.slice(0, 4)}
-      </div>
-      <div className="tabular-nums">{formatINR(m.revenuePaise)}</div>
-      <div className="text-muted-foreground">
-        From {plural(m.orders, "paid order")}
-        {m.orders ? ". Click to see them" : ""}
-      </div>
-    </div>
-  );
-};
+// recharts (plus its lodash/d3 dependencies) is the largest client dependency of the dashboard route. It loads as its
+// own chunk after the page hydrates; ResponsiveContainer renders nothing until it has measured the browser anyway, so
+// nothing is lost on the server. The placeholder has the chart's exact height (350px) so the card does not jump.
+const RevenueBars = dynamic(() => import("./revenue-bars"), {
+  ssr: false,
+  loading: () => <div className="h-[350px]" aria-hidden />,
+});
 
 /**
  * Paid revenue per month, the last 12 months. The best month is the full theme blue, the others lighter (like the
@@ -54,24 +33,7 @@ export const RevenueChart = ({ storeId, data }: { storeId: string; data: Promise
       {rows.every((m) => m.rupees === 0) ? (
         <Empty text="No paid orders in the last 12 months." />
       ) : (
-        <ResponsiveContainer width="100%" height={350}>
-          {/* A click anywhere in a month's column (not only on its bar) opens that month. */}
-          <BarChart
-            data={rows}
-            margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
-            className="cursor-pointer"
-            onClick={(state) => state?.activeTooltipIndex !== undefined && open(rows[state.activeTooltipIndex])}
-          >
-            <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} tick={{ fill: "hsl(var(--muted-foreground))" }} />
-            <YAxis tickLine={false} axisLine={false} fontSize={12} width={64} tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={shortRupees} />
-            <Tooltip content={<MonthTip />} cursor={{ fill: "hsl(var(--accent))" }} />
-            <Bar dataKey="rupees" radius={[4, 4, 0, 0]}>
-              {rows.map((m, i) => (
-                <Cell key={m.month} fill={BLUE} fillOpacity={i === peak ? 1 : 0.4} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+        <RevenueBars rows={rows} peak={peak} onOpen={open} />
       )}
     </InsightCard>
   );
