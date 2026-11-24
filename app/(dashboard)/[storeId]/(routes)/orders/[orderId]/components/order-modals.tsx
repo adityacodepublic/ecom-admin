@@ -96,8 +96,9 @@ export const Shell = ({ title, description, isOpen, onClose, loading, formError,
     className={
       editor
         ? // The editor's menus ("/", images) float past the modal's edge, so on a screen tall enough for it the modal
-          // does not clip (no scroll box); a short screen keeps the scroll.
-          "max-h-[92vh] w-[calc(100vw-1.5rem)] max-w-4xl overflow-y-auto sm:max-w-4xl [@media(min-height:700px)]:max-h-none [@media(min-height:700px)]:overflow-visible"
+          // does not clip; the text itself scrolls inside the editor (below), so Save stays on screen. A short screen
+          // keeps the modal's own scroll.
+          "max-h-[92vh] w-[calc(100vw-1.5rem)] max-w-4xl overflow-y-auto sm:max-w-4xl [@media(min-height:700px)]:overflow-visible"
         : wide
           ? "max-h-[90vh] overflow-y-auto sm:max-w-2xl"
           : "max-h-[90vh] overflow-y-auto sm:max-w-md"
@@ -385,7 +386,7 @@ export const MessageModal = ({ order, isOpen, onClose }: ModalProps) => {
       onSave={onSave}
       editor
     >
-      <div className="grid gap-2 [&_.milkdown_.ProseMirror]:!min-h-[min(26rem,58vh)]">
+      <div className="grid gap-2 [&_.milkdown_.ProseMirror]:!min-h-[min(22rem,45vh)] [&_.milkdown_.ProseMirror]:max-h-[55vh] [&_.milkdown_.ProseMirror]:overflow-y-auto">
         <MarkdownEditor value={order.adminContent ?? ""} onChange={setContent} />
         {fieldErrors.adminContent && <p className="text-sm text-destructive">{fieldErrors.adminContent}</p>}
       </div>
