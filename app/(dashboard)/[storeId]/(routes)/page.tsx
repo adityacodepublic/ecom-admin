@@ -5,7 +5,7 @@ import { CreditCard, DollarSign, Package } from "lucide-react";
 import { requireStoreOwnerPage } from "@/lib/api/admin-auth";
 import { Separator } from "@/components/ui/separator";
 import { Heading } from "@/components/ui/heading";
-import { CardGridSkeleton, Skeleton } from "@/components/ui/skeleton";
+import { ChartLoading, OrderNumbersLoading, TotalsLoading, VisitorsLoading, InsightsLoading } from "@/components/loading/dashboard-loadings";
 import { SectionError } from "@/components/section-error";
 import { getStockCount } from "@/actions/get-stock-count";
 import { getVisitorInsights } from "@/lib/clarity-insights";
@@ -69,45 +69,31 @@ const DashboardPage: React.FC<DashboardPageProps> = async ({ params, searchParam
         <Separator />
         <MinimizeProvider storeId={storeId} initial={minimized}>
           <SectionError title="the totals">
-            <Suspense fallback={<CardGridSkeleton count={3} className="sm:grid-cols-3" />}>
+            <Suspense fallback={<TotalsLoading />}>
               <TotalCards data={totals} />
             </Suspense>
           </SectionError>
           <Minimizable id="revenue-by-month" title="Revenue by month">
             <SectionError title="the chart">
-              <Suspense fallback={<Skeleton className="h-[440px] rounded-xl" />}>
+              <Suspense fallback={<ChartLoading />}>
                 <RevenueChart storeId={storeId} data={months} />
               </Suspense>
             </SectionError>
           </Minimizable>
           <h3 className="pt-2 text-lg font-semibold">Orders</h3>
           <SectionError title="the order numbers">
-            <Suspense
-              fallback={
-                <>
-                  <CardGridSkeleton count={4} className="sm:grid-cols-2 lg:grid-cols-4" />
-                  <CardGridSkeleton count={2} className="md:grid-cols-2" cardClassName="h-56" />
-                </>
-              }
-            >
+            <Suspense fallback={<OrderNumbersLoading />}>
               <OrderStatsCards storeId={storeId} data={orderStats} />
             </Suspense>
           </SectionError>
           <InsightsHeader days={days} />
           <SectionError title="the insights">
-            <Suspense
-              fallback={
-                <>
-                  <CardGridSkeleton count={4} className="sm:grid-cols-2 lg:grid-cols-4" />
-                  <CardGridSkeleton count={6} className="md:grid-cols-2 lg:grid-cols-3" cardClassName="h-48" />
-                </>
-              }
-            >
+            <Suspense fallback={<InsightsLoading />}>
               <StoreAnalyticsCards storeId={storeId} data={analytics} />
             </Suspense>
           </SectionError>
           <SectionError title="the visitor numbers">
-            <Suspense fallback={<p className="text-sm text-muted-foreground">Loading visitor numbers…</p>}>
+            <Suspense fallback={<VisitorsLoading />}>
               <ClarityVisitors storeId={storeId} data={visitors} />
             </Suspense>
           </SectionError>

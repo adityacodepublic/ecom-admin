@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { format } from "date-fns";
 
 import { requireStoreOwnerPage } from "@/lib/api/admin-auth";
-import { TableSkeleton } from "@/components/ui/skeleton";
+import { CategoriesContentLoading } from "@/components/loading/list-loadings";
 import prismadb from "@/lib/prismadb";
 
 import { CategoryColumn } from "./components/columns";
@@ -22,7 +22,7 @@ const CategoriesPage = async ({
   return (
     <div className="flex-col">
       <div className="flex-1 space-y-4 p-8 pt-6">
-        <Suspense fallback={<TableSkeleton />}>
+        <Suspense fallback={<CategoriesContentLoading />}>
           <CategoriesClient data={data} />
         </Suspense>
       </div>

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
+import { PAIR_GRID, THREE_GRID } from "@/lib/dashboard-grids";
 import { REFRESH_EVERY_HOURS, type Breakdown, type DeviceRow, type VisitorData, type VisitorInsights } from "@/lib/clarity-insights";
 
 import { dashCard, Empty, InsightCard, MinimizableGrid, plural, StatCard } from "./cards";
@@ -197,8 +198,8 @@ function VisitorCards({ d }: { d: VisitorData }) {
   ];
   return (
     <>
-      <MinimizableGrid cards={numbers} className="sm:grid-cols-3" />
-      <MinimizableGrid cards={panels} className="md:grid-cols-2" />
+      <MinimizableGrid cards={numbers} className={THREE_GRID} />
+      <MinimizableGrid cards={panels} className={PAIR_GRID} />
       <MinimizableGrid cards={countries} className="" />
     </>
   );

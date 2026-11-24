@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 
 import { requireStoreOwnerPage } from "@/lib/api/admin-auth";
-import { TableSkeleton } from "@/components/ui/skeleton";
+import { UsersContentLoading } from "@/components/loading/list-loadings";
 import { parseCustomerQuery } from "@/lib/customer-query";
 import { CUSTOMER_PAGE_SIZE, listStoreCustomers } from "@/lib/customers";
 import { filterLabels } from "@/lib/orders/queries";
@@ -26,7 +26,7 @@ const UsersPage = async ({ params, searchParams }: { params: Promise<{ storeId: 
   return (
     <div className="flex-col">
       <div className="flex-1 space-y-4 p-4 pt-6 md:p-8">
-        <Suspense fallback={<TableSkeleton />}>
+        <Suspense fallback={<UsersContentLoading />}>
           <UserClient data={data} query={query} pageSize={CUSTOMER_PAGE_SIZE} />
         </Suspense>
       </div>

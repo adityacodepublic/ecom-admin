@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 
 import { requireStoreOwnerPage } from "@/lib/api/admin-auth";
-import { TableSkeleton } from "@/components/ui/skeleton";
+import { OrdersContentLoading } from "@/components/loading/list-loadings";
 import { ADMIN_LIST_KEYS, filtersAsText, orderListQuerySchema } from "@/lib/orders/list-query";
 import { filterLabels, listAdminOrders } from "@/lib/orders/queries";
 import { parseUrlQuery } from "@/lib/url-query";
@@ -24,7 +24,7 @@ const OrdersPage = async ({ params, searchParams }: { params: Promise<{ storeId:
   return (
     <div className="flex-col">
       <div className="flex-1 space-y-4 p-4 pt-6 md:p-8">
-        <Suspense fallback={<TableSkeleton rows={10} />}>
+        <Suspense fallback={<OrdersContentLoading />}>
           <OrdersClient data={data} filters={filtersAsText(q)} />
         </Suspense>
       </div>

@@ -5,6 +5,7 @@ import { statusTone } from "@/components/orders/status-badge";
 import { formatINR } from "@/lib/money";
 import type { OrderStats } from "@/lib/orders/queries";
 import { PAYMENT_STATUSES, PAYMENT_STATUS_LABELS, QUOTE, type PaymentStatus } from "@/lib/orders/status";
+import { orderNumbersGrid, PAIR_GRID } from "@/lib/dashboard-grids";
 import { cn } from "@/lib/utils";
 
 import { dashCard, InsightCard, MinimizableGrid, plural, StatCard } from "./cards";
@@ -111,8 +112,8 @@ export const OrderStatsCards = async ({ storeId, data }: { storeId: string; data
 
   return (
     <>
-      <MinimizableGrid cards={numbers} className={cn("sm:grid-cols-2", numbers.length > 4 ? "lg:grid-cols-5" : "lg:grid-cols-4")} />
-      <MinimizableGrid cards={bars} className="md:grid-cols-2" />
+      <MinimizableGrid cards={numbers} className={orderNumbersGrid(numbers.length)} />
+      <MinimizableGrid cards={bars} className={PAIR_GRID} />
     </>
   );
 };

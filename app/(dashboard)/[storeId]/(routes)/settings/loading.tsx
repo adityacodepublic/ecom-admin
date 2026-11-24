@@ -1,13 +1,3 @@
-"use client";
+import { SettingsLoading } from "@/components/loading/settings-pages-loadings";
 
-import { Loader } from "@/components/ui/loader";
-
-const Loading = () => {
-  return ( 
-    <div className="flex h-full w-full items-center justify-center">
-      <Loader />
-    </div>
-   );
-}
- 
-export default Loading;
+export default SettingsLoading;

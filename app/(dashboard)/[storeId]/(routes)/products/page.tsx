@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 
 import { requireStoreOwnerPage } from "@/lib/api/admin-auth";
-import { TableSkeleton } from "@/components/ui/skeleton";
+import { ProductsContentLoading } from "@/components/loading/list-loadings";
 import prismadb from "@/lib/prismadb";
 import { formatter } from "@/lib/utils";
 
@@ -18,7 +18,7 @@ const ProductsPage = async ({ params }: { params: Promise<{ storeId: string }> }
   return (
     <div className="flex-col">
       <div className="flex-1 space-y-4 p-8 pt-6">
-        <Suspense fallback={<TableSkeleton />}>
+        <Suspense fallback={<ProductsContentLoading />}>
           <ProductsClient data={data} />
         </Suspense>
       </div>

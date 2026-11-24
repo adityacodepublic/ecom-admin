@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { INSIGHT_CARDS_GRID, INSIGHT_NUMBERS_GRID } from "@/lib/dashboard-grids";
 import { formatINR } from "@/lib/money";
 import { durationLabel } from "@/lib/format-date";
 import { RANGE_OPTIONS, type StoreAnalytics } from "@/lib/orders/analytics";
@@ -238,8 +239,8 @@ export const StoreAnalyticsCards = async ({ storeId, data }: { storeId: string; 
   ];
   return (
     <>
-      <MinimizableGrid cards={stats} className="sm:grid-cols-2 lg:grid-cols-4" />
-      <MinimizableGrid cards={rest} className="md:grid-cols-2 lg:grid-cols-3" />
+      <MinimizableGrid cards={stats} className={INSIGHT_NUMBERS_GRID} />
+      <MinimizableGrid cards={rest} className={INSIGHT_CARDS_GRID} />
     </>
   );
 };
