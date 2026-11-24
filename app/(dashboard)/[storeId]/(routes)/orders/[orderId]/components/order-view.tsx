@@ -336,16 +336,6 @@ export const OrderView = ({ order }: { order: AdminOrder }) => {
               {order.canEditQuote && <PencilButton label="Set the quote prices" onClick={() => setModal("quote")} />}
             </CardHeader>
             <CardContent className="space-y-3">
-              {quoteOpen && order.quote && (
-                <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-300">
-                  <span className="min-w-0 flex-1">{QUOTE_NOTE[order.quote.state]}</span>
-                  {order.canCancel && (
-                    <Button size="sm" variant="outline" className="shrink-0 border-red-500/40 bg-background text-red-700 hover:bg-red-500/10 hover:text-red-700 dark:text-red-300 dark:hover:text-red-300" onClick={() => setModal("cancel")}>
-                      Cancel quote
-                    </Button>
-                  )}
-                </div>
-              )}
               {order.items.map((i) => (
                 <div key={i.productId} className="flex items-center gap-3">
                   <Link href={`/${storeId}/products/${i.productId}`} className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Open ${i.name}`}>
@@ -396,6 +386,16 @@ export const OrderView = ({ order }: { order: AdminOrder }) => {
                     : "Prices from your quote."
                   : "Prices as they were when the order was placed."}
               </p>
+              {quoteOpen && order.quote && (
+                <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-300">
+                  <span className="min-w-0 flex-1">{QUOTE_NOTE[order.quote.state]}</span>
+                  {order.canCancel && (
+                    <Button size="sm" variant="outline" className="shrink-0 border-red-500/40 bg-background text-red-700 hover:bg-red-500/10 hover:text-red-700 dark:text-red-300 dark:hover:text-red-300" onClick={() => setModal("cancel")}>
+                      Cancel quote
+                    </Button>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
 

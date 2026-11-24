@@ -16,8 +16,8 @@ import { formatINR, paiseToDecimalString, toPaise } from "@/lib/money";
 import { Shell, useOrderPatch, type ModalProps } from "./order-modals";
 
 const FORM_ID = "quote-form";
-const ADD = "Adds";
-const TAKE_OFF = "Takes off";
+const ADD = "+ Add";
+const TAKE_OFF = "- Deduct";
 
 const PRESETS: { label: string; kind?: string; amount?: string }[] = [
   { label: "GST", amount: "18%" },
@@ -103,7 +103,6 @@ const ChargePresets: NonNullable<TableOptions["AddControls"]> = ({ add }) => {
           <Plus className="mr-1 h-3 w-3" /> Other
         </Button>
       </div>
-      <p className="text-xs text-muted-foreground">An amount in rupees, or a percent of the items (18% for GST). &quot;Takes off&quot; is a discount.</p>
     </div>
   );
 };
@@ -167,7 +166,7 @@ const quoteSchema = z.object({
           .min(1, "Name the charge")
           .max(CHARGE_LABEL_MAX)
           .superRefine(fieldConfig({ label: "Charge", inputProps: { placeholder: "e.g. GST", maxLength: CHARGE_LABEL_MAX } })),
-        kind: z.enum([ADD, TAKE_OFF]).superRefine(fieldConfig({ label: "Adds or takes off" })),
+        kind: z.enum([ADD, TAKE_OFF]).superRefine(fieldConfig({ label: "Type" })),
         amount: z
           .string({ required_error: "Rupees, or a percent like 18%" })
           .refine((v) => PERCENT.test(v) || rupees(v) !== null, "Rupees, or a percent like 18%")

@@ -47,7 +47,7 @@ export const SettingsModal = ({
 }) => (
   <Modal title={title} description="" isOpen={isOpen} onClose={onClose} className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
     <div className="space-y-5">
-      <div className="flex flex-col gap-6">{children}</div>
+      <div className="flex flex-col gap-7">{children}</div>
       {error && <p className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" disabled={loading} onClick={onClose}>

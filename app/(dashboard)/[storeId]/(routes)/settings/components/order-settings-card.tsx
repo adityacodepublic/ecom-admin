@@ -185,7 +185,7 @@ const QuoteWordsModal = ({ storeId, initial, onClose }: ModalProps) => {
   const [priceText, setPriceText] = useState(initial.quote.priceText);
   return (
     <SettingsModal title="Quotes & enquiries" isOpen onClose={onClose} onSave={() => save({ quote: { button, priceText } })} loading={loading} error={error}>
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm -mt-1 text-muted-foreground">
         For Price on request items, customers can request a quote right from the product page or add items in their cart to submit at checkout. Instead of paying upfront; they send a request, and you set the price on the order.
       </p>
       <LabelPicker
