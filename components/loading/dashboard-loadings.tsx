@@ -2,8 +2,6 @@ import { INSIGHT_CARDS_GRID, INSIGHT_NUMBERS_GRID, orderNumbersGrid, PAIR_GRID, 
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-import { HeadingLoading, PageFrame, SeparatorLoading } from "./page-loadings";
-
 /**
  * The dashboard's loading blocks: one block per card, in the same grids as the real cards (lib/dashboard-grids.ts).
  * Each part of the page has its own fallback (the page streams part by part). Card heights are typical ones: the
@@ -84,22 +82,4 @@ export const VisitorsLoading = () => (
       <Cards count={1} className="h-[320px] md:h-[402px]" />
     </Grid>
   </>
-);
-
-/** The whole dashboard, for its loading.tsx (before any part has started). */
-export const DashboardLoading = () => (
-  <PageFrame fluid>
-    <HeadingLoading titleW="w-40" descW="w-[190px]" wrapDesc={false} />
-    <SeparatorLoading />
-    <TotalsLoading />
-    {/* Like the real chart, which sits in a "contents" wrapper: no gap between it and the title below. */}
-    <div className="contents">
-      <ChartLoading />
-    </div>
-    <SectionTitle />
-    <OrderNumbersLoading />
-    <InsightsHeaderLoading />
-    <InsightsLoading />
-    <VisitorsLoading />
-  </PageFrame>
 );
