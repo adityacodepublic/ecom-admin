@@ -3,16 +3,31 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
-import { Monitor, RotateCcw, Smartphone } from "lucide-react";
+import { Monitor, Pencil, RotateCcw, Smartphone } from "lucide-react";
 import { toast } from "react-hot-toast";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Modal } from "@/components/ui/modal";
 import { CHROME_HTML_MAX, DEFAULT_FOOTER_HTML, DEFAULT_NAVBAR_HTML, validateChromeHtml } from "@/lib/chrome-templates";
 
+type ChromePart = "navbar" | "footer";
+
 const isDefault = (html: string, fallback: string) => html.trim() === fallback.trim();
+
+const PART_META: Record<ChromePart, { label: string; hint: string; fallback: string }> = {
+  navbar: {
+    label: "Navbar (Header)",
+    hint: "Readymade tags: <store-logo />, <store-search />, <store-cart />, <store-account />. Variables: {{store.name}}, {{store.homeHref}}.",
+    fallback: DEFAULT_NAVBAR_HTML,
+  },
+  footer: {
+    label: "Footer",
+    hint: "Readymade tags: <store-categories />, <store-pages />, <store-contact />. Variables: {{store.name}}, {{store.year}}, {{store.homeHref}}, {{store.cartHref}}, {{store.ordersHref}}, {{contact.phone}}, {{contact.whatsapp}}.",
+    fallback: DEFAULT_FOOTER_HTML,
+  },
+};
 
 function useDebounced<T>(value: T, ms: number) {
   const [debounced, setDebounced] = useState(value);
@@ -28,17 +43,16 @@ const ChromePreview = ({
   storeUrl,
   part,
   html,
-  fallback,
-  mobile,
+  mobile = false,
 }: {
   storeUrl: string;
-  part: "navbar" | "footer";
+  part: ChromePart;
   html: string;
-  fallback: string;
-  mobile: boolean;
+  mobile?: boolean;
 }) => {
   const frame = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(part === "navbar" ? 64 : 220);
+  const fallback = PART_META[part].fallback;
   const effective = isDefault(html, fallback) ? "" : html;
   const src = useDebounced(`${storeUrl}/preview/chrome?part=${part}&html=${encodeURIComponent(effective)}`, 400);
 
@@ -54,94 +68,17 @@ const ChromePreview = ({
   }, [storeUrl]);
 
   return (
-    <div className="rounded-md border bg-muted/30 p-3">
-      <div className={mobile ? "mx-auto w-[390px] max-w-full" : "w-full"}>
-        <iframe
-          ref={frame}
-          src={src}
-          title={`${part === "navbar" ? "Navbar" : "Footer"} preview`}
-          loading="lazy"
-          tabIndex={-1}
-          className="pointer-events-none w-full rounded-md border bg-white"
-          style={{ height }}
-        />
-      </div>
+    <div className={mobile ? "mx-auto w-[390px] max-w-full" : "w-full"}>
+      <iframe
+        ref={frame}
+        src={src}
+        title={`${PART_META[part].label} preview`}
+        loading="lazy"
+        tabIndex={-1}
+        className="pointer-events-none w-full rounded-md border bg-white"
+        style={{ height }}
+      />
     </div>
-  );
-};
-
-interface BlockCardProps {
-  id: string;
-  title: string;
-  description: string;
-  hint: string;
-  part: "navbar" | "footer";
-  storeUrl: string;
-  value: string;
-  fallback: string;
-  onChange: (value: string) => void;
-  disabled: boolean;
-}
-
-/** One global chrome block (Navbar or Footer) with live preview and HTML editor. */
-const ChromeBlockCard = ({ id, title, description, hint, part, storeUrl, value, fallback, onChange, disabled }: BlockCardProps) => {
-  const [mobile, setMobile] = useState(false);
-  const error = validateChromeHtml(value);
-  const custom = !isDefault(value, fallback);
-
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <CardTitle className="text-base">{title}</CardTitle>
-            <Badge variant={custom ? "default" : "secondary"}>{custom ? "Custom" : "Default"}</Badge>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Button
-              type="button"
-              variant={mobile ? "outline" : "secondary"}
-              size="sm"
-              onClick={() => setMobile(false)}
-              aria-label="Desktop preview"
-            >
-              <Monitor className="mr-1.5 h-3.5 w-3.5" /> Desktop
-            </Button>
-            <Button
-              type="button"
-              variant={mobile ? "secondary" : "outline"}
-              size="sm"
-              onClick={() => setMobile(true)}
-              aria-label="Mobile preview"
-            >
-              <Smartphone className="mr-1.5 h-3.5 w-3.5" /> Mobile
-            </Button>
-            <Button type="button" variant="outline" size="sm" disabled={disabled || !custom} onClick={() => onChange(fallback)}>
-              <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Reset
-            </Button>
-          </div>
-        </div>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <ChromePreview storeUrl={storeUrl} part={part} html={value} fallback={fallback} mobile={mobile} />
-        <div className="grid gap-1.5">
-          <Label htmlFor={id}>HTML (Tailwind CSS)</Label>
-          <textarea
-            id={id}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            disabled={disabled}
-            spellCheck={false}
-            rows={12}
-            maxLength={CHROME_HTML_MAX}
-            className="w-full rounded-md border bg-background p-3 font-mono text-xs leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
-          />
-          <p className="text-xs text-muted-foreground">{hint}</p>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-        </div>
-      </CardContent>
-    </Card>
   );
 };
 
@@ -152,33 +89,54 @@ interface ChromeEditorProps {
   footerHtml: string;
 }
 
-/** Global Header & Footer editor inside Admin -> Pages, with live storefront previews. */
+/**
+ * Global Header & Footer blocks inside Admin -> Pages.
+ * Matches PageLayoutEditor: each block shows only its live preview with a Pencil edit button that opens a Modal.
+ */
 export const ChromeEditor = ({ storeId, storeUrl, navbarHtml, footerHtml }: ChromeEditorProps) => {
   const router = useRouter();
-  const [navbar, setNavbar] = useState(navbarHtml || DEFAULT_NAVBAR_HTML);
-  const [footer, setFooter] = useState(footerHtml || DEFAULT_FOOTER_HTML);
+  const [saved, setSaved] = useState<{ navbar: string; footer: string }>({
+    navbar: navbarHtml || DEFAULT_NAVBAR_HTML,
+    footer: footerHtml || DEFAULT_FOOTER_HTML,
+  });
+  const [editing, setEditing] = useState<ChromePart | null>(null);
+  const [draft, setDraft] = useState("");
+  const [mobilePreview, setMobilePreview] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
 
-  const invalid = validateChromeHtml(navbar) !== null || validateChromeHtml(footer) !== null;
+  const openEdit = (part: ChromePart) => {
+    setDraft(saved[part]);
+    setMobilePreview(false);
+    setEditing(part);
+  };
 
-  const onSave = async () => {
-    if (invalid) return;
-    setError("");
+  const closeEdit = () => {
+    if (saving) return;
+    setEditing(null);
+  };
+
+  const editingMeta = editing ? PART_META[editing] : null;
+  const draftError = editing ? validateChromeHtml(draft) : null;
+  const draftCustom = editing && editingMeta ? !isDefault(draft, editingMeta.fallback) : false;
+
+  const saveEdit = async () => {
+    if (!editing || draftError) return;
     setSaving(true);
+    const next = { ...saved, [editing]: draft };
     try {
       await axios.patch(`/api/${storeId}/chrome`, {
-        navbarHtml: isDefault(navbar, DEFAULT_NAVBAR_HTML) ? "" : navbar,
-        footerHtml: isDefault(footer, DEFAULT_FOOTER_HTML) ? "" : footer,
+        navbarHtml: isDefault(next.navbar, DEFAULT_NAVBAR_HTML) ? "" : next.navbar,
+        footerHtml: isDefault(next.footer, DEFAULT_FOOTER_HTML) ? "" : next.footer,
       });
-      toast.success("Header and footer saved.");
+      setSaved(next);
+      setEditing(null);
+      toast.success("Saved.");
       router.refresh();
     } catch (err) {
       const msg =
         axios.isAxiosError(err) && typeof err.response?.data?.error?.message === "string"
           ? err.response.data.error.message
           : "Could not save header and footer.";
-      setError(msg);
       toast.error(msg);
     } finally {
       setSaving(false);
@@ -187,44 +145,107 @@ export const ChromeEditor = ({ storeId, storeUrl, navbarHtml, footerHtml }: Chro
 
   return (
     <div className="space-y-4 pt-2">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">
-          Shown on every page of your store. Resetting either block returns it to the built-in default.
-        </p>
-        <Button type="button" onClick={onSave} disabled={saving || invalid}>
-          {saving ? "Saving..." : "Save header & footer"}
-        </Button>
-      </div>
-      {error && <p className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
-      <ChromeBlockCard
-        id="navbar-html"
-        title="Navbar (Header)"
-        description="Top navigation bar with live store slots."
-        hint="Readymade tags: <store-logo />, <store-search />, <store-cart />, <store-account />. Variables: {{store.name}}, {{store.homeHref}}."
-        part="navbar"
-        storeUrl={storeUrl}
-        value={navbar}
-        fallback={DEFAULT_NAVBAR_HTML}
-        onChange={setNavbar}
-        disabled={saving}
-      />
-      <ChromeBlockCard
-        id="footer-html"
-        title="Footer"
-        description="Site links, categories, custom pages, and contact details."
-        hint="Readymade tags: <store-categories />, <store-pages />, <store-contact />. Variables: {{store.name}}, {{store.year}}, {{store.homeHref}}, {{store.cartHref}}, {{store.ordersHref}}, {{contact.phone}}, {{contact.whatsapp}}."
-        part="footer"
-        storeUrl={storeUrl}
-        value={footer}
-        fallback={DEFAULT_FOOTER_HTML}
-        onChange={setFooter}
-        disabled={saving}
-      />
-      <div className="flex justify-end">
-        <Button type="button" onClick={onSave} disabled={saving || invalid}>
-          {saving ? "Saving..." : "Save header & footer"}
-        </Button>
-      </div>
+      <p className="text-sm text-muted-foreground">
+        Shown on every page of your store. Click the edit button on a block to customize its HTML and Tailwind classes.
+      </p>
+
+      {editing && editingMeta && (
+        <Modal
+          title={`Edit: ${editingMeta.label}`}
+          description="The preview follows your changes. Save to make them live."
+          isOpen
+          onClose={closeEdit}
+          className="max-h-[90vh] max-w-5xl overflow-y-auto"
+        >
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5">
+                <Button
+                  type="button"
+                  variant={mobilePreview ? "outline" : "secondary"}
+                  size="sm"
+                  onClick={() => setMobilePreview(false)}
+                >
+                  <Monitor className="mr-1.5 h-3.5 w-3.5" /> Desktop
+                </Button>
+                <Button
+                  type="button"
+                  variant={mobilePreview ? "secondary" : "outline"}
+                  size="sm"
+                  onClick={() => setMobilePreview(true)}
+                >
+                  <Smartphone className="mr-1.5 h-3.5 w-3.5" /> Mobile
+                </Button>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={saving || !draftCustom}
+                onClick={() => setDraft(editingMeta.fallback)}
+              >
+                <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Reset to default
+              </Button>
+            </div>
+
+            <div className="rounded-md border bg-muted/30 p-3">
+              <ChromePreview storeUrl={storeUrl} part={editing} html={draft} mobile={mobilePreview} />
+            </div>
+
+            <div className="grid gap-1.5">
+              <Label htmlFor="chrome-html-draft">HTML (Tailwind CSS)</Label>
+              <textarea
+                id="chrome-html-draft"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                disabled={saving}
+                spellCheck={false}
+                rows={14}
+                maxLength={CHROME_HTML_MAX}
+                className="w-full rounded-md border bg-background p-3 font-mono text-xs leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+              />
+              <p className="text-xs text-muted-foreground">{editingMeta.hint}</p>
+              {draftError && <p className="text-sm text-destructive">{draftError}</p>}
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={closeEdit} disabled={saving}>
+                Cancel
+              </Button>
+              <Button type="button" onClick={saveEdit} disabled={saving || !!draftError}>
+                {saving ? "Saving..." : "Save"}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {(["navbar", "footer"] as const).map((part) => {
+        const meta = PART_META[part];
+        const custom = !isDefault(saved[part], meta.fallback);
+        return (
+          <div key={part} className="flex gap-3 rounded-lg border bg-card p-3">
+            <div className="min-w-0 flex-1 space-y-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                {meta.label}
+                <Badge variant={custom ? "default" : "secondary"}>{custom ? "Custom" : "Default"}</Badge>
+              </div>
+              <ChromePreview storeUrl={storeUrl} part={part} html={saved[part]} />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Button
+                size="icon"
+                variant="outline"
+                aria-label={`Edit ${meta.label}`}
+                disabled={saving || !!editing}
+                onClick={() => openEdit(part)}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 };

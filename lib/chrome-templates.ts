@@ -30,10 +30,10 @@ export const DEFAULT_NAVBAR_HTML = `<!-- Readymade tags (mounted as live React c
 -->
 <header class="border-b z-20 fixed w-full glass top-0">
   <div class="mx-auto max-w-7xl">
-    <div class="h-[3.2rem] lg:h-[3.4rem] relative px-2 lg:px-8 flex items-center gap-2">
+    <div class="h-[3.2rem] lg:h-[3.6rem] relative px-3 lg:px-8 flex items-center gap-2 sm:gap-3">
       <store-logo />
       <store-search />
-      <div class="flex items-center gap-1 sm:gap-2">
+      <div class="flex items-center gap-2 sm:gap-3">
         <store-cart />
         <store-account />
       </div>
@@ -50,8 +50,8 @@ export const DEFAULT_FOOTER_HTML = `<!-- Readymade tags (automatically omit empt
 -->
 <footer class="border-t bg-background">
   <div class="mx-auto max-w-7xl px-4 py-10 lg:px-8">
-    <div class="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
-      <div class="space-y-2">
+    <div class="grid grid-cols-2 gap-8 lg:grid-cols-4">
+      <div class="col-span-2 space-y-2 lg:col-span-1">
         <a href="{{store.homeHref}}" class="text-lg font-semibold">{{store.name}}</a>
         <p class="text-sm text-muted-foreground">Quality products, delivered to your door.</p>
       </div>
