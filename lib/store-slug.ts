@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 
 import prismadb from "@/lib/prismadb";
 import { SLUG_TAKEN_MESSAGE, slugError } from "@/lib/slug";
-import { storeAppOrigin } from "@/lib/store-url";
+import { revalidateStoreInfo } from "@/lib/store-revalidate";
 
 /**
  * Writing a store's slug. The owner's slug is used exactly as typed (lowercased, trimmed): nothing is
@@ -47,25 +47,6 @@ export async function changeStoreSlug(storeId: string, userId: string, rawSlug: 
     if (isUniqueViolation(error)) return { ok: false, status: 409, error: SLUG_TAKEN_MESSAGE } as const;
     throw error;
   }
-  await revalidateStoreLookup([current.slug, slug]);
+  revalidateStoreInfo([current.slug, slug]);
   return { ok: true, value: { slug, oldSlug: current.slug } } as const;
-}
-
-/**
- * The store app caches "slug -> store" for 60s (tag store-<slug>). After a rename, drop both tags
- * so the old URL is a 404 and the new one works right away. Best effort: on failure the cache runs out in 60s.
- */
-async function revalidateStoreLookup(slugs: string[]) {
-  const secret = process.env.STORE_API_SECRET ?? "";
-  if (!secret) return;
-  try {
-    await fetch(`${storeAppOrigin()}/api/revalidate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-store-secret": secret },
-      body: JSON.stringify({ tag: slugs.map((s) => `store-${s}`) }),
-      signal: AbortSignal.timeout(3000),
-    });
-  } catch (error) {
-    console.error("[STORE_SLUG_REVALIDATE]", error);
-  }
 }

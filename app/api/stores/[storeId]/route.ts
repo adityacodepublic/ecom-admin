@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { requireSessionStoreOwnerResponse } from "@/lib/api/admin-auth";
 import prismadb from "@/lib/prismadb";
 import { inUseResponse } from "@/lib/api/validate";
+import { revalidateStoreInfo } from "@/lib/store-revalidate";
 export const revalidate = 0;
 
 export async function DELETE(
@@ -14,6 +15,12 @@ export async function DELETE(
     const owner = await requireSessionStoreOwnerResponse(resolvedParams.storeId);
     if ("error" in owner) return owner.error;
     const { userId } = owner;
+
+    // The slug is needed after the delete, to expire the store app's slug -> store lookup.
+    const existing = await prismadb.store.findFirst({
+      where: { id: resolvedParams.storeId, userId },
+      select: { slug: true },
+    });
 
     // Library rows first, then the store, in ONE transaction: if the store delete fails
     // (it still has products etc.) the library rows come back. Cloudinary files stay.
@@ -31,6 +38,8 @@ export async function DELETE(
         },
       }),
     ]);
+
+    if (existing && store.count > 0) revalidateStoreInfo(existing.slug);
 
     return NextResponse.json(store);
   } catch (error) {
