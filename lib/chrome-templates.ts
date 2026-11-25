@@ -33,7 +33,7 @@ export const DEFAULT_NAVBAR_HTML = `<!-- Readymade tags (mounted as live React c
     <div class="h-[3.1rem] lg:h-[3.25rem] relative px-3 lg:px-8 flex items-center gap-2 sm:gap-3">
       <store-logo />
       <store-search />
-      <div class="flex items-center gap-2.5 sm:gap-4">
+      <div class="flex items-center gap-4">
         <store-cart />
         <store-account />
       </div>
