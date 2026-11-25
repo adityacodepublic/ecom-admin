@@ -87,7 +87,7 @@ export const DEFAULT_FOOTER_HTML = `<!-- Variables (HTML-escaped when rendered):
           <li><a href="tel:{{contact.phone}}" class="hover:text-foreground">Call {{contact.phone}}</a></li>
           {{/if}}
           {{#if contact.whatsapp}}
-          <li><a href="https://wa.me/{{contact.whatsapp}}" class="hover:text-foreground">WhatsApp</a></li>
+          <li><a href="https://wa.me/{{contact.whatsapp}}" target="_blank" rel="noopener noreferrer" class="hover:text-foreground">WhatsApp</a></li>
           {{/if}}
         </ul>
       </div>
