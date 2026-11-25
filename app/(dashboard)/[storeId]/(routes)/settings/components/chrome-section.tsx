@@ -93,7 +93,7 @@ export const ChromeSection = ({ storeId, navbarHtml, footerHtml }: { storeId: st
         <HtmlEditor
           id="navbar-html"
           label="Navbar HTML"
-          hint="Slots: <store-logo />, <store-search />, <store-cart />, <store-account />. Variables: {{store.name}}, {{store.homeHref}}, {{#each categories}} ({{name}}, {{href}}), {{#each pages}} ({{title}}, {{href}})."
+          hint="Readymade tags: <store-logo />, <store-search />, <store-cart />, <store-account />. Variables: {{store.name}}, {{store.homeHref}}."
           value={navbar}
           fallback={DEFAULT_NAVBAR_HTML}
           onChange={setNavbar}
@@ -102,7 +102,7 @@ export const ChromeSection = ({ storeId, navbarHtml, footerHtml }: { storeId: st
         <HtmlEditor
           id="footer-html"
           label="Footer HTML"
-          hint="Variables: {{store.name}}, {{store.year}}, {{store.homeHref}}, {{store.cartHref}}, {{store.ordersHref}}, {{contact.phone}}, {{contact.whatsapp}}, {{#each categories}} ({{name}}, {{href}}), {{#each pages}} ({{title}}, {{href}}), {{#if ...}}."
+          hint="Readymade tags: <store-categories />, <store-pages />, <store-contact />. Variables: {{store.name}}, {{store.year}}, {{store.homeHref}}, {{store.cartHref}}, {{store.ordersHref}}, {{contact.phone}}, {{contact.whatsapp}}."
           value={footer}
           fallback={DEFAULT_FOOTER_HTML}
           onChange={setFooter}
