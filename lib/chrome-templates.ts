@@ -30,10 +30,10 @@ export const DEFAULT_NAVBAR_HTML = `<!-- Readymade tags (mounted as live React c
 -->
 <header class="border-b z-20 fixed w-full glass top-0">
   <div class="mx-auto max-w-7xl">
-    <div class="h-[3.2rem] lg:h-[3.6rem] relative px-3 lg:px-8 flex items-center gap-2 sm:gap-3">
+    <div class="h-[3.1rem] lg:h-[3.25rem] relative px-3 lg:px-8 flex items-center gap-2 sm:gap-3">
       <store-logo />
       <store-search />
-      <div class="flex items-center gap-2 sm:gap-3">
+      <div class="flex items-center gap-2.5 sm:gap-4">
         <store-cart />
         <store-account />
       </div>
@@ -71,7 +71,7 @@ export const DEFAULT_FOOTER_HTML = `<!-- Readymade tags (automatically omit empt
       <store-contact />
     </div>
 
-    <div class="mt-8 border-t pt-4 text-center text-xs text-muted-foreground">
+    <div class="mt-6 pt-2 text-center text-xs text-muted-foreground">
       &copy; {{store.year}} {{store.name}}.
     </div>
   </div>
