@@ -1,7 +1,8 @@
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
-import { CLARITY_API_TOKEN, CLARITY_API_TOKEN_ERROR, CLARITY_PROJECT_ID, CLARITY_PROJECT_ID_ERROR } from "@/lib/clarity-format";
+import { validateChromeHtml } from "@/lib/chrome-templates";
+import { CLARITY_API_TOKEN,CLARITY_API_TOKEN_ERROR, CLARITY_PROJECT_ID, CLARITY_PROJECT_ID_ERROR } from "@/lib/clarity-format";
 import prismadb from "@/lib/prismadb";
 
 /**
@@ -12,10 +13,11 @@ import prismadb from "@/lib/prismadb";
  *   logoOnly true: the store's header shows the logo without the name (for a logo that already contains the name)
  *   clarityProjectId  the owner's own Microsoft Clarity project id ("" = no Clarity on this store's pages)
  *   clarityApiToken   the owner's Clarity Data Export token (secret, admin server only: never sent to a browser or the store app)
+ *   navbarHtml, footerHtml  the owner's own navbar / footer HTML (lib/chrome-templates.ts; "" = the default)
  *   clarityInsights   the last visitor numbers fetched with that token, and when to ask Clarity again (lib/clarity-insights.ts)
  * Each part is parsed by its own module; this file only reads and writes the parts.
  */
-export type SettingsPart = "orders" | "contact" | "logo" | "logoOnly" | "clarityProjectId" | "clarityApiToken" | "clarityInsights";
+export type SettingsPart = "orders" | "contact" | "logo" | "logoOnly" | "clarityProjectId" | "clarityApiToken" | "clarityInsights" | "navbarHtml" | "footerHtml";
 
 const asObject = (raw: unknown): Record<string, unknown> =>
   raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
@@ -107,3 +109,16 @@ export const parseClarityApiToken = (raw: unknown): string => {
   const r = clarityApiTokenSchema.safeParse(settingsPart(raw, "clarityApiToken") ?? "");
   return r.success ? r.data : "";
 };
+
+// ---- navbar and footer HTML (lib/chrome-templates.ts)
+
+const parseChromeHtml = (raw: unknown, part: "navbarHtml" | "footerHtml"): string => {
+  const value = settingsPart(raw, part);
+  return typeof value === "string" && validateChromeHtml(value) === null ? value : "";
+};
+
+/** The stored navbar HTML, or "" (not set, or not valid: the store uses its default). */
+export const parseNavbarHtml = (raw: unknown): string => parseChromeHtml(raw, "navbarHtml");
+
+/** The stored footer HTML, or "" (not set, or not valid: the store uses its default). */
+export const parseFooterHtml = (raw: unknown): string => parseChromeHtml(raw, "footerHtml");

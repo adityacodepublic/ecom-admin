@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 
+import { parseContact } from "@/lib/contact";
 import prismadb from "@/lib/prismadb";
 import { isValidSlug } from "@/lib/slug";
-import { parseClarityProjectId, parseLogo, parseLogoOnly } from "@/lib/store-settings";
+import { parseClarityProjectId, parseFooterHtml, parseLogo, parseLogoOnly, parseNavbarHtml } from "@/lib/store-settings";
 
-// Public: the store app turns the slug in its URL into the store (id, name, logo, Clarity project id) with this.
+// Public: the store app turns the slug in its URL into the store (id, name, logo, Clarity project id, navbar and footer HTML,
+// contact details, custom page routes) with this.
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, OPTIONS",
@@ -18,10 +20,27 @@ export async function OPTIONS() {
 export async function GET(_req: Request, { params }: { params: Promise<{ slug: string }> }) {
   const slug = (await params).slug.toLowerCase();
   const store = isValidSlug(slug)
-    ? await prismadb.store.findUnique({ where: { slug }, select: { id: true, name: true, slug: true, settings: true } })
+    ? await prismadb.store.findUnique({ where: { slug }, select: { id: true, name: true, slug: true, settings: true, pageLayouts: true } })
     : null;
   if (!store) {
     return NextResponse.json({ error: "Store not found" }, { status: 404, headers: corsHeaders });
   }
-  return NextResponse.json({ id: store.id, name: store.name, slug: store.slug, logo: parseLogo(store.settings), logoOnly: parseLogoOnly(store.settings), clarityProjectId: parseClarityProjectId(store.settings) }, { headers: corsHeaders });
+  // The routes of the owner's custom pages (Store.pageLayouts.custom = { "<route>": blocks }), for the footer's page links.
+  const custom = (store.pageLayouts as { custom?: unknown } | null)?.custom;
+  const customPages = custom && typeof custom === "object" && !Array.isArray(custom) ? Object.keys(custom).sort() : [];
+  return NextResponse.json(
+    {
+      id: store.id,
+      name: store.name,
+      slug: store.slug,
+      logo: parseLogo(store.settings),
+      logoOnly: parseLogoOnly(store.settings),
+      clarityProjectId: parseClarityProjectId(store.settings),
+      navbarHtml: parseNavbarHtml(store.settings),
+      footerHtml: parseFooterHtml(store.settings),
+      contact: parseContact(store.settings),
+      customPages,
+    },
+    { headers: corsHeaders },
+  );
 }

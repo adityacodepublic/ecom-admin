@@ -6,7 +6,7 @@ import { existsSync, readFileSync } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
-const SHARED = ["lib/home-layout.ts", "lib/cache-tags.ts"];
+const SHARED = ["lib/home-layout.ts", "lib/cache-tags.ts", "lib/chrome-templates.ts"];
 const admin = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const store = path.resolve(admin, "..", "next13-ecommerce-store");
 
