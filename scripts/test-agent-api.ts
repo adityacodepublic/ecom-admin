@@ -468,7 +468,7 @@ async function main() {
   check("skill: bad names refused", (await readSkill("../package", "x", A.store.id)) === null && (await readSkill("nope-nope", "x", A.store.id)) === null);
   const idx = await readSkill("index", "https://h/api/agent/T", A.store.id);
   check("skill: router served with {{BASE}} replaced", idx === null || (!idx.includes("{{BASE}}") && idx.includes("https://h/api/agent/T")), idx?.slice(0, 80));
-  check("skill: {{STORE_URL}} is replaced with the storefront address", idx === null || (!idx.includes("{{STORE_URL}}") && idx.includes("/s/") && idx.includes("/product/{productId}")), idx?.slice(0, 80));
+  check("skill: {{STORE_URL}} is replaced with the storefront address", idx === null || (!idx.includes("{{STORE_URL}}") && idx.includes(`/${A.store.slug}`) && !idx.includes("/s/") && idx.includes("/product/{productId}")), idx?.slice(0, 80));
 
   // ------------------------------------------------------------ 8b. ids must belong to the store, quantity, filters, orders q
   {

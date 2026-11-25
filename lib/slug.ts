@@ -1,6 +1,6 @@
 /**
  * Store slugs: the part of the store URL that names the store
- * (path mode: <store app>/s/<slug>, subdomain mode: <slug>.<root domain>).
+ * (path mode: <store app>/<slug>, subdomain mode: <slug>.<root domain>).
  * The owner chooses it (the form suggests slugify(name)) and can change it later; the server never
  * changes what the owner typed. The rules are the DNS label rules, so a slug also works as a subdomain.
  */
@@ -14,7 +14,7 @@ export const RESERVED_SLUGS = new Set([
   "cdn", "static", "assets", "media", "img", "images", "docs", "help", "support", "status", "blog",
   "auth", "login", "logout", "signin", "signup", "sign-in", "sign-up", "user-profile", "account",
   "billing", "checkout", "cart", "orders", "pay", "preview", "test", "dev", "staging", "localhost",
-  "vercel", "next", "favicon",
+  "vercel", "next", "favicon", "site-icon", "robots", "sitemap",
 ]);
 
 // "--" is not allowed: it also blocks the "xn--" punycode prefix.

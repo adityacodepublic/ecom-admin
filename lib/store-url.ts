@@ -17,5 +17,5 @@ export function storeAppOrigin(): string {
 
 export function storeUrl(slug: string): string {
   if (isSubdomainMode()) return `${protocol()}://${slug}.${process.env.NEXT_PUBLIC_ROOT_DOMAIN}`;
-  return `${storeAppOrigin()}/s/${slug}`;
+  return `${storeAppOrigin()}/${slug}`;
 }

@@ -394,7 +394,7 @@ const paddingX = {
             </Row>
             <Row>
               <Text style={footer.text}>
-                © 2022 STORE, Inc. All Rights Reserved.
+                © 2026 STORE, Inc.
               </Text>
             </Row>
             <Row>

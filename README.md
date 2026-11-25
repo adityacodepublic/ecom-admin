@@ -66,7 +66,7 @@ NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/
 DATABASE_URL=''
 NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=""
 STRIPE_API_KEY= # unused (Stripe is abandoned)
-# Store URLs (lib/store-url.ts): "path" -> <NEXT_PUBLIC_STORE_URL>/s/<slug>
+# Store URLs (lib/store-url.ts): "path" -> <NEXT_PUBLIC_STORE_URL>/<slug>
 NEXT_PUBLIC_TENANT_MODE=path
 NEXT_PUBLIC_STORE_URL=http://localhost:3001
 # "subdomain" -> <NEXT_PUBLIC_STORE_PROTOCOL>://<slug>.<NEXT_PUBLIC_ROOT_DOMAIN> (needs an owned wildcard domain)
