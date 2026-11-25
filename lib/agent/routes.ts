@@ -37,6 +37,7 @@ const ROUTES: Route[] = [
   { pattern: ["order-settings"], load: () => import("@/app/api/[storeId]/order-settings/route") },
   { pattern: ["contact"], load: () => import("@/app/api/[storeId]/contact/route") },
   { pattern: ["branding"], load: () => import("@/app/api/[storeId]/branding/route") },
+  { pattern: ["chrome"], load: () => import("@/app/api/[storeId]/chrome/route") },
   { pattern: ["media"], load: () => import("@/app/api/[storeId]/media/route") },
   { pattern: ["media", ":mediaId"], load: () => import("@/app/api/[storeId]/media/[mediaId]/route") },
   { pattern: ["users"], load: () => import("@/app/api/[storeId]/users/route"), only: ["GET"] },

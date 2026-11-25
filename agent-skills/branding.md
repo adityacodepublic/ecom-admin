@@ -1,6 +1,6 @@
 # Store name and logo
 
-The name and logo show in the store's header, its footer (© year name), and the browser tab. Router: `{{BASE}}/skill/index`.
+The name and logo show in the store's header, its footer (© year name), and the browser tab. To edit the navbar or footer HTML itself, read `{{BASE}}/skill/chrome`. Router: `{{BASE}}/skill/index`.
 
 ## Endpoints
 

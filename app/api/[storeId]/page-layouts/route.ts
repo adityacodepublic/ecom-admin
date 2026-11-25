@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 
+import prismadb from "@/lib/prismadb";
 import { requireStoreOwnerResponse } from "@/lib/api/admin-auth";
 import { PAGES } from "@/lib/home-layout";
 import { createCustomPage, listCustomRoutes } from "@/lib/page-layouts";
-import { revalidateStorePageLayouts } from "@/lib/store-revalidate";
+import { revalidateStoreInfo, revalidateStorePageLayouts } from "@/lib/store-revalidate";
 
 type Ctx = { params: Promise<{ storeId: string }> };
 
@@ -27,7 +28,9 @@ export async function POST(req: Request, { params }: Ctx) {
     if (!result.ok) {
       return typeof result.body === "string" ? new NextResponse(result.body, { status: result.status }) : NextResponse.json(result.body, { status: result.status });
     }
+    const store = await prismadb.store.findUnique({ where: { id: storeId }, select: { slug: true } });
     revalidateStorePageLayouts(storeId);
+    if (store?.slug) revalidateStoreInfo(store.slug);
     return NextResponse.json({ route: result.route, blocks: [] }, { status: 201 });
   } catch (error) {
     console.log("[PAGE_LAYOUTS_POST]", error);

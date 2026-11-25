@@ -4,6 +4,7 @@ import { requireStoreOwnerPage } from "@/lib/api/admin-auth";
 import prismadb from "@/lib/prismadb";
 import { customPageLayoutSchema, defaultLayouts, PAGES, pageLayoutSchemas, type PageLayout, type PageName } from "@/lib/home-layout";
 import { customPagesOf } from "@/lib/page-layouts";
+import { parseFooterHtml, parseNavbarHtml } from "@/lib/store-settings";
 import { storeUrl } from "@/lib/store-url";
 import { PagesEditor } from "./components/pages-editor";
 
@@ -14,7 +15,7 @@ const PagesPage = async ({ params }: { params: Promise<{ storeId: string }> }) =
   const { storeId } = await params;
   await requireStoreOwnerPage(storeId);
   const [store, categories, products] = await Promise.all([
-    prismadb.store.findUnique({ where: { id: storeId }, select: { slug: true, pageLayouts: true } }),
+    prismadb.store.findUnique({ where: { id: storeId }, select: { slug: true, pageLayouts: true, settings: true } }),
     prismadb.category.findMany({ where: { storeId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     prismadb.product.findMany({ where: { storeId, isArchived: false }, select: { id: true, name: true }, orderBy: { createdAt: "desc" }, take: PREVIEW_PRODUCTS }),
   ]);
@@ -44,6 +45,8 @@ const PagesPage = async ({ params }: { params: Promise<{ storeId: string }> }) =
         <PagesEditor
           layouts={layouts}
           customPages={customPages}
+          navbarHtml={parseNavbarHtml(store.settings)}
+          footerHtml={parseFooterHtml(store.settings)}
           storeUrl={storeUrl(store.slug)}
           categories={categories.map((c) => ({ value: c.id, label: c.name }))}
           products={products.map((p) => ({ value: p.id, label: p.name }))}

@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 
+import prismadb from "@/lib/prismadb";
 import { requireStoreOwnerResponse } from "@/lib/api/admin-auth";
 import { deleteCustomPage, isPage, readLayout, saveLayout } from "@/lib/page-layouts";
-import { revalidateStorePageLayouts } from "@/lib/store-revalidate";
+import { revalidateStoreInfo, revalidateStorePageLayouts } from "@/lib/store-revalidate";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -58,7 +59,9 @@ export async function DELETE(_req: Request, { params }: Ctx) {
 
     const result = await deleteCustomPage(storeId, owner.userId, page);
     if (!result.ok) return reply(result.status, result.body);
+    const store = await prismadb.store.findUnique({ where: { id: storeId }, select: { slug: true } });
     revalidateStorePageLayouts(storeId);
+    if (store?.slug) revalidateStoreInfo(store.slug);
     return NextResponse.json({ deleted: page });
   } catch (error) {
     console.log("[PAGE_LAYOUT_DELETE]", error);

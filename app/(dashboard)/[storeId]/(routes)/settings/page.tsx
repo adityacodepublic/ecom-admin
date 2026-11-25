@@ -4,13 +4,12 @@ import { requireStoreOwnerPage } from "@/lib/api/admin-auth";
 import prismadb from "@/lib/prismadb";
 
 import { parseContact } from "@/lib/contact";
-import { parseClarityApiToken, parseClarityProjectId, parseFooterHtml, parseLogo, parseLogoOnly, parseNavbarHtml } from "@/lib/store-settings";
+import { parseClarityApiToken, parseClarityProjectId, parseLogo, parseLogoOnly } from "@/lib/store-settings";
 import { AnalyticsSection } from "./components/analytics-section";
 import { LogoSection } from "./components/logo-section";
 import { parseOrderSettings } from "@/lib/orders/settings";
 import { SettingsForm } from "./components/settings-form";
 import { ContactSection } from "./components/contact-section";
-import { ChromeSection } from "./components/chrome-section";
 import { TransferCard } from "./components/transfer-card";
 import { AgentAccessCard } from "./components/agent-access-card";
 import { OrderSettingsCard } from "./components/order-settings-card";
@@ -48,7 +47,6 @@ const SettingsPage = async ({
           <ContactSection storeId={store.id} initial={contact} />
           <AnalyticsSection storeId={store.id} slug={store.slug} clarityProjectId={parseClarityProjectId(store.settings)} hasApiToken={!!parseClarityApiToken(store.settings)} />
         </SettingsForm>
-        <ChromeSection storeId={store.id} navbarHtml={parseNavbarHtml(store.settings)} footerHtml={parseFooterHtml(store.settings)} />
         <h3 className="pt-4 text-lg font-semibold tracking-tight">Orders</h3>
         <OrderSettingsCard storeId={store.id} initial={orderSettings} />
         <h3 className="pt-4 text-lg font-semibold tracking-tight">Agent</h3>

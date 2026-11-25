@@ -17,7 +17,17 @@ import prismadb from "@/lib/prismadb";
  *   clarityInsights   the last visitor numbers fetched with that token, and when to ask Clarity again (lib/clarity-insights.ts)
  * Each part is parsed by its own module; this file only reads and writes the parts.
  */
-export type SettingsPart = "orders" | "contact" | "logo" | "logoOnly" | "clarityProjectId" | "clarityApiToken" | "clarityInsights" | "navbarHtml" | "footerHtml";
+export type SettingsPart =
+  | "orders"
+  | "contact"
+  | "logo"
+  | "logoOnly"
+  | "clarityProjectId"
+  | "clarityApiToken"
+  | "clarityInsights"
+  | "navbarHtml"
+  | "footerHtml"
+  | "revalidation";
 
 const asObject = (raw: unknown): Record<string, unknown> =>
   raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};

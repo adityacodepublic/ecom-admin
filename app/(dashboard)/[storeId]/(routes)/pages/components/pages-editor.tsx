@@ -16,12 +16,15 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PAGES, normalizeRoute, pageLabels, routeProblem, routeTakenMessage, type PageLayout, type PageName } from "@/lib/home-layout";
 import type { Option } from "./section-form";
+import { ChromeEditor } from "./chrome-editor";
 import { PageLayoutEditor } from "./page-layout-editor";
 
 interface PagesEditorProps {
   layouts: Record<PageName, PageLayout>;
   /** The custom pages: route -> layout. */
   customPages: Record<string, PageLayout>;
+  navbarHtml: string;
+  footerHtml: string;
   storeUrl: string;
   categories: Option[];
   products: Option[];
@@ -114,7 +117,7 @@ const NewPageModal = ({ storeId, storeUrl, taken, onCreated, onClose }: NewPageM
 };
 
 /** One tab per store page, then one per custom page. All tabs stay mounted, so switching never loses a page's state. */
-export const PagesEditor = ({ layouts, customPages, ...rest }: PagesEditorProps) => {
+export const PagesEditor = ({ layouts, customPages, navbarHtml, footerHtml, ...rest }: PagesEditorProps) => {
   const { storeId } = useParams<{ storeId: string }>();
   const [routes, setRoutes] = useState<string[]>(Object.keys(customPages));
   const [tab, setTab] = useState<string>("home");
@@ -161,6 +164,7 @@ export const PagesEditor = ({ layouts, customPages, ...rest }: PagesEditorProps)
                 {pageLabels[page]}
               </TabsTrigger>
             ))}
+            <TabsTrigger value="chrome">Header &amp; Footer</TabsTrigger>
             {routes.map((route) => (
               <TabsTrigger key={route} value={customTab(route)}>
                 {route}
@@ -181,6 +185,9 @@ export const PagesEditor = ({ layouts, customPages, ...rest }: PagesEditorProps)
             <PageLayoutEditor page={page} initialLayout={layouts[page]} {...rest} />
           </TabsContent>
         ))}
+        <TabsContent value="chrome" forceMount className="data-[state=inactive]:hidden">
+          <ChromeEditor storeId={storeId} storeUrl={rest.storeUrl} navbarHtml={navbarHtml} footerHtml={footerHtml} />
+        </TabsContent>
         {routes.map((route) => (
           <TabsContent key={route} value={customTab(route)} forceMount className="space-y-4 data-[state=inactive]:hidden">
             <div className="flex flex-wrap items-center gap-2 text-sm">

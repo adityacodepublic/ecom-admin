@@ -19,6 +19,7 @@ The store's public website is `{{STORE_URL}}`. It is public: open it, browse it 
 | Status lists, cancellation, returns rules | `{{BASE}}/skill/order-settings` |
 | Phone, WhatsApp, email | `{{BASE}}/skill/contact` |
 | Store name and logo | `{{BASE}}/skill/branding` |
+| Navbar and footer HTML | `{{BASE}}/skill/chrome` |
 | Page layouts (home, category, product) and custom pages at their own route: Billboards, product lists, custom HTML blocks | `{{BASE}}/skill/pages` |
 | Uploading or listing images | `{{BASE}}/skill/media` |
 | Customer ids | `{{BASE}}/skill/users` |
@@ -56,7 +57,7 @@ Product(name, price, quantity, maxQuantity, isFeatured, isArchived, description)
    -> images[{url, order}]            (at least 1)
    -> filteritems -> Value(value, unit) -> Filter(name)   (optional attributes)
 Order (read + status updates only) -> items reference Product, customer = Users
-Store JSON: settings (orders, contact, logo), pageLayouts (home, category and product pages, and custom pages by route; billboard
+Store JSON: settings (orders, contact, logo, navbarHtml, footerHtml), pageLayouts (home, category and product pages, and custom pages by route; billboard
             banners are "carousel" blocks there, with their images inside)
 MediaImage: the image library (url, source "upload" | "url")
 ```
@@ -69,9 +70,9 @@ Create order: category, then (optional) filter, then product. Delete in reverse 
 
 - Send `Content-Type: application/json` with JSON bodies. Money is rupees as a number or string with at most 2 decimals (`499`, `"499.50"`).
 - Image fields hold plain `https://` URLs. Get one with `POST {{BASE}}/upload-url` + a direct Cloudinary upload (max 6 MB, see media) or reuse an existing https URL (`POST {{BASE}}/media { "url": "https://...", "source": "url" }`).
-- Responses over about 3.5 MB are refused with `413 { "error": "Response too large. Use ?page=1&pageSize=50" }`. On the lists `products`, `categories` and `filters`, add `?page=1&pageSize=50` (pageSize max 100, default 50). With `page` the answer is `{ "items": [...], "page", "pageSize", "hasMore" }` instead of a plain array; keep requesting the next `page` while `hasMore` is true. Without `page` you get the full plain array as before. Request bodies are limited to about 200 KB.
+- Responses over about 3.5 MB are refused with `413 { "error": "Response too large. Use ?page=1&pageSize=50" }`. On the lists `products`, `categories` and `filters`, add `?page=1&pageSize=50` (pageSize max 100, default 50). With `page` the answer is `{ "items": [...], "page", "pageSize", "hasMore" }` instead of a plain array; keep requesting the next `page` while `hasMore` is true. Without `page` you get the full plain array as before. Request bodies are limited to 400 KB.
 - PATCH on categories, products and filters is a full replace of the listed fields. Send every required field, not only the changed one. GET the record first and send it back modified.
-- Errors: older routes return a plain-text body (`Name is required`, `Internal error`) with 400/401/403/500. Orders, order-settings, contact and branding return `{ "error": { "code", "message", "details" } }`. Proxy errors return `{ "error": "..." }`.
+- Errors: older routes return a plain-text body (`Name is required`, `Internal error`) with 400/401/403/500. Orders, order-settings, contact, branding and chrome return `{ "error": { "code", "message", "details" } }`. Proxy errors return `{ "error": "..." }`.
 - `403` from a feature route means the store/owner check failed.
 - Do not retry a `500 Internal error` blindly. Re-read the matching skill's failure table.
 - If you have codemode like tools, then use them to compose different requests.
