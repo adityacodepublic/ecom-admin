@@ -8,7 +8,6 @@
  *   {{#each categories}}...{{/each}}    repeat for each item; inside, {{name}} and {{href}}
  *   {{#each pages}}...{{/each}}         repeat for each item; inside, {{title}} and {{href}}
  *   {{#if categories}}...{{/if}}        show only when the value is set (a non-empty list or text)
- *   {{#if contact.phone contact.whatsapp}}...{{/if}}   several values: show when any one is set
  * The navbar also has four interactive slots (<store-logo />, <store-search />, <store-cart />, <store-account />):
  * the store app replaces them with live components after rendering.
  */
@@ -49,7 +48,6 @@ export const DEFAULT_FOOTER_HTML = `<!-- Variables (HTML-escaped when rendered):
   {{#each categories}} ... {{name}} {{href}} ... {{/each}}
   {{#each pages}} ... {{title}} {{href}} ... {{/each}}
   {{#if categories}} {{#if pages}} {{#if contact.phone}} {{#if contact.whatsapp}} ... {{/if}}
-  {{#if contact.phone contact.whatsapp}} ... {{/if}}   (shown when any one is set)
 -->
 <footer class="border-t bg-background">
   <div class="mx-auto max-w-7xl px-4 py-10 lg:px-8">
@@ -82,7 +80,6 @@ export const DEFAULT_FOOTER_HTML = `<!-- Variables (HTML-escaped when rendered):
         </ul>
       </div>
 
-      {{#if contact.phone contact.whatsapp}}
       <div class="space-y-2">
         <h3 class="text-sm font-semibold">Contact</h3>
         <ul class="space-y-1 text-sm text-muted-foreground">
@@ -94,7 +91,6 @@ export const DEFAULT_FOOTER_HTML = `<!-- Variables (HTML-escaped when rendered):
           {{/if}}
         </ul>
       </div>
-      {{/if}}
     </div>
 
     <div class="mt-8 border-t pt-4 text-center text-xs text-muted-foreground">
@@ -127,9 +123,9 @@ type Node =
   | { kind: "text"; text: string }
   | { kind: "var"; path: string }
   | { kind: "each"; path: string; children: Node[] }
-  | { kind: "if"; paths: string[]; children: Node[] };
+  | { kind: "if"; path: string; children: Node[] };
 
-const TAG = /\{\{\s*(#each|#if|\/each|\/if)?\s*([\w. ]*?)\s*\}\}/g;
+const TAG = /\{\{\s*(#each|#if|\/each|\/if)?\s*([\w.]*)\s*\}\}/g;
 
 /** Template text -> tree. Unclosed blocks close at the end; a stray closing tag is ignored. */
 function parse(template: string): Node[] {
@@ -150,7 +146,7 @@ function parse(template: string): Node[] {
       stack.push({ type: "each", children });
     } else if (directive === "#if") {
       const children: Node[] = [];
-      current().push({ kind: "if", paths: path.split(/\s+/).filter(Boolean), children });
+      current().push({ kind: "if", path, children });
       stack.push({ type: "if", children });
     } else if (directive === "/each" || directive === "/if") {
       if (stack.length && stack[stack.length - 1].type === directive.slice(1)) stack.pop();
@@ -186,7 +182,7 @@ function evaluate(nodes: Node[], item: Scope | null, data: Scope): string {
       const value = lookup(node.path, item, data);
       out += typeof value === "string" || typeof value === "number" ? escapeHtml(String(value)) : "";
     } else if (node.kind === "if") {
-      if (node.paths.some((p) => isSet(lookup(p, item, data)))) out += evaluate(node.children, item, data);
+      if (isSet(lookup(node.path, item, data))) out += evaluate(node.children, item, data);
     } else {
       const list = lookup(node.path, item, data);
       if (Array.isArray(list)) {
