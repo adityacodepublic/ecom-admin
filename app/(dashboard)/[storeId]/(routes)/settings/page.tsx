@@ -13,6 +13,7 @@ import { ContactSection } from "./components/contact-section";
 import { TransferCard } from "./components/transfer-card";
 import { AgentAccessCard } from "./components/agent-access-card";
 import { OrderSettingsCard } from "./components/order-settings-card";
+import { CustomDomainCard } from "./components/custom-domain-card";
 
 const SettingsPage = async ({
   params,
@@ -28,7 +29,7 @@ const SettingsPage = async ({
       userId,
     },
     // SettingsForm is a client component: only the columns it uses (never agentAccess).
-    select: { id: true, name: true, slug: true, settings: true },
+    select: { id: true, name: true, slug: true, customDomain: true, settings: true },
   });
 
   if (!store) {
@@ -47,6 +48,8 @@ const SettingsPage = async ({
           <ContactSection storeId={store.id} initial={contact} />
           <AnalyticsSection storeId={store.id} slug={store.slug} clarityProjectId={parseClarityProjectId(store.settings)} hasApiToken={!!parseClarityApiToken(store.settings)} />
         </SettingsForm>
+        <h3 className="pt-4 text-lg font-semibold tracking-tight">Domain</h3>
+        <CustomDomainCard storeId={store.id} initialDomain={store.customDomain} />
         <h3 className="pt-4 text-lg font-semibold tracking-tight">Orders</h3>
         <OrderSettingsCard storeId={store.id} initial={orderSettings} />
         <h3 className="pt-4 text-lg font-semibold tracking-tight">Agent</h3>

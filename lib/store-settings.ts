@@ -27,7 +27,8 @@ export type SettingsPart =
   | "clarityInsights"
   | "navbarHtml"
   | "footerHtml"
-  | "revalidation";
+  | "revalidation"
+  | "domainChange";
 
 const asObject = (raw: unknown): Record<string, unknown> =>
   raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};

@@ -4,6 +4,7 @@ import { requireSessionStoreOwnerResponse } from "@/lib/api/admin-auth";
 import prismadb from "@/lib/prismadb";
 import { inUseResponse } from "@/lib/api/validate";
 import { revalidateStoreInfo } from "@/lib/store-revalidate";
+import { removeDomainFromVercelLater, triggerStorefrontRedeploy } from "@/lib/vercel-domains";
 export const revalidate = 0;
 
 export async function DELETE(
@@ -19,7 +20,7 @@ export async function DELETE(
     // The slug is needed after the delete, to expire the store app's slug -> store lookup.
     const existing = await prismadb.store.findFirst({
       where: { id: resolvedParams.storeId, userId },
-      select: { slug: true },
+      select: { slug: true, customDomain: true, customDomainVerified: true },
     });
 
     // Library rows first, then the store, in ONE transaction: if the store delete fails
@@ -39,7 +40,14 @@ export async function DELETE(
       }),
     ]);
 
-    if (existing && store.count > 0) revalidateStoreInfo(existing.slug);
+    if (existing && store.count > 0) {
+      revalidateStoreInfo(existing.slug);
+      // Free the hostname on the storefront's Vercel project; a verified one is also dropped from the storefront's build-time map.
+      if (existing.customDomain) {
+        removeDomainFromVercelLater(existing.customDomain);
+        if (existing.customDomainVerified) triggerStorefrontRedeploy(`store ${resolvedParams.storeId} with a custom domain deleted`);
+      }
+    }
 
     return NextResponse.json(store);
   } catch (error) {

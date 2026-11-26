@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import prismadb from "@/lib/prismadb";
 import { SLUG_TAKEN_MESSAGE, slugError } from "@/lib/slug";
 import { revalidateStoreInfo } from "@/lib/store-revalidate";
+import { triggerStorefrontRedeploy } from "@/lib/vercel-domains";
 
 /**
  * Writing a store's slug. The owner's slug is used exactly as typed (lowercased, trimmed): nothing is
@@ -35,7 +36,7 @@ export async function changeStoreSlug(storeId: string, userId: string, rawSlug: 
   const invalid = slugError(slug);
   if (invalid) return { ok: false, status: 400, error: invalid } as const;
 
-  const current = await prismadb.store.findFirst({ where: { id: storeId, userId }, select: { slug: true } });
+  const current = await prismadb.store.findFirst({ where: { id: storeId, userId }, select: { slug: true, customDomain: true, customDomainVerified: true } });
   if (!current) return { ok: false, status: 404, error: "Store not found" } as const;
   if (current.slug === slug) return { ok: true, value: { slug, oldSlug: slug } } as const;
 
@@ -48,5 +49,7 @@ export async function changeStoreSlug(storeId: string, userId: string, rawSlug: 
     throw error;
   }
   revalidateStoreInfo([current.slug, slug]);
+  // The storefront's build-time hostname -> slug map (verified domains only) still names the old slug: rebuild it.
+  if (current.customDomain && current.customDomainVerified) triggerStorefrontRedeploy(`slug of store ${storeId} with a custom domain changed`);
   return { ok: true, value: { slug, oldSlug: current.slug } } as const;
 }

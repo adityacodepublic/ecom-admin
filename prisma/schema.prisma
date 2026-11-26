@@ -13,6 +13,8 @@ model Store {
   name       String
   userId     String
   slug       String      @unique
+  customDomain String?    @unique // the owner's own hostname, normalized lowercase (lib/custom-domain.ts), e.g. "shop.mybrand.com". Null = none. Column added by sql/custom-domain.sql.
+  customDomainVerified Boolean @default(false) // true once Vercel confirms the domain's DNS (lib/store-domain.ts): only then does the storefront redirect and canonicalize to it. Column added by sql/custom-domain.sql.
   pageLayouts Json? // the store pages: { home: [...], category: [...], product: [...] } (lib/home-layout.ts). A missing page = its default.
   settings    Json? // { orders, contact, logo } (lib/store-settings.ts). Null = all defaults.
   agentAccess   Json? // AI agent link + pending requests + log (lib/agent/store.ts). Null = no link.
@@ -235,4 +237,70 @@ model MediaImage {
 
   @@unique([storeId, url])
   @@index([storeId, createdAt])
+}
+
+// ---------------------------------------------------------------- Better Auth (the STOREFRONT's shopper sign-in)
+// The storefront (next13-ecommerce-store, lib/auth.ts) stores its shoppers in these four tables of the same database.
+// The admin never reads them (it signs in with Clerk): they are declared here only so this schema stays the single,
+// drift-free description of the database. Created by sql/better-auth.sql, in Better Auth's own layout (camelCase
+// columns, text ids, timestamptz), under ba_* names so they never collide with "Users" (the shoppers' profiles).
+model BaUser {
+  id            String      @id
+  name          String
+  email         String      @unique
+  emailVerified Boolean
+  image         String?
+  createdAt     DateTime    @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime    @default(now()) @db.Timestamptz(6)
+  sessions      BaSession[]
+  accounts      BaAccount[]
+
+  @@map("ba_user")
+}
+
+model BaSession {
+  id        String   @id
+  expiresAt DateTime @db.Timestamptz(6)
+  token     String   @unique
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @db.Timestamptz(6)
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      BaUser   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("ba_session")
+}
+
+model BaAccount {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  BaUser    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime? @db.Timestamptz(6)
+  refreshTokenExpiresAt DateTime? @db.Timestamptz(6)
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime  @db.Timestamptz(6)
+
+  @@index([userId])
+  @@map("ba_account")
+}
+
+model BaVerification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime @db.Timestamptz(6)
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([identifier])
+  @@map("ba_verification")
 }

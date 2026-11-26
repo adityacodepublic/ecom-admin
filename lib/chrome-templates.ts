@@ -25,7 +25,7 @@ export const DEFAULT_NAVBAR_HTML = `<!-- Readymade tags (mounted as live React c
   <store-logo />    Store logo & name linking to Home
   <store-search />  Live product search bar
   <store-cart />    Live Cart button with item count
-  <store-account /> Clerk Sign in / Account menu
+  <store-account /> Sign in / Account menu
   Variables: {{store.name}}, {{store.homeHref}}
 -->
 <header class="border-b z-20 fixed w-full glass top-0">

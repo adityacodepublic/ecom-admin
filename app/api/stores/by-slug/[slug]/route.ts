@@ -6,7 +6,7 @@ import { isValidSlug } from "@/lib/slug";
 import { parseClarityProjectId, parseFooterHtml, parseLogo, parseLogoOnly, parseNavbarHtml } from "@/lib/store-settings";
 
 // Public: the store app turns the slug in its URL into the store (id, name, logo, Clarity project id, navbar and footer HTML,
-// contact details, custom page routes) with this.
+// contact details, custom page routes, custom domain) with this.
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, OPTIONS",
@@ -20,7 +20,7 @@ export async function OPTIONS() {
 export async function GET(_req: Request, { params }: { params: Promise<{ slug: string }> }) {
   const slug = (await params).slug.toLowerCase();
   const store = isValidSlug(slug)
-    ? await prismadb.store.findUnique({ where: { slug }, select: { id: true, name: true, slug: true, settings: true, pageLayouts: true } })
+    ? await prismadb.store.findUnique({ where: { slug }, select: { id: true, name: true, slug: true, customDomain: true, customDomainVerified: true, settings: true, pageLayouts: true } })
     : null;
   if (!store) {
     return NextResponse.json({ error: "Store not found" }, { status: 404, headers: corsHeaders });
@@ -40,6 +40,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
       footerHtml: parseFooterHtml(store.settings),
       contact: parseContact(store.settings),
       customPages,
+      // The owner's own hostname once it is verified ("" = none, or not live yet): the storefront builds canonical URLs on it.
+      customDomain: store.customDomainVerified ? (store.customDomain ?? "") : "",
     },
     { headers: corsHeaders },
   );
