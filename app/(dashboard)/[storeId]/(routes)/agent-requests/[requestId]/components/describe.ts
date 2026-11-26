@@ -35,6 +35,7 @@ const LABELS: Record<string, string> = {
   imageUrl: "Thumbnail",
   logo: "Logo",
   logoOnly: "Only the logo in the header",
+  favicon: "Favicon",
   url: "Image link",
   source: "Source",
   status: "Status",

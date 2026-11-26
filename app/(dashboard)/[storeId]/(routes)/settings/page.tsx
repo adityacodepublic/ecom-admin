@@ -4,7 +4,7 @@ import { requireStoreOwnerPage } from "@/lib/api/admin-auth";
 import prismadb from "@/lib/prismadb";
 
 import { parseContact } from "@/lib/contact";
-import { parseClarityApiToken, parseClarityProjectId, parseLogo, parseLogoOnly } from "@/lib/store-settings";
+import { parseClarityApiToken, parseClarityProjectId, parseFavicon, parseLogo, parseLogoOnly } from "@/lib/store-settings";
 import { AnalyticsSection } from "./components/analytics-section";
 import { LogoSection } from "./components/logo-section";
 import { parseOrderSettings } from "@/lib/orders/settings";
@@ -44,7 +44,7 @@ const SettingsPage = async ({
     <div className="flex-col">
       <div className="flex-1 space-y-4 p-4 pt-6 md:p-8">
         <SettingsForm initialData={{ id: store.id, name: store.name, slug: store.slug }}>
-          <LogoSection storeId={store.id} logo={parseLogo(store.settings)} logoOnly={parseLogoOnly(store.settings)} />
+          <LogoSection storeId={store.id} logo={parseLogo(store.settings)} logoOnly={parseLogoOnly(store.settings)} favicon={parseFavicon(store.settings)} />
           <ContactSection storeId={store.id} initial={contact} />
           <AnalyticsSection storeId={store.id} slug={store.slug} clarityProjectId={parseClarityProjectId(store.settings)} hasApiToken={!!parseClarityApiToken(store.settings)} />
         </SettingsForm>

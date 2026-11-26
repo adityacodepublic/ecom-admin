@@ -6,11 +6,12 @@ import { CLARITY_API_TOKEN,CLARITY_API_TOKEN_ERROR, CLARITY_PROJECT_ID, CLARITY_
 import prismadb from "@/lib/prismadb";
 
 /**
- * Store.settings (JSON, null = all defaults): { orders, contact, logo, logoOnly, clarityProjectId, clarityApiToken, clarityInsights }.
+ * Store.settings (JSON, null = all defaults): { orders, contact, logo, logoOnly, favicon, clarityProjectId, clarityApiToken, clarityInsights }.
  *   orders   order settings (lib/orders/settings.ts)
  *   contact  how customers reach the store (lib/contact.ts)
  *   logo     the store's logo/icon url, shown in the store's header and browser tab ("" = the default icon)
  *   logoOnly true: the store's header shows the logo without the name (for a logo that already contains the name)
+ *   favicon  the browser-tab icon url ("" = the tab uses the logo)
  *   clarityProjectId  the owner's own Microsoft Clarity project id ("" = no Clarity on this store's pages)
  *   clarityApiToken   the owner's Clarity Data Export token (secret, admin server only: never sent to a browser or the store app)
  *   navbarHtml, footerHtml  the owner's own navbar / footer HTML (lib/chrome-templates.ts; "" = the default)
@@ -22,6 +23,7 @@ export type SettingsPart =
   | "contact"
   | "logo"
   | "logoOnly"
+  | "favicon"
   | "clarityProjectId"
   | "clarityApiToken"
   | "clarityInsights"
@@ -89,6 +91,31 @@ export const parseLogo = (raw: unknown): string => {
 
 /** Header shows only the logo. Only meaningful with a logo; without one the name is always shown. */
 export const parseLogoOnly = (raw: unknown): boolean => settingsPart(raw, "logoOnly") === true;
+
+// ---- favicon
+
+/** The browser-tab icon: an http(s) image link (.ico, .png, .svg, .webp or a Cloudinary/media URL), or "" = use the logo. */
+export const faviconSchema = z.union([
+  z.literal(""),
+  z
+    .string()
+    .trim()
+    .max(2000)
+    .regex(/^https?:\/\/\S+$/i, "The favicon must be an image link (http or https)")
+    .refine((url) => {
+      try {
+        const { hostname, pathname } = new URL(url);
+        return /\.(ico|png|svg|webp|jpe?g|gif)$/i.test(pathname) || /(^|\.)cloudinary\.com$/i.test(hostname);
+      } catch {
+        return false;
+      }
+    }, "The favicon must be an .ico, .png, .svg or .webp image"),
+]);
+
+export const parseFavicon = (raw: unknown): string => {
+  const r = faviconSchema.safeParse(settingsPart(raw, "favicon") ?? "");
+  return r.success ? r.data : "";
+};
 
 // ---- Microsoft Clarity (the owner's own project: heatmaps, recordings, funnels)
 
