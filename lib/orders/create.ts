@@ -11,7 +11,7 @@ import { CANCELLED, COD, PaymentStatus, QUOTE, isQuote, normalizePaymentStatus }
 import { parseOrderSettings } from "./settings";
 import { TX_OPTIONS, newEvent } from "./update";
 import { notifyOrder } from "./notify";
-import { addressInputSchema, profileCreateSchema } from "./customer";
+import { addressInputSchema, fillProfile, isProfileComplete, profileCreateSchema } from "./customer";
 import { COUNTRY } from "./india";
 
 /**
@@ -121,14 +121,12 @@ export async function createOrder(storeId: string, customerId: string, input: Ch
     payment = COD;
   }
 
-  // Profile: created on the first order only. Two first orders at once: skipDuplicates makes one win quietly.
-  let profile: Profile | null = found;
+  // Profile: filled on the first order only (a bare row made by a first saved address counts as no profile).
+  // Two first orders at once: one wins quietly.
+  let profile: Profile | null = isProfileComplete(found) ? found : null;
   if (!profile) {
     if (!input.contact) throw new OrderError("PROFILE_REQUIRED", "Name, email and phone are needed for the first order");
-    await prismadb.users.createMany({
-      data: [{ id: customerId, fname: input.contact.fname, email: input.contact.email, phone: input.contact.phone, imgurl: input.contact.imgurl ?? "" }],
-      skipDuplicates: true,
-    });
+    await fillProfile(customerId, input.contact);
     profile = { fname: input.contact.fname, phone: input.contact.phone }; // this order's receiver is input.contact anyway
   }
 

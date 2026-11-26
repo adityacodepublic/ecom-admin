@@ -60,6 +60,12 @@ const toAddress = (a: { id: string; street: string; city: string; state: string;
   instructions: a.instructions ?? "",
 });
 
+/** A profile row with no name or phone yet (made when a first address is saved): checkout still asks for the contact. */
+export const isProfileComplete = (u: { fname: string; phone: string } | null | undefined): boolean => !!u && u.fname.trim() !== "" && u.phone.trim() !== "";
+
+/** Most saved addresses one shopper can keep. */
+export const MAX_ADDRESSES = 20;
+
 /** Profile + saved addresses. profile is null before the first order / first PATCH. Light on purpose (checkout loads it). */
 export async function getCustomer(customerId: string) {
   const user = await prismadb.users.findUnique({
@@ -74,27 +80,38 @@ export async function getCustomer(customerId: string) {
     },
   });
   if (!user) return { profile: null, addresses: [] as CustomerAddress[] };
-  return { profile: toProfile(user), addresses: user.address.map(toAddress) };
+  return { profile: isProfileComplete(user) ? toProfile(user) : null, addresses: user.address.map(toAddress) };
+}
+
+/**
+ * Writes the first full profile: creates the row, or fills a bare one (no name or phone yet). A complete profile is never overwritten.
+ * Two at once: createMany + skipDuplicates makes one win quietly (an upsert would fail with a unique-key error).
+ */
+export async function fillProfile(customerId: string, data: z.infer<typeof profileCreateSchema>) {
+  const contact = { fname: data.fname, email: data.email, phone: data.phone, imgurl: data.imgurl ?? "" };
+  await prismadb.users.createMany({ data: [{ id: customerId, ...contact }], skipDuplicates: true });
+  await prismadb.users.updateMany({ where: { id: customerId, OR: [{ fname: "" }, { phone: "" }] }, data: contact });
+  return prismadb.users.findUniqueOrThrow({ where: { id: customerId } });
 }
 
 /** Creates the profile (all of fname, email, phone needed) or updates the given fields. */
 export async function upsertProfile(customerId: string, patch: z.infer<typeof profilePatchSchema>): Promise<CustomerProfile> {
   const existing = await prismadb.users.findUnique({ where: { id: customerId } });
-  if (existing) {
+  if (existing && isProfileComplete(existing)) {
     return toProfile(await prismadb.users.update({ where: { id: customerId }, data: patch }));
   }
-  const full = profileCreateSchema.safeParse(patch);
+  // New, or a bare row made by a first saved address: all of name, email and phone are needed.
+  const full = profileCreateSchema.safeParse({ ...(existing ? { fname: existing.fname, email: existing.email, phone: existing.phone, imgurl: existing.imgurl ?? "" } : {}), ...patch });
   if (!full.success) throw new OrderError("PROFILE_REQUIRED", "Name, email and phone are needed", full.error.flatten());
-  await prismadb.users.createMany({
-    data: [{ id: customerId, ...full.data, imgurl: full.data.imgurl ?? "" }],
-    skipDuplicates: true,
-  });
-  return toProfile(await prismadb.users.findUniqueOrThrow({ where: { id: customerId } }));
+  return toProfile(await fillProfile(customerId, full.data));
 }
 
 export async function addAddress(customerId: string, input: z.infer<typeof addressInputSchema>): Promise<CustomerAddress> {
-  const user = await prismadb.users.findUnique({ where: { id: customerId }, select: { id: true } });
-  if (!user) throw new OrderError("PROFILE_REQUIRED", "Save your name, email and phone first");
+  // A shopper can save an address before the first order: a bare profile row (checkout still asks for name and phone) is made.
+  await prismadb.users.createMany({ data: [{ id: customerId }], skipDuplicates: true });
+  if ((await prismadb.address.count({ where: { usersId: customerId } })) >= MAX_ADDRESSES) {
+    throw new OrderError("ADDRESS_LIMIT", `You can save up to ${MAX_ADDRESSES} addresses. Remove one to add another.`);
+  }
   const a = await prismadb.address.create({
     data: { usersId: customerId, street: input.street, city: input.city, state: input.state, country: COUNTRY, pincode: Number(input.pincode), instructions: input.instructions ?? "" },
   });
@@ -114,10 +131,12 @@ export async function updateAddress(customerId: string, addressId: string, patch
   return toAddress(await prismadb.address.findUniqueOrThrow({ where: { id: addressId } }));
 }
 
-/** Removes a saved address that no order uses. An address used by an order stays (orders are never broken). */
+/**
+ * Removes a saved address. One no order used is deleted. One an order used is detached (usersId = null): it leaves the
+ * shopper's list and can never be picked again, while the order keeps its row and its own frozen copy (details.shipTo).
+ */
 export async function deleteAddress(customerId: string, addressId: string) {
-  const a = await prismadb.address.findFirst({ where: { id: addressId, usersId: customerId }, select: { id: true, _count: { select: { orders: true } } } });
-  if (!a) throw new OrderError("ADDRESS_NOT_FOUND", "Address not found");
-  if (a._count.orders > 0) throw new OrderError("ADDRESS_IN_USE", "This address is used by an order and cannot be removed");
-  await prismadb.address.delete({ where: { id: addressId } });
+  const { count } = await prismadb.address.updateMany({ where: { id: addressId, usersId: customerId }, data: { usersId: null } });
+  if (count !== 1) throw new OrderError("ADDRESS_NOT_FOUND", "Address not found");
+  await prismadb.address.deleteMany({ where: { id: addressId, usersId: null, orders: { none: {} } } });
 }

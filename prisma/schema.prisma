@@ -120,8 +120,9 @@ model Address {
   instructions String? @default("")
   pincode      Int     @default(0)
   orders       Order[] @relation("AddressToOrder")
-  usersId      String
-  users        Users   @relation("Users-address", fields: [usersId], references: [id], onDelete: Cascade)
+  // Null = the shopper removed this saved address but an order still points at it (sql/address-detach.sql). Orders show their own frozen copy.
+  usersId      String?
+  users        Users?  @relation("Users-address", fields: [usersId], references: [id], onDelete: Cascade)
 
   @@index([usersId])
 }

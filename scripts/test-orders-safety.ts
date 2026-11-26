@@ -24,6 +24,7 @@ import * as cancelRoute from "@/app/api/[storeId]/customer/orders/[orderId]/canc
 import * as returnRoute from "@/app/api/[storeId]/customer/orders/[orderId]/return/route";
 import * as meRoute from "@/app/api/[storeId]/customer/me/route";
 import * as addressRoute from "@/app/api/[storeId]/customer/addresses/[addressId]/route";
+import * as addressesRoute from "@/app/api/[storeId]/customer/addresses/route";
 import * as settingsRoute from "@/app/api/[storeId]/order-settings/route";
 import * as quoteRoute from "@/app/api/[storeId]/customer/orders/[orderId]/quote/route";
 import { adminSaveQuote } from "@/lib/orders/quote";
@@ -47,6 +48,7 @@ const C1 = `zz_ord_c1_${Date.now()}`;
 const C2 = `zz_ord_c2_${Date.now()}`;
 const createdStores: string[] = [];
 const createdUsers = [C1, C2];
+const detachedAddresses: string[] = []; // removed addresses an order still used: no owner any more, cleaned up by id
 
 type Res = { status: number; body: any; headers: Headers };
 async function call(
@@ -208,8 +210,44 @@ async function main() {
   await bad("another customer's address", C2, { items: [{ productId: mug.id, quantity: 1 }], address: { addressId: c1Address }, paymentMethod: "COD" }, "ADDRESS_NOT_FOUND");
   const delOther = await call(addressRoute.DELETE, { method: "DELETE", params: { storeId: A.store.id, addressId: c1Address }, customer: C2 });
   check("address: cannot delete another customer's address", delOther.status === 404);
+  detachedAddresses.push(c1Address);
   const delUsed = await call(addressRoute.DELETE, { method: "DELETE", params: { storeId: A.store.id, addressId: c1Address }, customer: C1 });
-  check("address: an address used by an order cannot be deleted", delUsed.status === 409 && delUsed.body.error.code === "ADDRESS_IN_USE");
+  check("address: an address used by an order can be removed", delUsed.status === 200 && delUsed.body.deleted === true, delUsed.body);
+  const afterDel = await call(meRoute.GET, { params: { storeId: A.store.id }, customer: C1 });
+  check("address: a removed address leaves the saved list", afterDel.body.addresses.every((a: { id: string }) => a.id !== c1Address));
+  const kept = await prismadb.address.findUnique({ where: { id: c1Address } });
+  check("address: the row stays for its orders, with no owner", kept !== null && kept.usersId === null);
+  check("address: the old order is unchanged", (await prismadb.order.findUniqueOrThrow({ where: { id: row1.id } })).addressId === c1Address);
+  await bad("a removed address cannot be used again", C1, { items: [{ productId: mug.id, quantity: 1 }], address: { addressId: c1Address }, paymentMethod: "COD" }, "ADDRESS_NOT_FOUND");
+  const delTwice = await call(addressRoute.DELETE, { method: "DELETE", params: { storeId: A.store.id, addressId: c1Address }, customer: C1 });
+  check("address: removing it twice -> 404", delTwice.status === 404);
+  const editRemoved = await call(addressRoute.PATCH, { method: "PATCH", params: { storeId: A.store.id, addressId: c1Address }, customer: C1, body: { city: "Nowhere" } });
+  check("address: a removed address cannot be edited", editRemoved.status === 404);
+
+  const c1Saved = (await call(addressesRoute.POST, { method: "POST", params: { storeId: A.store.id }, customer: C1, body: { street: "7 Lake Road", city: "Pune", state: "Maharashtra", pincode: "411001" } })).body.address.id as string;
+
+  // Saved addresses before any order: a bare profile row is made, checkout still asks for the contact, an unused address is really deleted.
+  const C3 = `zz_ord_c3_${Date.now()}`;
+  createdUsers.push(C3);
+  const addr = { street: "5 Park Street", city: "Kolkata", state: "West Bengal", pincode: "700016", instructions: "Gate 2" };
+  const created = await call(addressesRoute.POST, { method: "POST", params: { storeId: A.store.id }, customer: C3, body: addr });
+  check("address: create -> 201 with the address", created.status === 201 && created.body.address.city === "Kolkata" && created.body.address.pincode === "700016", created.body);
+  const bareMe = await call(meRoute.GET, { params: { storeId: A.store.id }, customer: C3 });
+  check("address: a bare profile is no profile for checkout", bareMe.body.profile === null && bareMe.body.addresses.length === 1);
+  const badAddr = await call(addressesRoute.POST, { method: "POST", params: { storeId: A.store.id }, customer: C3, body: { ...addr, pincode: "12" } });
+  check("address: bad pincode -> 400", badAddr.status === 400);
+  await bad("bare profile: first order still needs the contact", C3, { items: [{ productId: mug.id, quantity: 1 }], address: { addressId: created.body.address.id }, paymentMethod: "COD" }, "PROFILE_REQUIRED");
+  const patched = await call(meRoute.PATCH, { method: "PATCH", params: { storeId: A.store.id }, customer: C3, body: { fname: "  Tara  ", phone: "98765 43210", email: "tara@example.com" } });
+  check("profile: PATCH fills a bare profile (name trimmed)", patched.status === 200 && patched.body.profile.fname === "Tara" && patched.body.profile.phone === "98765 43210", patched.body);
+  const patchedOnlyName = await call(meRoute.PATCH, { method: "PATCH", params: { storeId: A.store.id }, customer: C3, body: { fname: "Tara S" } });
+  check("profile: PATCH edits one field", patchedOnlyName.status === 200 && patchedOnlyName.body.profile.fname === "Tara S" && patchedOnlyName.body.profile.phone === "98765 43210");
+  const badPhone = await call(meRoute.PATCH, { method: "PATCH", params: { storeId: A.store.id }, customer: C3, body: { phone: "abc" } });
+  check("profile: bad phone -> 400", badPhone.status === 400);
+  const delUnused = await call(addressRoute.DELETE, { method: "DELETE", params: { storeId: A.store.id, addressId: created.body.address.id }, customer: C3 });
+  check("address: an unused address is deleted for real", delUnused.status === 200 && (await prismadb.address.findUnique({ where: { id: created.body.address.id } })) === null);
+  for (let i = 0; i < 20; i++) await call(addressesRoute.POST, { method: "POST", params: { storeId: A.store.id }, customer: C3, body: addr });
+  const over = await call(addressesRoute.POST, { method: "POST", params: { storeId: A.store.id }, customer: C3, body: addr });
+  check("address: the 21st is refused (ADDRESS_LIMIT)", over.status === 409 && over.body.error.code === "ADDRESS_LIMIT", over.body);
 
   // ------------------------------------------------------------ 5. parallel orders: never oversell, never duplicate numbers
   const P = await makeStore("P");
@@ -258,7 +296,7 @@ async function main() {
 
   // ------------------------------------------------------------ 6. parallel cancel: one cancel wins; stock is restored only by the admin button, once
   const shirtBefore = await stockOf(shirt.id);
-  const toCancel = await checkout(A.store.id, C1, { items: [{ productId: shirt.id, quantity: 2 }], address: { addressId: c1Address }, paymentMethod: "COD" });
+  const toCancel = await checkout(A.store.id, C1, { items: [{ productId: shirt.id, quantity: 2 }], address: { addressId: c1Saved }, paymentMethod: "COD" });
   const cid = toCancel.body.order.id;
   check("cancel: stock taken (-2)", (await stockOf(shirt.id)) === shirtBefore - 2);
   const cancels = await Promise.all([
@@ -283,7 +321,7 @@ async function main() {
   check("cancel: stockReserved is false after the restore", restoredDetails.stockReserved === false);
 
   // ------------------------------------------------------------ 7. status machine
-  const sm = (await checkout(A.store.id, C1, { items: [{ productId: shirt.id, quantity: 1 }], address: { addressId: c1Address }, paymentMethod: "COD" })).body.order;
+  const sm = (await checkout(A.store.id, C1, { items: [{ productId: shirt.id, quantity: 1 }], address: { addressId: c1Saved }, paymentMethod: "COD" })).body.order;
   await age(sm.id);
   const tryUpdate = async (body: Parameters<typeof adminUpdateOrder>[3]) => {
     try {
@@ -407,7 +445,7 @@ async function main() {
   }
   check("access: admin update through another store -> NOT_FOUND", crossUpdate === "NOT_FOUND");
   const me = await call(meRoute.GET, { params: { storeId: A.store.id }, customer: C2 });
-  check("access: /customer/me returns only my own profile and addresses", me.body.profile.id === C2 && me.body.addresses.every((a: { id: string }) => a.id !== c1Address));
+  check("access: /customer/me returns only my own profile and addresses", me.body.profile.id === C2 && me.body.addresses.every((a: { id: string }) => a.id !== c1Address && a.id !== c1Saved));
 
   // ------------------------------------------------------------ 10. lists, stats, settings, CORS
   const page = await listAdminOrders(A.store.id, { page: 1, pageSize: 2 });
@@ -426,7 +464,7 @@ async function main() {
   await updateOrderSettings(A.store.id, { checkoutPaymentStep: false, autoEmails: true });
   await updateContact(A.store.id, { phone: "+91 98765 00000", email: "owner@example.com" });
   await age(sm.id);
-  const noStep = await checkout(A.store.id, C1, { items: [{ productId: shirt.id, quantity: 1 }], address: { addressId: c1Address } });
+  const noStep = await checkout(A.store.id, C1, { items: [{ productId: shirt.id, quantity: 1 }], address: { addressId: c1Saved } });
   check("settings: payment step off -> order placed with no method (seller agrees later)", noStep.status === 201 && noStep.body.order.payment === "");
   const pub = await call(settingsRoute.GET, { params: { storeId: A.store.id }, secret: null });
   check("settings: public GET hides autoEmails and the email", pub.status === 200 && pub.body.settings.checkoutPaymentStep === false && !("autoEmails" in pub.body.settings) && !JSON.stringify(pub.body).includes("owner@example.com"));
@@ -726,7 +764,7 @@ async function cleanup() {
     await prismadb.$executeRaw`DELETE FROM "Category" WHERE "storeId" = ANY(${createdStores})`;
     await prismadb.$executeRaw`DELETE FROM "Store" WHERE id = ANY(${createdStores})`;
   }
-  await prismadb.$executeRaw`DELETE FROM "Address" WHERE "usersId" = ANY(${createdUsers})`;
+  await prismadb.$executeRaw`DELETE FROM "Address" WHERE "usersId" = ANY(${createdUsers}) OR id = ANY(${detachedAddresses})`;
   await prismadb.$executeRaw`DELETE FROM "Users" WHERE id = ANY(${createdUsers})`;
 }
 
