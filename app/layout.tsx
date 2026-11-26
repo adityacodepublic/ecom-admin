@@ -2,6 +2,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { Inter } from "next/font/google";
 
 import { ModalProvider } from "@/providers/modal-provider";
+import { NumberInputWheelGuard } from "@/providers/number-input-wheel-guard";
 import { ToastProvider } from "@/providers/toast-provider";
 import { ThemeProvider } from "@/providers/theme-provider";
 import { PushIdentity } from "@/components/push/push-identity";
@@ -31,6 +32,7 @@ export default function RootLayout({
       <html lang="en" suppressHydrationWarning>
         <body className={inter.className}>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+            <NumberInputWheelGuard />
             <ToastProvider />
             <ModalProvider />
             <PushIdentity />
