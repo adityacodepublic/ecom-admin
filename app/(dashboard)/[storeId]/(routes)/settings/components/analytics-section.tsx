@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CLARITY_API_TOKEN, CLARITY_API_TOKEN_ERROR, CLARITY_PROJECT_ID, CLARITY_PROJECT_ID_ERROR } from "@/lib/clarity-format";
+import { GOOGLE_VERIFICATION_MAX_INPUT, extractGoogleVerificationToken } from "@/lib/google-verification-format";
 import { storeUrl } from "@/lib/store-url";
 
 import { EditButton, SettingRow, SettingsModal, patchSettings, useOpen } from "./setting-row";
@@ -18,6 +19,34 @@ import { EditButton, SettingRow, SettingsModal, patchSettings, useOpen } from ".
 const Bold = ({ children }: { children: React.ReactNode }) => <span className="font-medium text-foreground/80">{children}</span>;
 
 const CLARITY = "https://clarity.microsoft.com";
+const SEARCH_CONSOLE = "https://search.google.com/search-console";
+const MERCHANT_CENTER = "https://merchants.google.com";
+
+/** A link shown in a box, with a copy button and an open-in-new-tab button. */
+const CopyRow = ({ value, label, openHref, openLabel }: { value: string; label: string; openHref: string; openLabel: string }) => (
+  <div className="mt-2 flex items-center gap-1 rounded-md border bg-background/60 py-1 pl-3 pr-1">
+    <span className="min-w-0 flex-1 break-all font-mono text-xs text-foreground">{value}</span>
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      className="h-8 w-8 shrink-0"
+      title={`Copy ${label}`}
+      aria-label={`Copy ${label}`}
+      onClick={() => {
+        navigator.clipboard.writeText(value);
+        toast.success(`${label.charAt(0).toUpperCase()}${label.slice(1)} copied.`);
+      }}
+    >
+      <Copy className="h-4 w-4" />
+    </Button>
+    <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" asChild title={openLabel}>
+      <a href={openHref} target="_blank" rel="noopener noreferrer" aria-label={openLabel}>
+        <ExternalLink className="h-4 w-4" />
+      </a>
+    </Button>
+  </div>
+);
 
 // Shown in the token field when a token is saved. Only for the look: the real token never comes to the browser,
 // and this text is never sent (the field state stays empty).
@@ -37,22 +66,26 @@ const Step = ({ n, title, optional, children }: { n: number; title: string; opti
 
 const AnalyticsModal = ({
   storeId,
-  slug,
+  baseUrl,
   initial,
   hasApiToken,
+  initialGoogleVerification,
   onClose,
 }: {
   storeId: string;
-  slug: string;
+  baseUrl: string;
   initial: string;
   hasApiToken: boolean;
+  initialGoogleVerification: string;
   onClose: () => void;
 }) => {
-  const url = storeUrl(slug);
+  const propertyUrl = `${baseUrl}/`; // a Search Console URL-prefix property ends with "/"
+  const feedUrl = `${baseUrl}/feed.xml`;
   const router = useRouter();
   const [value, setValue] = useState(initial);
   const [token, setToken] = useState(""); // write-only: a saved token is never sent back to the browser
   const [removeToken, setRemoveToken] = useState(false);
+  const [gsvInput, setGsvInput] = useState(initialGoogleVerification);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -62,24 +95,35 @@ const AnalyticsModal = ({
   const showSaved = hasApiToken && !removeToken && !newToken; // the dots
   const removing = hasApiToken && removeToken && !newToken;
   const tokenError = newToken && !CLARITY_API_TOKEN.test(newToken) ? `${CLARITY_API_TOKEN_ERROR}.` : "";
+  const gsv = extractGoogleVerificationToken(gsvInput);
 
   const onSave = async () => {
-    if (idError || tokenError) return;
+    if (idError || tokenError || !gsv.ok) return;
     setError("");
     setLoading(true);
-    const body: { clarityProjectId: string; clarityApiToken?: string } = { clarityProjectId: id };
+    const body: { clarityProjectId: string; clarityApiToken?: string; googleSiteVerification: string } = { clarityProjectId: id, googleSiteVerification: gsv.token };
     if (newToken) body.clarityApiToken = newToken;
     else if (removeToken) body.clarityApiToken = "";
     const err = await patchSettings(`/api/${storeId}/analytics`, body);
     setLoading(false);
     if (err) return setError(err);
-    toast.success(id ? "Clarity connected." : "Clarity turned off.");
+    if (id !== initial) toast.success(id ? "Clarity connected." : "Clarity turned off.");
+    else if (gsv.token !== initialGoogleVerification) toast.success(gsv.token ? "Search Console tag saved." : "Search Console tag removed.");
+    else toast.success("Visitor analytics saved.");
     router.refresh();
     onClose();
   };
 
   return (
-    <SettingsModal title="Visitor analytics (Microsoft Clarity)" isOpen onClose={onClose} onSave={onSave} loading={loading} error={error} saveDisabled={!!idError || !!tokenError}>
+    <SettingsModal
+      title="Visitor analytics"
+      isOpen
+      onClose={onClose}
+      onSave={onSave}
+      loading={loading}
+      error={error}
+      saveDisabled={!!idError || !!tokenError || !gsv.ok}
+    >
       <p className="text-sm text-muted-foreground">
         Clarity is free. It records how visitors use your store: heatmaps, session recordings, funnels and where visitors come from.
       </p>
@@ -92,28 +136,7 @@ const AnalyticsModal = ({
               clarity.microsoft.com
             </a>{" "}
             and use your store link as the website.
-            <div className="mt-2 flex items-center gap-1 rounded-md border bg-background/60 py-1 pl-3 pr-1">
-              <span className="min-w-0 flex-1 break-all font-mono text-xs text-foreground">{url}</span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 shrink-0"
-                title="Copy store link"
-                aria-label="Copy store link"
-                onClick={() => {
-                  navigator.clipboard.writeText(url);
-                  toast.success("Store link copied.");
-                }}
-              >
-                <Copy className="h-4 w-4" />
-              </Button>
-              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" asChild title="Open Clarity">
-                <a href={CLARITY} target="_blank" rel="noreferrer" aria-label="Open Clarity">
-                  <ExternalLink className="h-4 w-4" />
-                </a>
-              </Button>
-            </div>
+            <CopyRow value={baseUrl} label="store link" openHref={CLARITY} openLabel="Open Clarity" />
           </li>
           <li>
             In Clarity, open <Bold>Settings</Bold> &gt; <Bold>Overview</Bold> and copy the Project ID.
@@ -186,21 +209,111 @@ const AnalyticsModal = ({
           )}
         </div>
       </Step>
+
+      <Step n={3} title="Verify your store in Google Search Console" optional>
+        <p className="text-sm text-muted-foreground">
+          Search Console is free. It shows how your store appears in Google Search, which searches bring visitors, and any indexing problems.
+        </p>
+        <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
+          <li>
+            Open{" "}
+            <a href={SEARCH_CONSOLE} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
+              Google Search Console
+            </a>{" "}
+            and click <Bold>Add property</Bold>.
+          </li>
+          <li>
+            Choose <Bold>URL prefix</Bold> and enter your store link:
+            <CopyRow value={propertyUrl} label="store link" openHref={SEARCH_CONSOLE} openLabel="Open Search Console" />
+          </li>
+          <li>
+            Under <Bold>Other verification methods</Bold>, choose <Bold>HTML tag</Bold> and copy the <Bold>&lt;meta&gt;</Bold> tag.
+          </li>
+          <li>
+            Paste it below and save, then click <Bold>Verify</Bold> in Search Console (it can take a few minutes for your store to show the new tag).
+          </li>
+        </ol>
+        <div className="grid gap-1.5">
+          <Label htmlFor="google-verification">Verification tag</Label>
+          <Input
+            id="google-verification"
+            autoComplete="off"
+            spellCheck={false}
+            maxLength={GOOGLE_VERIFICATION_MAX_INPUT}
+            value={gsvInput}
+            onChange={(e) => setGsvInput(e.target.value)}
+            placeholder='<meta name="google-site-verification" content="..." />'
+            disabled={loading}
+            className="font-mono text-xs"
+          />
+          {!gsv.ok ? (
+            <p className="text-sm text-destructive">{gsv.error}.</p>
+          ) : gsv.token ? (
+            <p className="break-all text-xs text-muted-foreground">
+              Code: <span className="font-mono text-foreground/80">{gsv.token}</span>
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">Paste the whole tag or only the code in content=&quot;...&quot;. Leave empty to remove.</p>
+          )}
+        </div>
+        <div className="grid gap-1.5 border-t pt-3">
+          <Label>Google Merchant Center product feed</Label>
+          <p className="text-xs text-muted-foreground">
+            To list your products on Google Shopping, add this link in{" "}
+            <a href={MERCHANT_CENTER} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
+              Merchant Center
+            </a>{" "}
+            under <Bold>Products</Bold> &gt; <Bold>Add products</Bold> &gt; <Bold>Add products from a file</Bold> (scheduled fetch). It updates on its own when you change products.
+          </p>
+          <CopyRow value={feedUrl} label="feed link" openHref={feedUrl} openLabel="Open the feed" />
+          <p className="text-xs text-muted-foreground">
+            Recommended for Google Shopping: connect your own domain (Settings &gt; Domain) and set up shipping and returns in Merchant Center.
+          </p>
+        </div>
+      </Step>
     </SettingsModal>
   );
 };
 
-/** The owner's Microsoft Clarity project id (heatmaps, recordings, funnels live in the owner's own Clarity). One row, edited in a modal. */
-export const AnalyticsSection = ({ storeId, slug, clarityProjectId, hasApiToken }: { storeId: string; slug: string; clarityProjectId: string; hasApiToken: boolean }) => {
+/** The owner's Microsoft Clarity project id (heatmaps, recordings, funnels live in the owner's own Clarity) and Google Search Console verification. One row, edited in a modal. */
+export const AnalyticsSection = ({
+  storeId,
+  slug,
+  clarityProjectId,
+  hasApiToken,
+  googleSiteVerification,
+  customDomain,
+  customDomainVerified,
+}: {
+  storeId: string;
+  slug: string;
+  clarityProjectId: string;
+  hasApiToken: boolean;
+  googleSiteVerification: string;
+  customDomain: string;
+  customDomainVerified: boolean;
+}) => {
   const { open, show, hide } = useOpen();
+  const clarity = clarityProjectId ? (hasApiToken ? "Connected, dashboard numbers on" : "Connected") : "Not connected";
+  // The store's public address: its own domain once verified, otherwise the platform link.
+  const baseUrl = customDomainVerified && customDomain ? `https://${customDomain}` : storeUrl(slug);
   return (
     <>
       <SettingRow
         title="Visitor analytics"
-        summary={clarityProjectId ? (hasApiToken ? "Connected, dashboard numbers on" : "Connected") : "Not connected"}
+        summary={googleSiteVerification ? `${clarity} · Search Console tag added` : clarity}
         action={<EditButton onClick={show} label="Edit visitor analytics" />}
       />
-      {open && <AnalyticsModal storeId={storeId} slug={slug} initial={clarityProjectId} hasApiToken={hasApiToken} onClose={hide} />}
+      {open && (
+        <AnalyticsModal
+          storeId={storeId}
+          baseUrl={baseUrl}
+          initial={clarityProjectId}
+          hasApiToken={hasApiToken}
+          initialGoogleVerification={googleSiteVerification}
+          onClose={hide}
+        />
+      )}
     </>
   );
 };

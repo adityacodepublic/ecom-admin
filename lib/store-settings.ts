@@ -3,10 +3,11 @@ import { z } from "zod";
 
 import { validateChromeHtml } from "@/lib/chrome-templates";
 import { CLARITY_API_TOKEN,CLARITY_API_TOKEN_ERROR, CLARITY_PROJECT_ID, CLARITY_PROJECT_ID_ERROR } from "@/lib/clarity-format";
+import { GOOGLE_VERIFICATION_MAX_INPUT, extractGoogleVerificationToken } from "@/lib/google-verification-format";
 import prismadb from "@/lib/prismadb";
 
 /**
- * Store.settings (JSON, null = all defaults): { orders, contact, logo, logoOnly, favicon, clarityProjectId, clarityApiToken, clarityInsights }.
+ * Store.settings (JSON, null = all defaults): { orders, contact, logo, logoOnly, favicon, clarityProjectId, clarityApiToken, clarityInsights, googleSiteVerification }.
  *   orders   order settings (lib/orders/settings.ts)
  *   contact  how customers reach the store (lib/contact.ts)
  *   logo     the store's logo/icon url, shown in the store's header and browser tab ("" = the default icon)
@@ -16,6 +17,7 @@ import prismadb from "@/lib/prismadb";
  *   clarityApiToken   the owner's Clarity Data Export token (secret, admin server only: never sent to a browser or the store app)
  *   navbarHtml, footerHtml  the owner's own navbar / footer HTML (lib/chrome-templates.ts; "" = the default)
  *   clarityInsights   the last visitor numbers fetched with that token, and when to ask Clarity again (lib/clarity-insights.ts)
+ *   googleSiteVerification  the owner's Google Search Console HTML-tag token (lib/google-verification-format.ts; "" = none)
  * Each part is parsed by its own module; this file only reads and writes the parts.
  */
 export type SettingsPart =
@@ -27,6 +29,7 @@ export type SettingsPart =
   | "clarityProjectId"
   | "clarityApiToken"
   | "clarityInsights"
+  | "googleSiteVerification"
   | "navbarHtml"
   | "footerHtml"
   | "revalidation"
@@ -145,6 +148,27 @@ export const clarityApiTokenSchema = z.union([
 
 export const parseClarityApiToken = (raw: unknown): string => {
   const r = clarityApiTokenSchema.safeParse(settingsPart(raw, "clarityApiToken") ?? "");
+  return r.success ? r.data : "";
+};
+
+// ---- Google Search Console (the owner's own property: the HTML-tag verification)
+
+/**
+ * The google-site-verification token, or the whole pasted <meta> tag (stored as the token alone). "" = none.
+ * The store app puts it in a <meta name="google-site-verification"> tag on its pages.
+ */
+export const googleSiteVerificationSchema = z
+  .string()
+  .max(GOOGLE_VERIFICATION_MAX_INPUT)
+  .transform((raw, ctx) => {
+    const r = extractGoogleVerificationToken(raw);
+    if (r.ok) return r.token;
+    ctx.addIssue({ code: "custom", message: r.error });
+    return z.NEVER;
+  });
+
+export const parseGoogleSiteVerification = (raw: unknown): string => {
+  const r = googleSiteVerificationSchema.safeParse(settingsPart(raw, "googleSiteVerification") ?? "");
   return r.success ? r.data : "";
 };
 

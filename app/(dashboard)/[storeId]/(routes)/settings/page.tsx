@@ -4,7 +4,7 @@ import { requireStoreOwnerPage } from "@/lib/api/admin-auth";
 import prismadb from "@/lib/prismadb";
 
 import { parseContact } from "@/lib/contact";
-import { parseClarityApiToken, parseClarityProjectId, parseFavicon, parseLogo, parseLogoOnly } from "@/lib/store-settings";
+import { parseClarityApiToken, parseClarityProjectId, parseFavicon, parseGoogleSiteVerification, parseLogo, parseLogoOnly } from "@/lib/store-settings";
 import { AnalyticsSection } from "./components/analytics-section";
 import { LogoSection } from "./components/logo-section";
 import { parseOrderSettings } from "@/lib/orders/settings";
@@ -29,7 +29,7 @@ const SettingsPage = async ({
       userId,
     },
     // SettingsForm is a client component: only the columns it uses (never agentAccess).
-    select: { id: true, name: true, slug: true, customDomain: true, settings: true },
+    select: { id: true, name: true, slug: true, customDomain: true, customDomainVerified: true, settings: true },
   });
 
   if (!store) {
@@ -46,7 +46,15 @@ const SettingsPage = async ({
         <SettingsForm initialData={{ id: store.id, name: store.name, slug: store.slug }}>
           <LogoSection storeId={store.id} logo={parseLogo(store.settings)} logoOnly={parseLogoOnly(store.settings)} favicon={parseFavicon(store.settings)} />
           <ContactSection storeId={store.id} initial={contact} />
-          <AnalyticsSection storeId={store.id} slug={store.slug} clarityProjectId={parseClarityProjectId(store.settings)} hasApiToken={!!parseClarityApiToken(store.settings)} />
+          <AnalyticsSection
+            storeId={store.id}
+            slug={store.slug}
+            clarityProjectId={parseClarityProjectId(store.settings)}
+            hasApiToken={!!parseClarityApiToken(store.settings)}
+            googleSiteVerification={parseGoogleSiteVerification(store.settings)}
+            customDomain={store.customDomain ?? ""}
+            customDomainVerified={store.customDomainVerified}
+          />
         </SettingsForm>
         <h3 className="pt-4 text-lg font-semibold tracking-tight">Domain</h3>
         <CustomDomainCard storeId={store.id} initialDomain={store.customDomain} />
