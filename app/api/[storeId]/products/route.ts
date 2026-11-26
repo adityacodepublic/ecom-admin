@@ -135,6 +135,7 @@ export async function GET(
     const searchValue = searchParams.get("searchValue") || undefined;
     const isFeatured = searchParams.get("isFeatured") || undefined;
     const isArchived = searchParams.get("isArchived") || undefined;
+    const forFeed = searchParams.get("forFeed") === "1";
     const price = Number(searchParams.get("price")) || undefined;
 
     let filtersRaw: unknown = [];
@@ -212,6 +213,7 @@ export async function GET(
         maxQuantity: true,
         isFeatured: true,
         isArchived: true,
+        ...(forFeed && { description: true }),
         images: {
           orderBy: {
             order: "asc",
@@ -219,7 +221,7 @@ export async function GET(
           select: {
             url: true,
           },
-          take: 1,
+          take: forFeed ? 11 : 1,
         },
         category: {
           select: {
