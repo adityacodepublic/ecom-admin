@@ -16,6 +16,7 @@ const isPublicApiRoute = createRouteMatcher([
   "/api/stores/by-slug/(.*)",
   // The storefront's custom-domain lookups (its build and its proxy): read-only, public data.
   "/api/stores/domains",
+  "/api/stores/slugs",
   "/api/stores/by-domain",
   "/api/:storeId/customer/(.*)",
 ]);

@@ -1,4 +1,4 @@
-import { revalidateStoreCatalog } from "@/lib/store-revalidate";
+import { revalidateCategory, revalidateStoreCatalog } from "@/lib/store-revalidate";
 import { NextResponse } from "next/server";
 import { requireStoreOwnerResponse } from "@/lib/api/admin-auth";
 import prismadb from "@/lib/prismadb";
@@ -129,7 +129,7 @@ export async function PATCH(
     });
 
 
-    revalidateStoreCatalog(resolvedParams.storeId);
+    revalidateCategory(resolvedParams.storeId, resolvedParams.categoryId);
     return NextResponse.json(category, { headers: corsHeaders });
   } catch (error) {
     console.log("[CATEGORY_PATCH]", error);

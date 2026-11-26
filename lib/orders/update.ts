@@ -1,4 +1,4 @@
-import { revalidateStoreCatalog } from "@/lib/store-revalidate";
+import { revalidateProducts } from "@/lib/store-revalidate";
 import { randomUUID } from "crypto";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
@@ -8,6 +8,7 @@ import { MARKDOWN_MAX, OrderDetails, detailsToJson, OrderEvent, orderDetailsSche
 import { OrderError } from "./errors";
 import { OrderSettings, getOrderSettingsTx } from "./settings";
 import { notifyOrder, type OrderNotice } from "./notify";
+import type { SoldOut } from "./create";
 import {
   CANCELLED,
   PAYMENT_STATUSES,
@@ -79,19 +80,23 @@ export function newEvent(e: Omit<OrderEvent, "id" | "at">): OrderEvent {
   return { id: randomUUID(), at: new Date().toISOString(), ...e };
 }
 
-/** Gives the order's stock back, once. Products are updated in id order (no deadlocks). */
-async function restoreStock(tx: Prisma.TransactionClient, orderId: string, storeId: string) {
+/** Gives the order's stock back, once. Products are updated in id order (no deadlocks). Returns the products that were out of stock and are back in stock. */
+async function restoreStock(tx: Prisma.TransactionClient, orderId: string, storeId: string): Promise<SoldOut[]> {
   const items = await tx.orderItem.findMany({ where: { orderId }, select: { productId: true, orderQuantity: true } });
   const perProduct = new Map<string, number>();
   for (const i of items) perProduct.set(i.productId, (perProduct.get(i.productId) ?? 0) + i.orderQuantity);
+  const backInStock: SoldOut[] = [];
   for (const productId of Array.from(perProduct.keys()).sort()) {
     const n = perProduct.get(productId)!;
     if (n <= 0) continue;
     // A deleted product is simply skipped (0 rows).
-    await tx.$executeRaw`
+    const [row] = await tx.$queryRaw<{ quantity: number; categoryId: string }[]>`
       UPDATE "Product" SET quantity = quantity + ${n}, "updatedAt" = now()
-      WHERE id = ${productId} AND "storeId" = ${storeId}`;
+      WHERE id = ${productId} AND "storeId" = ${storeId}
+      RETURNING quantity, "categoryId"`;
+    if (row && row.quantity > 0 && row.quantity - n <= 0) backInStock.push({ id: productId, categoryId: row.categoryId }); // it was out of stock before
   }
+  return backInStock;
 }
 
 /** Writes the new details (checked by the schema) and the changed columns. */
@@ -132,7 +137,7 @@ export type AdminOrderUpdate = z.infer<typeof adminOrderUpdateSchema>;
 
 /** The admin status update action. Returns the order id. Throws OrderError. */
 export async function adminUpdateOrder(storeId: string, ref: OrderRef, adminUserId: string, input: AdminOrderUpdate) {
-  let stockChanged = false;
+  const backInStock: SoldOut[] = []; // products that were out of stock and have stock again
   const notices: [OrderNotice, string?][] = []; // for the shopper, sent once the change is saved
   const result = await prismadb.$transaction(async (tx) => {
     const order = await lockOrder(tx, storeId, ref);
@@ -164,8 +169,7 @@ export async function adminUpdateOrder(storeId: string, ref: OrderRef, adminUser
     if (input.restoreStock) {
       if (!isCancelled(current)) throw new OrderError("VALIDATION", "Stock can be restored only for a cancelled order");
       if (details.stockReserved) {
-        await restoreStock(tx, order.id, order.storeId);
-        stockChanged = true;
+        backInStock.push(...(await restoreStock(tx, order.id, order.storeId)));
         details.stockReserved = false;
         events.push(newEvent({ type: "system", message: stockNote(details), actor: "system", customerVisible: false, meta }));
       }
@@ -187,8 +191,7 @@ export async function adminUpdateOrder(storeId: string, ref: OrderRef, adminUser
       if (input.restock && !ret.restocked) {
         // One shared flag with "Restore stock" of a cancelled order: stock goes back only while stockReserved is true.
         if (details.stockReserved !== true) throw new OrderError("VALIDATION", "The stock of this order was already put back (or never taken)");
-        await restoreStock(tx, order.id, order.storeId);
-        stockChanged = true;
+        backInStock.push(...(await restoreStock(tx, order.id, order.storeId)));
         details.stockReserved = false;
         ret.restocked = true;
         events.push(newEvent({ type: "system", message: `${stockNote(details)} (return)`, actor: "system", customerVisible: false, meta }));
@@ -266,7 +269,7 @@ export async function adminUpdateOrder(storeId: string, ref: OrderRef, adminUser
     await saveOrder(tx, order.id, details, data);
     return { id: order.id, changed: true };
   }, TX_OPTIONS);
-  if (stockChanged) revalidateStoreCatalog(storeId); // stock went back: the storefront "out of stock" must follow
+  revalidateProducts(storeId, backInStock, { listingChanged: true }); // back from 0: the cached "out of stock" must go; a bigger stock changes nothing cached
   if (result.changed) for (const [notice, detail] of notices) notifyOrder(storeId, result.id, notice, detail);
   return result;
 }

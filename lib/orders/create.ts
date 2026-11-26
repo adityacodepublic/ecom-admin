@@ -1,4 +1,4 @@
-import { revalidateStoreCatalog } from "@/lib/store-revalidate";
+import { revalidateProducts } from "@/lib/store-revalidate";
 import { randomInt, randomUUID } from "crypto";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
@@ -138,10 +138,11 @@ export async function createOrder(storeId: string, customerId: string, input: Ch
 
   for (let attempt = 1; ; attempt++) {
     try {
-      const { result, duplicate } = await prismadb.$transaction((tx) => placeOrder(tx, storeId, customerId, payment, settings.statuses[0], input, profile!, address), TX_OPTIONS);
+      const { result, duplicate, soldOut } = await prismadb.$transaction((tx) => placeOrder(tx, storeId, customerId, payment, settings.statuses[0], input, profile!, address), TX_OPTIONS);
       if (duplicate) duplicateOrders.count++;
       else {
-        if (!isQuote(result.status)) revalidateStoreCatalog(storeId); // stock was taken
+        // Stock was taken. The storefront needs to hear about it only when a product just sold out (10 -> 8 changes nothing it caches).
+        revalidateProducts(storeId, soldOut, { listingChanged: true });
         notifyOrder(storeId, result.id, isQuote(result.status) ? "quote-requested" : "placed");
       }
       return result;
@@ -201,11 +202,11 @@ async function placeOrder(
   input: CheckoutInput,
   profile: Profile,
   savedAddress: Address | null,
-): Promise<{ result: CheckoutResult; duplicate: boolean }> {
+): Promise<{ result: CheckoutResult; duplicate: boolean; soldOut: SoldOut[] }> {
   // 0. One checkout at a time per customer and store (released at commit). Lock order is always: customer -> product rows (by id) -> order insert.
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${storeId}:${customerId}`}))`;
   const dup = await findDuplicate(tx, storeId, customerId, input);
-  if (dup) return { result: dup, duplicate: true };
+  if (dup) return { result: dup, duplicate: true, soldOut: [] };
 
   // 1. The address: the customer's own (read before the transaction), or a new one for this customer.
   let address: Address;
@@ -222,7 +223,7 @@ async function placeOrder(
   //    its stock now; a quote only checks the products (its stock is taken when the customer accepts the price).
   const products = await tx.product.findMany({ where: { id: { in: input.items.map((i) => i.productId) }, storeId }, select: productCheckSelect });
   const quote = products.some((p) => p.price === null);
-  const taken = quote ? checkProducts(input.items, products) : await takeStock(tx, storeId, input.items);
+  const { taken, soldOut } = quote ? { taken: checkProducts(input.items, products), soldOut: [] } : await takeStock(tx, storeId, input.items);
   if (!quote && Array.from(taken.values()).some((p) => p.price === null)) quoteMismatch(); // switched to "Price on request" just now
 
   // 3. Money, exact, from the database prices. Items keep the cart's order. A price-on-request line is 0 until the seller prices it.
@@ -303,13 +304,15 @@ async function placeOrder(
   // 7. The ordered products leave the shopper's saved cart (lib/cart.ts), whatever the browser does next.
   await tx.cartItem.deleteMany({ where: { storeId, customerId, productId: { in: items.map((i) => i.productId) } } });
 
-  return { result: { id: order.id, orderNumber: order.orderNumber, status, paymentStatus: "PENDING", payment, totalPaise }, duplicate: false };
+  return { result: { id: order.id, orderNumber: order.orderNumber, status, paymentStatus: "PENDING", payment, totalPaise }, duplicate: false, soldOut };
 }
 
 // ---------------------------------------------------------------- stock
 
 type Wanted = { productId: string; quantity: number };
 type ProductRow = { id: string; name: string; price: Prisma.Decimal | null; maxQuantity: number };
+/** A product whose stock just reached 0, with its category (the storefront refreshes both). */
+export type SoldOut = { id: string; categoryId: string };
 
 const productCheckSelect = { id: true, name: true, price: true, quantity: true, maxQuantity: true, isArchived: true } satisfies Prisma.ProductSelect;
 type CheckedProduct = Prisma.ProductGetPayload<{ select: typeof productCheckSelect }>;
@@ -350,19 +353,19 @@ function checkProducts(items: Wanted[], products: CheckedProduct[]): Map<string,
  * Takes the stock of ALL products in ONE statement. The rows are locked first in id order (no deadlocks), then the
  * WHERE is the guard: only this store, not archived, enough left. A missing row means a refusal (OrderError): the
  * caller's transaction rolls back, so the products we did change get their stock back. Used by checkout and by a
- * customer accepting a quote (lib/orders/quote.ts).
+ * customer accepting a quote (lib/orders/quote.ts). Also returns the ids that just ran out (stock reached 0).
  */
-export async function takeStock(tx: Prisma.TransactionClient, storeId: string, items: Wanted[]): Promise<Map<string, ProductRow>> {
+export async function takeStock(tx: Prisma.TransactionClient, storeId: string, items: Wanted[]): Promise<{ taken: Map<string, ProductRow>; soldOut: SoldOut[] }> {
   const wanted = [...items].sort(byId);
   const ids = wanted.map((i) => i.productId);
   const qtys = wanted.map((i) => i.quantity);
-  const rows = await tx.$queryRaw<ProductRow[]>`
+  const rows = await tx.$queryRaw<(ProductRow & { left: number; categoryId: string })[]>`
     WITH want AS (SELECT * FROM unnest(${ids}::text[], ${qtys}::int[]) AS w(id, qty)),
     locked AS (SELECT p.id FROM "Product" p WHERE p.id = ANY(${ids}::text[]) AND p."storeId" = ${storeId} ORDER BY p.id FOR UPDATE)
     UPDATE "Product" p SET quantity = p.quantity - want.qty, "updatedAt" = now()
     FROM want, locked
     WHERE p.id = want.id AND p.id = locked.id AND p."isArchived" = false AND p.quantity >= want.qty
-    RETURNING p.id, p.name, p.price, p."maxQuantity"`;
+    RETURNING p.id, p.name, p.price, p."maxQuantity", p.quantity AS "left", p."categoryId"`;
   const taken = new Map(rows.map((r) => [r.id, r]));
   // Refuse with the first problem in id order (unavailable / out of stock / quantity limit).
   let missing: Map<string, { name: string; quantity: number; isArchived: boolean }> | null = null;
@@ -376,5 +379,6 @@ export async function takeStock(tx: Prisma.TransactionClient, storeId: string, i
     }
     checkLimit(item, p);
   }
-  return taken;
+  // The guard (quantity >= want) means every row had stock before, so "nothing left now" is exactly "just sold out".
+  return { taken, soldOut: rows.filter((r) => r.left <= 0).map((r) => ({ id: r.id, categoryId: r.categoryId })) };
 }

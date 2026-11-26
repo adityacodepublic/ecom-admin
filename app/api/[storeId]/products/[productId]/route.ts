@@ -1,5 +1,6 @@
-import { revalidateStoreCatalog } from "@/lib/store-revalidate";
+import { revalidateProduct } from "@/lib/store-revalidate";
 import { NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { callerOwnsStore, requireStoreOwnerResponse } from "@/lib/api/admin-auth";
 import prismadb from "@/lib/prismadb";
 import { toPaise } from "@/lib/money";
@@ -11,6 +12,41 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
+
+// What a shopper can see of a product, to tell which storefront pages an edit touches.
+const shownSelect = {
+  name: true,
+  price: true,
+  categoryId: true,
+  description: true,
+  quantity: true,
+  maxQuantity: true,
+  isFeatured: true,
+  isArchived: true,
+  images: { orderBy: { order: "asc" as const }, select: { url: true } },
+  filteritems: { select: { valueId: true } },
+};
+type Shown = Prisma.ProductGetPayload<{ select: typeof shownSelect }>;
+
+function diffShown(a: Shown, b: Shown) {
+  // In stock <-> out of stock: the card's badge flips, and the cached page must not offer an out-of-stock product.
+  const crossedZero = a.quantity <= 0 !== b.quantity <= 0;
+  const categoryChanged = a.categoryId !== b.categoryId;
+  const listingChanged =
+    crossedZero ||
+    categoryChanged ||
+    a.name !== b.name ||
+    String(a.price ?? "") !== String(b.price ?? "") ||
+    a.isFeatured !== b.isFeatured ||
+    a.isArchived !== b.isArchived ||
+    (a.images[0]?.url ?? "") !== (b.images[0]?.url ?? "");
+  const detailChanged =
+    (a.description ?? "") !== (b.description ?? "") ||
+    a.maxQuantity !== b.maxQuantity ||
+    a.images.map((i) => i.url).join("|") !== b.images.map((i) => i.url).join("|") ||
+    a.filteritems.map((i) => i.valueId).sort().join("|") !== b.filteritems.map((i) => i.valueId).sort().join("|");
+  return { listingChanged, detailChanged, categoryIds: categoryChanged ? [a.categoryId, b.categoryId] : [] };
+}
 
 export async function OPTIONS() {
   return NextResponse.json({}, { headers: corsHeaders });
@@ -109,7 +145,7 @@ export async function DELETE(
     });
 
 
-    revalidateStoreCatalog(resolvedParams.storeId);
+    revalidateProduct(resolvedParams.storeId, resolvedParams.productId, { listingChanged: true, categoryId: product.categoryId });
     return NextResponse.json(product, { headers: corsHeaders });
   } catch (error) {
     const inUse = inUseResponse(error, "This product is in an order. Archive it instead of deleting it.", corsHeaders);
@@ -214,10 +250,12 @@ export async function PATCH(
 
     // One transaction: fields, images and filter items change together or not at all. The row lock makes
     // concurrent edits of the same product take turns (no duplicated images).
-    const product = await prismadb.$transaction(async (tx) => {
+    const changes = await prismadb.$transaction(async (tx) => {
       const locked = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM "Product" WHERE id = ${resolvedParams.productId} AND "storeId" = ${resolvedParams.storeId} FOR UPDATE`;
       if (locked.length === 0) return null;
-      return tx.product.update({
+      // What the storefront shows, before and after (under the row lock, so "before" is exactly what we overwrite).
+      const before = await tx.product.findUnique({ where: { id: resolvedParams.productId }, select: shownSelect });
+      const product = await tx.product.update({
         where: { id: resolvedParams.productId },
         data: {
           name,
@@ -242,12 +280,22 @@ export async function PATCH(
           },
         },
       });
+      const after = await tx.product.findUnique({ where: { id: resolvedParams.productId }, select: shownSelect });
+      return { product, before, after };
     });
-    if (!product) {
+    if (!changes) {
       return new NextResponse("Not found", { status: 404 });
     }
+    const { product, before, after } = changes;
 
-    revalidateStoreCatalog(resolvedParams.storeId);
+    // Expire only what changed. A stock-only edit (10 -> 8) expires nothing: the product page checks the live
+    // stock in the browser. Crossing 0 changes the card (out-of-stock badge), so it counts as a listing change.
+    const diff = before && after ? diffShown(before, after) : { listingChanged: true, detailChanged: true, categoryIds: [categoryId] };
+    if (diff.listingChanged) {
+      revalidateProduct(resolvedParams.storeId, resolvedParams.productId, { listingChanged: true, categoryId: product.categoryId, categoryIds: diff.categoryIds });
+    } else if (diff.detailChanged) {
+      revalidateProduct(resolvedParams.storeId, resolvedParams.productId, { listingChanged: false });
+    }
     return NextResponse.json(product, { headers: corsHeaders });
   } catch (error) {
     console.log("[PRODUCT_PATCH]", error);

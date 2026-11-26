@@ -1,9 +1,9 @@
 import { z } from "zod";
 
 import prismadb from "@/lib/prismadb";
-import { revalidateStoreCatalog } from "@/lib/store-revalidate";
+import { revalidateProducts } from "@/lib/store-revalidate";
 import { MAX_PAISE, formatINR, paiseToDecimalString, sumPaise, lineTotalPaise } from "@/lib/money";
-import { takeStock } from "./create";
+import { takeStock, type SoldOut } from "./create";
 import { CHARGES_MAX, orderChargeSchema, orderTotalPaise, parseDetails } from "./details";
 import { OrderError } from "./errors";
 import { notifyOrder } from "./notify";
@@ -98,7 +98,7 @@ export async function customerDecideQuote(storeId: string, customerId: string, r
       details.quote = { ...q, state: "declined", decidedAt: now };
       details.events.push(newEvent({ type: "status", status: CANCELLED, message: why ? `Quote declined: ${why}` : "Quote declined", actor: "customer", customerVisible: true }));
       await saveOrder(tx, order.id, details, { status: CANCELLED });
-      return { id: order.id, accepted: false };
+      return { id: order.id, accepted: false, soldOut: [] as SoldOut[] };
     }
 
     // Accepted, at the price on the customer's screen only.
@@ -106,7 +106,7 @@ export async function customerDecideQuote(storeId: string, customerId: string, r
       throw new OrderError("PRICE_CHANGED", "The store changed the quote. Please check the new price.", { totalPaise: details.money.totalPaise });
     }
     // The stock is taken now (refused, and nothing changes, when there is not enough any more).
-    await takeStock(tx, storeId, details.items);
+    const { soldOut } = await takeStock(tx, storeId, details.items);
     const settings = await getOrderSettingsTx(tx, storeId);
     const first = settings.statuses[0];
     details.quote = { ...q, state: "accepted", decidedAt: now };
@@ -116,9 +116,9 @@ export async function customerDecideQuote(storeId: string, customerId: string, r
       newEvent({ type: "status", status: first, message: "Order placed", actor: "customer", customerVisible: true }),
     );
     await saveOrder(tx, order.id, details, { status: first, payment: settings.checkoutPaymentStep ? COD : "" });
-    return { id: order.id, accepted: true };
+    return { id: order.id, accepted: true, soldOut };
   }, TX_OPTIONS);
-  if (result.accepted) revalidateStoreCatalog(storeId); // stock was taken
+  revalidateProducts(storeId, result.soldOut, { listingChanged: true }); // only products that just ran out; a smaller stock changes nothing cached
   notifyOrder(storeId, result.id, result.accepted ? "quote-accepted" : "quote-declined");
   return result;
 }

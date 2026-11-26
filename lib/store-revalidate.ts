@@ -1,6 +1,6 @@
 import { after } from "next/server";
 
-import { cacheTagFor, storeSlugTag } from "@/lib/cache-tags";
+import { cacheTagFor, categoryTag, productTag, storeSlugTag } from "@/lib/cache-tags";
 import prismadb from "@/lib/prismadb";
 import { settingsPart, updateSettingsPart } from "@/lib/store-settings";
 import { storeAppOrigin } from "@/lib/store-url";
@@ -189,12 +189,56 @@ function schedule(tags: string[], target: RevalidateTarget) {
   }
 }
 
-/** Products, categories and filters embed each other's data, so any catalog write refreshes all three. */
+/** Products, categories and filters embed each other's data, so a create/delete or a filter change refreshes all three. */
 export function revalidateStoreCatalog(storeId: string) {
   schedule(
     (["products", "categories", "filters"] as const).map((k) => cacheTagFor(k, storeId)),
     { storeId },
   );
+}
+
+export interface ChangedProduct {
+  id: string;
+  /** The product's category. Needed for a listing change: that category's page and the related-products rows of its products show the card. */
+  categoryId?: string;
+}
+
+/**
+ * Products changed. Always expires each product's own page (product-<id>). `listingChanged` (default true) means the
+ * card others show changed (name, price, picture, in stock <-> out of stock, archived, moved, new, deleted): it also
+ * expires the store's product lists (home, search box, category grids) and the product's category (its page, and the
+ * "related products" of the pages in it). Pass false when only something shown on the product page itself changed
+ * (description, extra pictures, filter values): then that one page is all that expires. Categories and filters as
+ * a whole are never touched by a single product edit. `categoryIds` adds more category pages (the old category of
+ * a moved product).
+ */
+export function revalidateProducts(
+  storeId: string,
+  products: ChangedProduct[],
+  { listingChanged = true, categoryIds = [] }: { listingChanged?: boolean; categoryIds?: string[] } = {},
+) {
+  if (products.length === 0) return;
+  const tags = products.map((p) => productTag(p.id));
+  if (listingChanged) {
+    tags.push(cacheTagFor("products", storeId));
+    tags.push(...products.flatMap((p) => (p.categoryId ? [categoryTag(p.categoryId)] : [])));
+  }
+  tags.push(...categoryIds.map(categoryTag));
+  schedule(Array.from(new Set(tags)), { storeId });
+}
+
+/** One product changed (see revalidateProducts). */
+export function revalidateProduct(
+  storeId: string,
+  productId: string,
+  { listingChanged = true, categoryId, categoryIds = [] }: { listingChanged?: boolean; categoryId?: string; categoryIds?: string[] } = {},
+) {
+  revalidateProducts(storeId, [{ id: productId, categoryId }], { listingChanged, categoryIds });
+}
+
+/** One category changed (renamed, edited): its page, the category list/menu, and the product lists that show its name. */
+export function revalidateCategory(storeId: string, categoryId: string) {
+  schedule([categoryTag(categoryId), cacheTagFor("categories", storeId), cacheTagFor("products", storeId)], { storeId });
 }
 
 /** Order settings and contact details (the store reads them as one cached value). */
