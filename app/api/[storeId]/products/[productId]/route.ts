@@ -64,12 +64,20 @@ export async function GET(
 
     // Archived products never appear in a public request: for anyone but the store owner they read as missing.
     const owner = await callerOwnsStore(resolvedParams.storeId);
+    const where = {
+      id: resolvedParams.productId,
+      storeId: resolvedParams.storeId,
+      ...(owner ? {} : { isArchived: false }),
+    };
+
+    // ?fields=stock: only the two numbers the storefront's live stock check reads (its quantity counter), no images or text.
+    if (new URL(req.url).searchParams.get("fields") === "stock") {
+      const stock = await prismadb.product.findFirst({ where, select: { quantity: true, maxQuantity: true } });
+      return NextResponse.json(stock, { headers: corsHeaders });
+    }
+
     const product = await prismadb.product.findFirst({
-      where: {
-        id: resolvedParams.productId,
-        storeId: resolvedParams.storeId,
-        ...(owner ? {} : { isArchived: false }),
-      },
+      where,
       select: {
         id: true,
         name: true,
