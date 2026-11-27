@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useController, useFormContext } from "react-hook-form";
 import { z } from "zod";
@@ -10,7 +10,6 @@ import type { AutoFormFieldProps } from "@autoform/react";
 import { AutoForm } from "@/components/ui/autoform";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BillboardImagesField } from "@/components/billboard-images-field";
 import { CURRENT_CATEGORY, sectionSettingsSchemas, type PageKind, type SectionType } from "@/lib/home-layout";
@@ -81,44 +80,107 @@ const ImagesField = ({ id, error }: AutoFormFieldProps) => {
   return <BillboardImagesField value={field.value ?? []} onChange={field.onChange} invalid={!!error} />;
 };
 
-/** Side-by-side optional Desktop + Mobile height inputs; empty clears to undefined (falls back to default aspect ratio). */
-const HeightPairField = ({ error }: AutoFormFieldProps) => {
-  const { field: desktop } = useController({ name: "height" });
-  const { field: mobile, fieldState: mobileState } = useController({ name: "mobileHeight" });
-  const mobileError = mobileState.error?.message;
+const splitRatio = (raw: unknown): [string, string] => {
+  if (typeof raw !== "string") return ["", ""];
+  const m = /^(\d+(?:\.\d+)?)\s*[:/]\s*(\d+(?:\.\d+)?)$/.exec(raw.trim());
+  return m ? [m[1], m[2]] : ["", ""];
+};
+
+/** One [ W ] : [ H ] ratio input pair with "Width" / "Height" captions below each box. */
+const RatioBoxes = ({
+  idPrefix,
+  title,
+  value,
+  onChange,
+  defaultW,
+  defaultH,
+  error,
+}: {
+  idPrefix: string;
+  title: string;
+  value: unknown;
+  onChange: (next: string | undefined) => void;
+  defaultW: string;
+  defaultH: string;
+  error?: string;
+}) => {
+  const [initW, initH] = splitRatio(value);
+  const [w, setW] = useState(initW);
+  const [h, setH] = useState(initH);
+
+  const update = (nextW: string, nextH: string) => {
+    setW(nextW);
+    setH(nextH);
+    const tw = nextW.trim();
+    const th = nextH.trim();
+    if (!tw && !th) onChange(undefined);
+    else if (tw && th) onChange(`${tw}:${th}`);
+    else onChange(`${tw}:${th}`); // lets Zod flag half-filled ratio on submit
+  };
+
   return (
-    <div className="grid grid-cols-2 gap-3">
-      <div className="grid gap-1.5">
-        <Label htmlFor="height" className="text-xs text-muted-foreground">
-          Desktop (px)
-        </Label>
-        <Input
-          id="height"
-          type="number"
-          min={160}
-          max={900}
-          placeholder="Auto (2.4:1)"
-          className={error ? "border-destructive" : ""}
-          value={desktop.value ?? ""}
-          onChange={(e) => desktop.onChange(e.target.value === "" ? undefined : Number(e.target.value))}
-        />
+    <div className="grid gap-1.5">
+      <span className="text-xs font-medium text-muted-foreground">{title}</span>
+      <div className="flex items-start gap-1.5">
+        <div className="grid flex-1 gap-1">
+          <Input
+            id={`${idPrefix}-w`}
+            type="number"
+            step="any"
+            min={0.1}
+            placeholder={defaultW}
+            className={`h-9 text-center ${error ? "border-destructive" : ""}`}
+            value={w}
+            onChange={(e) => update(e.target.value, h)}
+            aria-label={`${title} width`}
+          />
+          <span className="text-center text-[11px] text-muted-foreground">Width</span>
+        </div>
+        <span className="pt-2 text-sm font-semibold text-muted-foreground">:</span>
+        <div className="grid flex-1 gap-1">
+          <Input
+            id={`${idPrefix}-h`}
+            type="number"
+            step="any"
+            min={0.1}
+            placeholder={defaultH}
+            className={`h-9 text-center ${error ? "border-destructive" : ""}`}
+            value={h}
+            onChange={(e) => update(w, e.target.value)}
+            aria-label={`${title} height`}
+          />
+          <span className="text-center text-[11px] text-muted-foreground">Height</span>
+        </div>
       </div>
-      <div className="grid gap-1.5">
-        <Label htmlFor="mobileHeight" className="text-xs text-muted-foreground">
-          Mobile (px)
-        </Label>
-        <Input
-          id="mobileHeight"
-          type="number"
-          min={120}
-          max={700}
-          placeholder="Auto (2:1)"
-          className={mobileError ? "border-destructive" : ""}
-          value={mobile.value ?? ""}
-          onChange={(e) => mobile.onChange(e.target.value === "" ? undefined : Number(e.target.value))}
-        />
-        {mobileError && <p className="text-sm text-destructive">{mobileError}</p>}
-      </div>
+      {error && <p className="text-xs text-destructive">{error}</p>}
+    </div>
+  );
+};
+
+/** Side-by-side optional Desktop + Mobile aspect ratio inputs; empty falls back to 2.4:1 (desktop) / 2:1 (mobile). */
+const RatioPairField = ({ error }: AutoFormFieldProps) => {
+  const { field: desktop } = useController({ name: "aspectRatio" });
+  const { field: mobile, fieldState: mobileState } = useController({ name: "mobileAspectRatio" });
+  return (
+    <div className="grid grid-cols-2 gap-4">
+      <RatioBoxes
+        idPrefix="aspectRatio"
+        title="Desktop"
+        value={desktop.value}
+        onChange={desktop.onChange}
+        defaultW="2.4"
+        defaultH="1"
+        error={typeof error === "string" ? error : undefined}
+      />
+      <RatioBoxes
+        idPrefix="mobileAspectRatio"
+        title="Mobile"
+        value={mobile.value}
+        onChange={mobile.onChange}
+        defaultW="2"
+        defaultH="1"
+        error={mobileState.error?.message}
+      />
     </div>
   );
 };
@@ -157,13 +219,13 @@ const FIELD_TEXT: Record<string, { label: string; description?: string }> = {
   slides: { label: "Slides shown at once", description: "1 to 3." },
   naturalSize: {
     label: "Use image size (no crop)",
-    description: "Keep each image's own aspect ratio (capped at custom height or 76% screen height) instead of fitting into a 2:1 / 2.4:1 banner.",
+    description: "Keep each image's own aspect ratio (capped at 76% screen height) instead of cropping into the banner ratio.",
   },
-  height: {
-    label: "Custom height (optional)",
-    description: "Desktop: 160–900 px; Mobile: 120–700 px. Leave either empty to keep its default aspect ratio (or use as max height when Use image size is on).",
+  aspectRatio: {
+    label: "Aspect ratio (optional)",
+    description: "Scales smoothly across desktop, tablet, and mobile. Leave either empty for the default (2.4:1 desktop, 2:1 mobile). Examples: 16:9, 3:1, 4:3, 1:1.",
   },
-  mobileHeight: { label: "Mobile height (px)" },
+  mobileAspectRatio: { label: "Mobile aspect ratio" },
   fullWidth: { label: "Full width (edge to edge)", description: "Stretch across the full screen width with no side padding." },
   rounded: { label: "Rounded corners", description: "Apply rounded corners around the image in any mode." },
   autoplay: { label: "Play automatically" },
@@ -181,8 +243,8 @@ const FIELD_TYPE: Record<string, string> = {
   images: "billboardImages",
   categoryId: "category",
   markdown: "markdown",
-  height: "heightPair",
-  mobileHeight: "hidden",
+  aspectRatio: "ratioPair",
+  mobileAspectRatio: "hidden",
 };
 
 /** Reports every form change to the parent. Lives inside AutoForm to reach its form context. */
@@ -204,7 +266,7 @@ export const SectionForm = ({ page, type, settings, categories, saving, onChange
       billboardImages: ImagesField,
       markdown: MarkdownField,
       category: optionsField(withCurrent, true),
-      heightPair: HeightPairField,
+      ratioPair: RatioPairField,
       hidden: HiddenField,
       code: CodeField,
       dataQueries: dataQueriesField(withCurrent, page),

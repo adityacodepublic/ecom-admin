@@ -27,6 +27,33 @@ export const billboardImageSchema = z.object({
 });
 export type BillboardImage = z.infer<typeof billboardImageSchema>;
 export const BILLBOARD_IMAGES_MAX = 20;
+
+const ASPECT_RATIO_RE = /^(\d+(?:\.\d+)?)\s*[:/]\s*(\d+(?:\.\d+)?)$/;
+
+/** Validates a billboard aspect ratio like "16:9" or "2.4:1" (width/height between 0.3 and 8) and normalizes to "W:H". */
+export const aspectRatioSchema = z
+  .string()
+  .trim()
+  .refine((v) => {
+    const m = ASPECT_RATIO_RE.exec(v);
+    if (!m) return false;
+    const w = Number(m[1]);
+    const h = Number(m[2]);
+    if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return false;
+    const r = w / h;
+    return r >= 0.3 && r <= 8;
+  }, "Enter a valid ratio like 16:9 or 2.4:1 (between 0.3:1 and 8:1)")
+  .transform((v) => {
+    const m = ASPECT_RATIO_RE.exec(v)!;
+    return `${m[1]}:${m[2]}`;
+  });
+
+/** Turns "16:9" into CSS "16 / 9", or undefined if missing/invalid. */
+export function toCssAspectRatio(ratio?: string): string | undefined {
+  if (!ratio) return undefined;
+  const m = ASPECT_RATIO_RE.exec(ratio.trim());
+  return m ? `${m[1]} / ${m[2]}` : undefined;
+}
 /** The images of a billboard, in order. */
 export const billboardImagesSchema = z.array(billboardImageSchema).max(BILLBOARD_IMAGES_MAX, `${BILLBOARD_IMAGES_MAX} images at most`);
 
@@ -91,8 +118,8 @@ export const sectionSettingsSchemas = {
     images: billboardImagesSchema.min(1, "Add at least one image").describe("Images"),
     slides: z.coerce.number().int().min(1).max(3).default(1).describe("Slides shown at once (1-3)"),
     naturalSize: z.boolean().default(false).describe("Use image size (no crop)"),
-    height: z.coerce.number().int().min(160).max(900).optional().describe("Desktop height (px, optional)"),
-    mobileHeight: z.coerce.number().int().min(120).max(700).optional().describe("Mobile height (px, optional)"),
+    aspectRatio: aspectRatioSchema.optional().describe("Desktop ratio (W:H, optional)"),
+    mobileAspectRatio: aspectRatioSchema.optional().describe("Mobile ratio (W:H, optional)"),
     fullWidth: z.boolean().default(false).describe("Full width (edge to edge)"),
     rounded: z.boolean().default(true).describe("Rounded corners"),
     autoplay: z.boolean().default(true).describe("Play automatically"),
