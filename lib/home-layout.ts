@@ -113,16 +113,11 @@ export type DataQuery = z.infer<typeof dataQuerySchema>;
 
 export const DEFAULT_ASPECT_RATIO = { desktop: "2.4:1", mobile: "2:1" } as const;
 
-const aspectRatioObjectSchema = z.object({
-  desktop: aspectRatioSchema.optional(),
-  mobile: aspectRatioSchema.optional(),
-});
-
 export const billboardAspectRatioSchema = z
-  .union([
-    aspectRatioObjectSchema,
-    aspectRatioSchema.transform((desktop): { desktop?: string; mobile?: string } => ({ desktop })),
-  ])
+  .object({
+    desktop: aspectRatioSchema.optional(),
+    mobile: aspectRatioSchema.optional(),
+  })
   .optional();
 export type BillboardAspectRatio = z.infer<typeof billboardAspectRatioSchema>;
 
