@@ -112,7 +112,7 @@ export const faviconSchema = z.union([
       } catch {
         return false;
       }
-    }, "The favicon must be an .ico, .png, .svg or .webp image"),
+    }, "The favicon must be an .ico, .png, .svg, .webp, .jpg, .gif or Cloudinary image"),
 ]);
 
 export const parseFavicon = (raw: unknown): string => {

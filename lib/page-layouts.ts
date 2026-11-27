@@ -149,7 +149,7 @@ export async function precheckPageLayoutsWrite(storeId: string, method: string, 
   }
   if (segments.length !== 2 || segments[1] === "data") return null;
   const page = segments[1];
-  if (method === "DELETE" && isPage(page)) return { status: 400, error: `The ${page} page cannot be deleted. Save an empty layout instead.` };
+  if (method === "DELETE" && isPage(page)) return { status: 400, error: `The ${page} page cannot be deleted.` };
   if (!isPage(page) && (method === "PUT" || method === "DELETE") && (await readLayout(storeId, page)) === "missing") return asError(noPage(page));
   if (method === "PUT") {
     const checked = await checkLayout(storeId, isPage(page) ? page : "custom", body);

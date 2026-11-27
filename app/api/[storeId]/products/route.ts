@@ -165,11 +165,11 @@ export async function GET(
       },
     }));
 
-    const priceFilter: { gt?: number; lt?: number } = {};
+    const priceFilter: { gte?: number; lte?: number } = {};
     if (price && price > 0) {
-      priceFilter.gt = price;
+      priceFilter.gte = price;
     } else if (price && price < 0) {
-      priceFilter.lt = -1 * price;
+      priceFilter.lte = -1 * price;
     }
 
     let searchWords;

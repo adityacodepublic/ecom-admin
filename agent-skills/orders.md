@@ -1,62 +1,142 @@
 # Orders
 
-Router: `{{BASE}}/skill/index`. Customers place orders in the store app. You can read orders and update them. You cannot create or delete orders. Status rules come from the store's settings (`{{BASE}}/skill/order-settings`).
+Customers place orders on the storefront. You can read orders, update status and payment details, handle returns, add notes, and restore stock. You cannot create or delete orders, and you cannot price a `Quote` order through the agent link (`orders/{id}/quote` is not exposed and returns `404`). Router: `{{BASE}}/skill/index`.
 
-Errors here are `{ "error": { "code", "message", "details" } }`. Common codes: `VALIDATION` 400, `NOT_FOUND` 404, `INVALID_TRANSITION` 409, `STATUS_LOCKED` 409, `INVALID_PAYMENT_TRANSITION` 409, `NO_RETURN` 404.
+## Before you write
+
+1. Warning: `{id}` in `GET` and `PATCH` accepts either the order UUID **or** the plain order number digits (for example, order `#57` is `GET {{BASE}}/orders/57` or `%2357`). **Never put a literal `#` in the URL path**: `GET {{BASE}}/orders/#57` drops `#57` as a URL fragment and silently returns `200` with the order list.
+2. Call `GET {{BASE}}/orders/{id}` before updating an order. Check `statusLock`, `nextStatus`, `prevStatus`, `canCancel`, `canRestoreStock`, and `return` (`return.nextStatus`, `return.prevStatus`, `return.canReject`, `return.canRestock`).
+3. Note money units: all money fields in responses (`totalPaise`, `revenuePaise`, `amountPaise`) are **integer paise** (`149900` is 1,499.00 rupees). The list filter parameters `minTotal` and `maxTotal` are **rupees**.
 
 ## Endpoints
 
-| Method and path | Returns |
-| --- | --- |
-| `GET {{BASE}}/orders` | `{ orders: [summary], page, pageSize, totalCount, steps, statuses, counts }` |
-| `GET {{BASE}}/orders/stats` | `{ steps, statuses, newStatus, newOrders, inProgress, codToCollect: {count, amountPaise}, revenuePaise, paidOrders, byStatus, byPaymentStatus, revenueByMonth: [{month, revenuePaise}] }` |
-| `GET {{BASE}}/orders/{id}` | `{ order }` with items, shipTo, money, events (private ones included), statuses, `statusLock` (`null`, `"FINAL"` or `"RETURN"`), `nextStatus`, `prevStatus`, `canCancel`, `canRestoreStock`, `return` (with `canRestock`) |
-| `PATCH {{BASE}}/orders/{id}` | `{ changed: boolean, order }` |
+| Method and path | Query or body | Returns |
+| --- | --- | --- |
+| `GET {{BASE}}/orders` | Query filters below | `{ orders: [summary], page, pageSize, totalCount, steps, statuses, counts, excludesCancelled }`. Newest first. |
+| `GET {{BASE}}/orders/stats` | None | `{ steps, statuses, newStatus, newOrders, inProgress, codToCollect: { count, amountPaise }, revenuePaise, paidOrders, returned, quotes: { toPrice, open }, byStatus, byPaymentStatus, revenueByMonth: [{ month, label, orders, revenuePaise, from, to }] }`. |
+| `GET {{BASE}}/orders/{id}` | None | `{ order }` with `items`, `shipTo`, `money`, `events` (private included), `statuses`, `statusKnown`, `statusLock` (`null`, `"FINAL"`, `"RETURN"`, or `"QUOTE"`), `nextStatus`, `prevStatus`, `canCancel`, `canRestoreStock`, `stockRestored`, `returnsEnabled`, `returnStatuses`, `quote`, `canEditQuote`, `charges`, `privateNote`, `customerNote`, `adminContent`, `updatedAt`, and `return` (`status`, `statusKnown`, `nextStatus`, `prevStatus`, `canReject`, `rejected`, `canRestock`). |
+| `PATCH {{BASE}}/orders/{id}` | Update body below | `{ changed: boolean, order }`. Runs in one database transaction (all-or-nothing). |
 
-`{id}` is the order uuid or the order number (`42` or `#42`; digits up to 9 are read as a number). All money in orders is integer paise (`totalPaise: 49900` = 499.00 rupees).
+Errors use `{ "error": { "code", "message", "details" } }`. Common codes: `VALIDATION` (`400`), `NOT_FOUND` (`404`), `NO_RETURN` (`404`), `INVALID_TRANSITION` (`409`), `STATUS_LOCKED` (`409`), `INVALID_PAYMENT_TRANSITION` (`409`).
 
-List query: `q` (search: order number `#42` or `42`, customer name/email/phone, receiver name/phone), `status` (exact status text, case-sensitive), `paymentStatus` (`PENDING|PAID|PARTIALLY_REFUNDED|REFUNDED|FAILED`), `from` and `to` (`YYYY-MM-DD`, India time, inclusive), `page` (from 1), `pageSize` (1 to 100, default 20). Newest first. Summary fields: `id, orderNumber, createdAt, status, paymentStatus, payment, totalPaise, itemCount, itemNames, customer {id, fname, email, phone}, shipTo {name, phone, pincode}, expectedDelivery, returnStatus`.
+### List query parameters (`GET {{BASE}}/orders`)
 
-## Update body (PATCH)
+All optional:
 
-All keys optional, but at least one must be set. Unknown keys return 400.
+- `page` (from `1`) and `pageSize` (`1` to `100`, default `20`; bad values return `400`).
+- `q`: search by order number (`42` or `#42` URL-encoded as `%2342`), customer name, email, or phone, or receiver name or phone.
+- `buyer`: customer user id (`{{BASE}}/skill/users`). When `buyer` is set and `status` is omitted, cancelled orders are excluded and `excludesCancelled` is `true`. To also fetch that customer's cancelled orders, make a second call with `buyer=<id>&status=Cancelled`.
+- `status`: exact status label (case-sensitive, such as `Packed`, `Cancelled`, or `Quote`).
+- `paymentStatus`: `PENDING`, `PAID`, `PARTIALLY_REFUNDED`, `REFUNDED`, or `FAILED`.
+- `from`, `to`: `YYYY-MM-DD` (India time, inclusive).
+- `minTotal`, `maxTotal`: **rupees**, inclusive (not paise).
+- `returned=1`: only orders with a return.
+- `product`: product id.
+- `delivery`: `overdue`, `today`, `upcoming`, `nodate`, or `delivered`.
+- `state`, `city`, `pincode`, `hour` (`0` to `23`), `weekday` (`0` to `6`).
 
-| Key | Meaning |
-| --- | --- |
-| `status` | Next or previous status in the store's list, or `"Cancelled"`. See rules. |
-| `paymentStatus` | `PENDING`, `PAID`, `PARTIALLY_REFUNDED`, `REFUNDED`, `FAILED`. Any value to any other. |
-| `payment` | Payment method text, max 50 (`"COD"`, `"UPI to 98xxxx"`). `""` clears it. |
-| `expectedDelivery` | `"YYYY-MM-DD"` or `null` to clear. |
-| `privateNote` | Admin-only note, max 2000. `null` clears. |
-| `comment` | Timeline comment, 1 to 5000 chars. Private unless `"customerVisible": true`. |
-| `adminContent` | Markdown shown on the customer's order page, max 20000. `null` clears. |
-| `restoreStock` | `true`: put a cancelled order's items back into stock (once; shares one flag with `restock`). |
-| `returnStatus` | Move the order's return. See rules. |
-| `restock` | With a return: put the items back into stock (once per order; shares one flag with `restoreStock`). |
+Summary fields: `id`, `orderNumber`, `createdAt`, `deliveredAt`, `status`, `paymentStatus`, `payment`, `totalPaise`, `itemCount`, `itemNames`, `customer: { id, fname, email, phone }`, `shipTo: { name, phone, city, state, pincode }`, `expectedDelivery`, `returnStatus`.
 
+## Fields (`PATCH {{BASE}}/orders/{id}`)
+
+All fields are optional, but you must send at least one field other than `customerVisible` and `restock` (sending only those returns `400 Nothing to change`). Unknown keys return `400`. Repeating the current value returns `changed: false`.
+
+| Field | Type | Rules and limits | On PATCH if `null` or `""` |
+| --- | --- | --- | --- |
+| `status` | string | Adjacent `nextStatus` or `prevStatus` from `GET`, or `"Cancelled"` (case-insensitive for cancelled; exact case for list statuses). If `statusKnown` is `false`, any current status in `order.statuses` is allowed. | Cannot be `null` or `""`. |
+| `paymentStatus` | string | `PENDING`, `PAID`, `PARTIALLY_REFUNDED`, `REFUNDED`, or `FAILED`. Any value can move to any other. `PAID` does not require a `payment` method. | Cannot be `null` or `""`. |
+| `payment` | string | Payment method text (such as `"COD"` or `"UPI to 98xxxx"`), max 50 chars. | `""` clears it. |
+| `expectedDelivery` | string or `null` | `"YYYY-MM-DD"`. | `null` clears it. |
+| `privateNote` | string or `null` | Admin-only note, max 2000 chars. Never shown to customers. | `null` or `""` clears it. |
+| `comment` | string | Timeline comment, 1 to 5000 chars. Private unless `customerVisible: true`. | Cannot be `""`. |
+| `customerVisible` | boolean | Applies to `comment` (default `false`). Does not send a notification by itself. | Cannot be sent alone. |
+| `adminContent` | string or `null` | Markdown shown on the customer's order page, max 20,000 chars. | `null` or `""` clears it. |
+| `restoreStock` | boolean | `true` returns a cancelled order's items to stock once. Works in the **same `PATCH`** as `"status": "Cancelled"` or in a later `PATCH`. Silent no-op if stock was already restored. | Only `true` acts. |
+| `returnStatus` | string | Adjacent `return.nextStatus`, `return.prevStatus`, or `"Rejected"` (not from the final return step). | Cannot be `null` or `""`. |
+| `restock` | boolean | `true` returns a return's items to stock once (shares the same one-time flag as `restoreStock`). Must be paired with another field such as `returnStatus`. | Cannot be sent alone. |
+
+## Status lock and transition rules
+
+Check `statusLock` from `GET {{BASE}}/orders/{id}` before changing `status`:
+
+| `statusLock` | Meaning | What `status` changes are allowed |
+| --- | --- | --- |
+| `null` | Normal active order (or already `Cancelled`) | One step forward (`nextStatus`), one step back (`prevStatus`), or `"Cancelled"`. Already `Cancelled` orders cannot move further (`409`). |
+| `"FINAL"` | Order is at the last status (such as `Delivered`) | None (`409 STATUS_LOCKED`). Cannot step back or cancel; handle returns with `returnStatus`. |
+| `"RETURN"` | Order has an active return | None (`409 STATUS_LOCKED`). Update the return with `returnStatus` instead. |
+| `"QUOTE"` | Order is waiting on a price-on-request quote | Only `"Cancelled"` is allowed for `status` (other status values return `409 STATUS_LOCKED`). Non-status fields (`privateNote`, `comment`, `adminContent`, `expectedDelivery`, `payment`, `paymentStatus`) still work. Agents cannot price a quote (`orders/{id}/quote` is `404`); tell the owner to price it in the admin UI. |
+
+Additional transition rules:
+
+- **One step per PATCH**: skipping a status (such as `Confirmed` straight to `Shipped` when `Packed` is in between) fails with `409 INVALID_TRANSITION` and rolls back the whole `PATCH`. Send one `PATCH` per step (`Packed`, then `Shipped`).
+- **Admin cancellation**: admin `PATCH` to `"Cancelled"` ignores `cancellation.allowedAt` (that setting restricts customer self-cancellation only). Check `canCancel` on `GET`.
+- **One-time stock restoration**: `restoreStock` (cancelled order) and `restock` (return) share one flag. Once stock is restored, `restoreStock: true` is a silent no-op, while `restock: true` returns `400 VALIDATION` (`return.canRestock` is `false`).
+- **Restock without changing return status**: send `{ "returnStatus": "<current return.status>", "restock": true }`. Repeating the current `returnStatus` is a no-op and satisfies the "at least one real change" rule.
+- **Notifications**: only status changes, cancellation, and return status moves send customer notices. A `customerVisible: true` comment only adds a timeline entry.
+
+## Examples
+
+### Advance one step with an internal note and a customer-visible comment
+
+```json
+{
+	"status": "Packed",
+	"privateNote": "check address",
+	"comment": "Packing now",
+	"customerVisible": true
+}
 ```
-PATCH {{BASE}}/orders/42
-{ "status": "Shipped", "expectedDelivery": "2026-12-01", "comment": "Courier booked", "customerVisible": true }
+
+### Cancel an order and restore stock in one PATCH
+
+```json
+{
+	"status": "Cancelled",
+	"restoreStock": true
+}
 ```
 
-## Rules
+### Restock a return without moving its return status
 
-- Status moves one step forward or one step back in `order.statuses`, or to `"Cancelled"`. Skipping a step returns 409 `INVALID_TRANSITION`. Read `nextStatus` and `prevStatus` from `GET /orders/{id}` and use them.
-- `status` text is case-sensitive and must equal a list entry. An order whose status is no longer in the list (`statusKnown: false`) may move to any current status.
-- Frozen orders: from the last (final) status the order cannot be moved at all (no step back, no cancel; that stage is for returns), and while the order has a return (any return state) its status cannot be moved either. Both give 409 `STATUS_LOCKED` ("This order is complete and can't be moved." or "A return is in progress."). Check `statusLock` first: when it is not `null`, `nextStatus` and `prevStatus` are `null` and `canCancel` is false. An order with an old unlisted status may still move to a listed status when it is not at the final status and has no return. `Cancelled` is final and cannot be changed.
-- Cancelling does not restore stock. Send `"restoreStock": true` in the same or a later PATCH. It works only when `canRestoreStock` is true and only once.
-- Stock is added back at most once per order: `restoreStock` (cancelled order) and `restock` (return) use the same flag. After one of them ran, the other has nothing to add (`restock` then returns 400 `VALIDATION`; `return.canRestock` is false).
-- Returns: customers request them. `returnStatus` moves one step through `returns.statuses` or to `"Rejected"` (not from the last step). `restock: true` returns the items to stock once (see above). The customer can withdraw a return only while it is at the first return status, only if it was not restocked, and only once per order. An order with no return gives 404 `NO_RETURN`.
-- Payment method text is free. Status `PAID` does not need a method.
-- Customer-visible changes (status, payment, delivery date, visible comments) appear on the customer's timeline. Use private notes for internal text.
-- Repeating the same value returns `changed: false`.
+When `order.return.status` is `"Received"` and `order.return.canRestock` is `true`:
 
-## Failure and fix
+```json
+{
+	"returnStatus": "Received",
+	"restock": true
+}
+```
 
-| Symptom | Fix |
+## Steps
+
+### Move an order forward by two steps (for example `Confirmed` to `Shipped`)
+
+1. Call `GET {{BASE}}/orders/42` (no `#`) and confirm `statusLock` is `null` and `nextStatus` is `"Packed"`.
+2. Send `PATCH {{BASE}}/orders/42` with `{ "status": "Packed" }`. In permission mode, wait for approval before step 3.
+3. Send `PATCH {{BASE}}/orders/42` with `{ "status": "Shipped" }`.
+4. Verify `order.status` in the `PATCH` response.
+
+### List every order for one customer (including cancelled orders)
+
+1. Call `GET {{BASE}}/orders?buyer=<userId>&page=1&pageSize=100` (returns non-cancelled orders; `excludesCancelled: true`).
+2. Call `GET {{BASE}}/orders?buyer=<userId>&status=Cancelled&page=1&pageSize=100` for cancelled orders.
+
+## Errors
+
+| Status | Code and message | Fix |
+| --- | --- | --- |
+| `400` | `VALIDATION`: `Nothing to change` | Sent only `customerVisible` or `restock`. Pair `restock` with `returnStatus` (even the current one). |
+| `400` | `VALIDATION`: `Stock can be restored only for a cancelled order` | Include `"status": "Cancelled"` in the same `PATCH`, or cancel first. |
+| `400` | `VALIDATION`: `The stock of this order was already put back (or never taken)` | Stock was already restored (`return.canRestock` is `false`). Do not restock again. |
+| `404` | `NOT_FOUND`: `Order not found` | Check the order id or number (and ensure no `#` was dropped). |
+| `404` | `NO_RETURN`: `This order has no return` | Only send `returnStatus` or `restock` when `order.return` is not `null`. |
+| `409` | `INVALID_TRANSITION` | Move one adjacent step at a time using `nextStatus`, `prevStatus`, or `"Cancelled"`. |
+| `409` | `STATUS_LOCKED` | Check `statusLock`: `"FINAL"` and `"RETURN"` cannot change `status`; `"QUOTE"` allows only `"Cancelled"`. |
+
+## Related skills
+
+| When you need to | Read |
 | --- | --- |
-| 409 `INVALID_TRANSITION` | The move is not adjacent. GET the order, use `nextStatus`, `prevStatus` or `Cancelled`. |
-| 409 `STATUS_LOCKED` | The order is at its final status or has a return. Nothing to do: handle the return with `returnStatus`. |
-| 400 `Nothing to change` | Only `customerVisible` or `restock` was sent. Add a real change. |
-| 400 `Stock can be restored only for a cancelled order` | Cancel first. |
-| 404 `NOT_FOUND` | Wrong number or id, or the order belongs to another store. |
+| Edit order statuses, cancellation rules, return rules, or quote labels | `{{BASE}}/skill/order-settings` |
+| Look up customer profiles and user ids | `{{BASE}}/skill/users` |
+| Edit store phone and WhatsApp shown on order pages | `{{BASE}}/skill/contact` |

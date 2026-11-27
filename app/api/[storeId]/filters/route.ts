@@ -2,7 +2,6 @@ import { revalidateStoreCatalog } from "@/lib/store-revalidate";
 import { NextResponse } from "next/server";
 import { requireStoreOwnerResponse } from "@/lib/api/admin-auth";
 import prismadb from "@/lib/prismadb";
-import { Decimal } from "@prisma/client/runtime/library";
 import { Prisma } from "@prisma/client";
 import { isPageError, pageBody, readPage } from "@/lib/api/paginate";
 
@@ -33,8 +32,19 @@ export async function POST(
       return new NextResponse("Name is required", { status: 400 });
     }
 
-    if (!value) {
+    if (!Array.isArray(value)) {
       return new NextResponse("Value is required", { status: 400 });
+    }
+
+    let incoming: { value: Prisma.Decimal | null; unit: string }[];
+    try {
+      incoming = value.map((v: { value?: unknown; unit?: unknown }) => {
+        if (typeof v?.unit !== "string") throw new Error("unit");
+        const num = v.value === undefined || v.value === null || v.value === "" ? null : new Prisma.Decimal(v.value as Prisma.Decimal.Value);
+        return { value: num, unit: v.unit };
+      });
+    } catch {
+      return new NextResponse("Each value needs a numeric value (or none) and a unit", { status: 400 });
     }
 
     const duplicate = await prismadb.filter.findFirst({
@@ -51,12 +61,7 @@ export async function POST(
         name,
         value: {
           createMany: {
-            data: [
-              ...value.map(
-                (values: { storeId: string; value: Decimal; unit: string }) =>
-                  values,
-              ),
-            ],
+            data: incoming,
           },
         },
       },

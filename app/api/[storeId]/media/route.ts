@@ -33,7 +33,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ storeId:
         AND NOT EXISTS (SELECT 1 FROM "Category" c WHERE c."storeId" = m."storeId"
                         AND (c."imageUrl" = m."url" OR strpos(c."banner"::text, m."url") > 0))
         AND NOT EXISTS (SELECT 1 FROM "Store" s WHERE s."id" = m."storeId"
-                        AND (strpos(COALESCE(s."pageLayouts"::text, ''), m."url") > 0 OR s."settings"->>'logo' = m."url"))
+                        AND (strpos(COALESCE(s."pageLayouts"::text, ''), m."url") > 0
+                          OR s."settings"->>'logo' = m."url"
+                          OR s."settings"->>'favicon' = m."url"
+                          OR strpos(COALESCE(s."settings"->>'navbarHtml', '') || COALESCE(s."settings"->>'footerHtml', ''), m."url") > 0))
         AND NOT EXISTS (SELECT 1 FROM "Product" p2 WHERE p2."storeId" = m."storeId"
                         AND p2."description" IS NOT NULL AND position(m."url" in p2."description") > 0)`
       : Prisma.empty;
@@ -80,7 +83,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ storeId
 
     const body = await req.json();
     const url = String(body.url || "");
-    const source = body.source === "url" ? "url" : "upload";
+    if (body.source !== "upload" && body.source !== "url") {
+      return new NextResponse('source must be "upload" or "url"', { status: 400 });
+    }
+    const source: "upload" | "url" = body.source;
     let publicId: string | null = null;
 
     if (!/^https:\/\//.test(url) || url.length > 2000) {

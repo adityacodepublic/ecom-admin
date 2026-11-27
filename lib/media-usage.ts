@@ -26,13 +26,17 @@ export async function fileStillReferenced(
   if (await db.product.findFirst({ where: { description: { contains: media.url } }, select: { id: true } }))
     return "a product description uses it";
   // JSON columns: the url anywhere in the text (a little too eager at worst, which only keeps the file).
-  const [json] = await db.$queryRaw<{ banner: boolean; page: boolean; logo: boolean }[]>(Prisma.sql`
+  const [json] = await db.$queryRaw<{ banner: boolean; page: boolean; logo: boolean; favicon: boolean; chrome: boolean }[]>(Prisma.sql`
     SELECT EXISTS (SELECT 1 FROM "Category" WHERE strpos("banner"::text, ${media.url}) > 0) AS banner,
            EXISTS (SELECT 1 FROM "Store" WHERE strpos("pageLayouts"::text, ${media.url}) > 0) AS page,
-           EXISTS (SELECT 1 FROM "Store" WHERE "settings"->>'logo' = ${media.url}) AS logo`);
+           EXISTS (SELECT 1 FROM "Store" WHERE "settings"->>'logo' = ${media.url}) AS logo,
+           EXISTS (SELECT 1 FROM "Store" WHERE "settings"->>'favicon' = ${media.url}) AS favicon,
+           EXISTS (SELECT 1 FROM "Store" WHERE strpos(COALESCE("settings"->>'navbarHtml', '') || COALESCE("settings"->>'footerHtml', ''), ${media.url}) > 0) AS chrome`);
   if (json?.banner) return "a category billboard uses it";
   if (json?.page) return "a page block uses it";
   if (json?.logo) return "a store logo uses it";
+  if (json?.favicon) return "a store favicon uses it";
+  if (json?.chrome) return "the store navbar or footer uses it";
   return null;
 }
 
@@ -79,8 +83,15 @@ export async function getUsage(storeId: string, urls: string[]): Promise<Map<str
     const text = JSON.stringify(blocks ?? []);
     for (const u of urls) if (text.includes(JSON.stringify(u).slice(1, -1))) add(u, { type: "page", id, label });
   }
-  const logo = (store?.settings as { logo?: unknown } | null)?.logo;
-  if (typeof logo === "string" && map.has(logo)) add(logo, { type: "logo", id: storeId, label: "Store logo" });
+  const settings = (store?.settings ?? null) as { logo?: unknown; favicon?: unknown; navbarHtml?: unknown; footerHtml?: unknown } | null;
+  if (typeof settings?.logo === "string" && map.has(settings.logo)) add(settings.logo, { type: "logo", id: storeId, label: "Store logo" });
+  if (typeof settings?.favicon === "string" && map.has(settings.favicon)) add(settings.favicon, { type: "favicon", id: storeId, label: "Store favicon" });
+  if (typeof settings?.navbarHtml === "string") {
+    for (const u of urls) if (settings.navbarHtml.includes(u)) add(u, { type: "chrome", id: "navbar", label: "Navbar" });
+  }
+  if (typeof settings?.footerHtml === "string") {
+    for (const u of urls) if (settings.footerHtml.includes(u)) add(u, { type: "chrome", id: "footer", label: "Footer" });
+  }
 
   return map;
 }

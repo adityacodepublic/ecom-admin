@@ -1,69 +1,99 @@
 # Media (image library)
 
-Every image a store uses can be listed in its image library. Products, categories, page blocks and the logo store only the image URL. Router: `{{BASE}}/skill/index`.
+The image library stores uploaded and linked images for the store. Products, categories, page blocks, branding, and chrome store only image URLs. Router: `{{BASE}}/skill/index`.
 
-## Get an image URL (two ways)
+## Before you write
 
-1. Upload a file (image only: jpg, jpeg, png, webp, gif, avif; **max 6 MB**). The file goes straight to Cloudinary, not through this server (the server rejects request bodies over 4.5 MB). Two steps, no approval needed in either mode.
-   Step 1, get a signed upload:
+1. Upload images directly to Cloudinary using the 3-step upload flow below (images only: `jpg`, `jpeg`, `png`, `webp`, `gif`, `avif`; max 6 MB). Never send image files to this server (Vercel rejects bodies over 4.5 MB, and there is no `/media/upload` or `/media/sign` route).
+2. Always include `"source": "upload"` or `"source": "url"` on `POST {{BASE}}/media`. Missing or invalid `source` returns `400`.
+3. Confirm with the user before deleting any image. Deleting an uploaded image permanently destroys its Cloudinary file.
+
+## Endpoints
+
+| Method and path | Body or query | Returns |
+| --- | --- | --- |
+| `POST {{BASE}}/upload-url` | None | `{ uploadUrl, fields: { api_key, timestamp, folder, allowed_formats, public_id, signature }, expiresInMinutes: 60, next }`. Runs at once in both modes. |
+| `POST {{BASE}}/media` | Upload registration or URL registration below | `{ id, url, publicId, source, name, createdAt, usedIn: [] }`. Duplicate URLs return the existing row (always with `usedIn: []`). |
+| `GET {{BASE}}/media` | `?q=&sort=newest\|oldest\|name&filter=unused&page=0` | `{ items: [{ id, url, publicId, source, name, createdAt, usedIn: [{ type, id, label }] }], hasMore }`. **0-based `page`**, fixed 40 items per page. |
+| `DELETE {{BASE}}/media/{id}` | None | `{ ok: true }`, or `409` if still used. Permanently deletes the Cloudinary file for uploads. |
+
+Do not call `POST {{BASE}}/media/sign` (`403`) or `POST {{BASE}}/media/upload` (`404`).
+
+`usedIn[].type` is one of: `product`, `category` (thumbnail), `categoryBanner`, `page` (`id` is `home`, `category`, `product`, or a custom page route with label `Page /<route>`), `logo`, `favicon`, `chrome` (`id` is `navbar` or `footer`), or `description` (URL inside a product Markdown description).
+
+## Fields (`POST {{BASE}}/media`)
+
+| Field | Type | Required | Rules and limits |
+| --- | --- | --- | --- |
+| `url` | string | Yes | Must start with `https://`, max 2000 chars. For `source: "upload"`, must be the `secure_url` returned by Cloudinary containing `publicId`. |
+| `source` | string | Yes | `"upload"` (runs at once in both modes) or `"url"` (returns `202` in permission mode). Always set explicitly. |
+| `publicId` | string | Yes for `"upload"` | The exact `public_id` returned by Cloudinary in step 2 (must belong to this store's folder and already exist on Cloudinary). |
+| `name` | string | No | Optional display label (truncated to 200 chars; defaults to filename from URL). |
+
+## Upload a local image (3 steps, runs at once in both modes)
+
+One `POST {{BASE}}/upload-url` signature works for one image and stays valid for 1 hour. Call `POST {{BASE}}/upload-url` again for each additional image.
+
+1. Request a signed upload:
    ```
    POST {{BASE}}/upload-url
-   -> { "uploadUrl": "https://api.cloudinary.com/v1_1/<cloud>/image/upload",
-        "fields": { "api_key", "timestamp", "folder", "allowed_formats", "public_id", "signature" },
-        "expiresInMinutes": 60, "next": "..." }
    ```
-   Step 2, send the file to `uploadUrl` as multipart/form-data with EVERY field from `fields` unchanged plus the `file` field (the file part must come last):
-   ```
+2. Upload the file directly to the returned `uploadUrl` as `multipart/form-data`. Send every key from `fields` unchanged and put `file` last:
+   ```bash
    curl -X POST "<uploadUrl>" \
-     -F "api_key=<api_key>" -F "timestamp=<timestamp>" -F "folder=<folder>" \
-     -F "allowed_formats=<allowed_formats>" \
-     -F "public_id=<public_id>" -F "signature=<signature>" \
-     -F "file=@photo.jpg"
-   -> { "secure_url": "https://res.cloudinary.com/.../photo.jpg", "public_id": "ecom/<store>/<id>", "bytes": 123456, ... }
+   	-F "api_key=<api_key>" -F "timestamp=<timestamp>" -F "folder=<folder>" \
+   	-F "allowed_formats=<allowed_formats>" \
+   	-F "public_id=<public_id>" -F "signature=<signature>" \
+   	-F "file=@photo.jpg"
    ```
-   Step 3, add it to the library using the values from Cloudinary's answer (runs at once in both modes):
+   Cloudinary returns `{ "secure_url": "https://res.cloudinary.com/.../photo.jpg", "public_id": "ecom/<store>/<id>", ... }`.
+3. Register the upload in the store's library (runs at once in both modes; the server checks the real file size with Cloudinary and deletes files over 6 MB):
+   ```json
+   {
+   	"url": "<secure_url>",
+   	"publicId": "<public_id>",
+   	"source": "upload",
+   	"name": "photo.jpg"
+   }
    ```
-   POST {{BASE}}/media
-   { "url": "<secure_url>", "publicId": "<public_id>", "source": "upload", "bytes": <bytes>, "name": "optional label" }
-   -> { "id": "<media id>", "url": "...", ... }
-   ```
-   Use `url` in product `images[].url`, category `imageUrl`, `banner[].url`, a Billboard's `images[].url`, or the `logo`. The server checks the real file size with Cloudinary when you register: an image over 6 MB is deleted and refused (400).
-   How long the signed data lasts: Cloudinary accepts the signature for about 1 hour from `timestamp`. It is time limited, NOT single use within that hour, but the folder, the one `public_id` and the formats are locked into it, so one `/upload-url` call can only ever produce one image. Call `/upload-url` again for each further image. After an hour, call it again.
-2. Use an existing public `https://` image URL, optionally registered so it shows in the library:
-   ```
-   POST {{BASE}}/media
-   { "url": "https://example.com/a.jpg", "source": "url", "name": "optional label" }
-   -> { id, url, publicId: null, source: "url", name, createdAt, usedIn: [] }
-   ```
-   In permission mode this is a write and returns 202. Registering is optional: the other routes accept any URL string without it.
+4. Use the returned `url` in product `images`, category `imageUrl` or `banner`, Billboard `images`, `logo`, `favicon`, Markdown, or HTML.
 
-Do not use `POST {{BASE}}/media/sign` (403). Use `/upload-url`.
+## Register an existing public `https://` URL (optional)
 
-## List and delete
+Other endpoints accept any valid `https://` URL without library registration. To add an external URL to the library, send `POST {{BASE}}/media` (queued as `202` in permission mode):
 
-| Method and path | Notes |
+```json
+{
+	"url": "https://example.com/photo.jpg",
+	"source": "url",
+	"name": "Hero photo"
+}
+```
+
+## Steps: clean up unused images safely
+
+1. Collect all candidate ids **before** deleting anything (deleting shifts later pages): loop `GET {{BASE}}/media?filter=unused&page=0`, `page=1`, `page=2`, and so on until `hasMore` is `false`.
+2. Show the list to the user and confirm before deleting.
+3. Call `DELETE {{BASE}}/media/{id}` for each confirmed image.
+
+## Errors
+
+| Status | Message | Fix |
+| --- | --- | --- |
+| `400` | `source must be "upload" or "url"` | Send `"source": "upload"` (after Cloudinary upload) or `"source": "url"`. |
+| `400` | `A valid https image link is required` | Use an `https://` URL of 2000 characters or fewer. |
+| `400` | `Image is not in this store's folder` | Use the `public_id` Cloudinary returned from your `/upload-url` upload. |
+| `400` | `Image link does not match the upload` | Send the exact `secure_url` and `public_id` returned by Cloudinary. |
+| `400` | `No uploaded image with this publicId. Upload the file to uploadUrl first.` | Complete step 2 (upload to Cloudinary) before calling `POST /media`. |
+| `400` | `Image is bigger than 6 MB and was deleted.` | Compress or resize the file under 6 MB and start again at step 1. |
+| `404` | `Not found` (on `DELETE`) | Wrong media id. List `GET {{BASE}}/media?page=0` to get valid ids. |
+| `409` | `This image is still used` with `usedIn[]` | Remove or replace the image in every listed item first, then retry `DELETE`. |
+| `502` | `Could not check the uploaded image. Try again.` / `Could not delete the file in Cloudinary. Try again.` | Temporary Cloudinary failure. Retry once. |
+
+## Related skills
+
+| When you need to | Read |
 | --- | --- |
-| `GET {{BASE}}/media` | Query: `q` (name search, max 100), `sort` (`newest` default, `oldest`, `name`), `filter=unused` (images used nowhere), `page` (from 0, 40 per page). Returns `{ items: [{ id, url, publicId, source, name, createdAt, usedIn: [{type, id, label}] }], hasMore }`. `usedIn.type` is `product`, `category` (thumbnail), `categoryBanner`, `page` (a block of that page, `id` = home, category or product), `logo` or `description`. |
-| `DELETE {{BASE}}/media/{id}` | Returns `{ ok: true }`. Deletes the library row, and the Cloudinary file for uploads. |
-
-## Rules and caveats
-
-- `source: "url"` entries must start with `https://` and be at most 2000 characters, else 400 `A valid https image link is required`.
-- A URL is unique per store. Registering one again returns the existing row.
-- `source: "upload"` through `POST /media` needs a real Cloudinary `publicId` from this store's folder that you already uploaded with `/upload-url`. You cannot fake it.
-- DELETE of an image still used returns `409 { "error": "This image is still used", "usedIn": [...] }`. Replace the image in those items first, then delete.
-- A URL that appears inside a product description Markdown also counts as "used" (`usedIn.type` = `description`).
-- Deleting is permanent for uploaded files. Delete only when the user asks. Prefer `filter=unused` for clean-up.
-- A failed upload (not an image, too big) is answered by Cloudinary itself in step 2. Compress or convert the file to under 6 MB and call `/upload-url` again.
-- `GET {{BASE}}/media` has its own paging (`page` from 0, 40 per page), different from `?page=1&pageSize=` on the other lists.
-
-## Failure and fix
-
-| Symptom | Fix |
-| --- | --- |
-| 400 `A valid https image link is required` | Use an `https://` URL under 2000 characters. |
-| 400 `Image is not in this store's folder` | Use the `public_id` Cloudinary returned for your `/upload-url` upload. |
-| 400 `No uploaded image with this publicId` | Do step 2 (upload the file to `uploadUrl`) before registering. |
-| 400 `Image is bigger than 6 MB` | The asset was deleted. Shrink the image and start again with `/upload-url`. |
-| 409 on DELETE | Remove the image from the items in `usedIn` first. |
-| 404 on DELETE | Wrong id. List the library to get ids. |
+| Preview page blocks with placeholder URLs before uploading | `{{BASE}}/skill/pages` |
+| Set store `logo` or `favicon` | `{{BASE}}/skill/branding` |
+| Use images inside `navbarHtml` or `footerHtml` | `{{BASE}}/skill/chrome` |

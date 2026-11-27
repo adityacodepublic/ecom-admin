@@ -55,7 +55,7 @@ export async function DELETE(_req: Request, { params }: Ctx) {
     const { storeId, page } = await params;
     const owner = await requireStoreOwnerResponse(storeId);
     if ("error" in owner) return owner.error;
-    if (isPage(page)) return new NextResponse(`The ${page} page cannot be deleted. Save an empty layout instead.`, { status: 400 });
+    if (isPage(page)) return new NextResponse(`The ${page} page cannot be deleted.`, { status: 400 });
 
     const result = await deleteCustomPage(storeId, owner.userId, page);
     if (!result.ok) return reply(result.status, result.body);

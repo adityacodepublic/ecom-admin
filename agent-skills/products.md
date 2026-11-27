@@ -1,68 +1,165 @@
 # Products
 
-Router: `{{BASE}}/skill/index`. A product needs a category, at least one image, a price and stock numbers.
+Products are the items customers buy or request a quote for. Each product belongs to one category and has at least one image, a price (or `null` for price on request), and stock counts. Router: `{{BASE}}/skill/index`.
+
+## Before you write
+
+1. Call `GET {{BASE}}/categories?page=1&pageSize=100` to get a valid `categoryId`.
+2. Call `GET {{BASE}}/filters?page=1&pageSize=100` to get `valueId` values for product attributes.
+3. Upload new images or pick existing URLs through `{{BASE}}/skill/media`.
+4. Before editing a product, read `GET {{BASE}}/products/{id}`. That response omits `isFeatured`, `isArchived`, and filter `valueId` values, so check the edit rules below before sending `PATCH`.
 
 ## Endpoints
 
 | Method and path | Body or query | Returns |
 | --- | --- | --- |
-| `GET {{BASE}}/products` | query below | `[{ id, name, price, quantity, maxQuantity, isFeatured, isArchived, images: [{url}] (first only), category: {id, name}, filteritems: [{ value: { value, unit, filter: {name} } }] }]` Large stores: use ?page=&pageSize= on lists (`?page=1&pageSize=50` returns `{ items, page, pageSize, hasMore }`). |
-| `GET {{BASE}}/products/{id}` | | `{ id, name, price, quantity, maxQuantity, description, images: [{url, order}], category, filteritems }` or `null` (also `null` for an archived product when the caller is not the owner). No `isFeatured`/`isArchived`. |
-| `POST {{BASE}}/products` | body below | the product row (no images) |
-| `PATCH {{BASE}}/products/{id}` | body below | the product row |
-| `DELETE {{BASE}}/products/{id}` | | the deleted product |
+| `GET {{BASE}}/products` | Query params below | Plain array of products, or `{ items, page, pageSize, hasMore }` when `page` is set. Each item has `{ id, name, price, quantity, maxQuantity, isFeatured, isArchived, images: [{ url }], category: { id, name }, filteritems: [{ value: { value, unit, filter: { name } } }] }`. |
+| `GET {{BASE}}/products/{id}` | Optional `?fields=stock` | Full product `{ id, name, price, quantity, maxQuantity, description, images: [{ url, order }], category: { id, name }, filteritems }` or `null`. Omits `isFeatured` and `isArchived`. With `?fields=stock`, returns only `{ quantity, maxQuantity }` or `null`. |
+| `POST {{BASE}}/products` | Product body | Created product row (no `images` or `filteritems`). |
+| `PATCH {{BASE}}/products/{id}` | Product body (plus optional `loadedQuantity`) | Updated product row. |
+| `DELETE {{BASE}}/products/{id}` | None | Deleted product row, or `409` if the product appears in an order. |
 
-`price` is returned as a string (`"499"`).
+`price` is returned as a string (such as `"499.00"`) or `null` (price on request). In `filteritems`, `value.value` is returned as a string (such as `"128"`) or `null`.
 
-List query (all optional): `categoryId`, `searchValue` (name contains, case-insensitive), `isFeatured=true|false`, `isArchived=true|false`, `price` (positive N = price above N, negative -N = price below N), `filterId` (JSON array of arrays of value ids, for example `[["valA","valB"],["valC"]]`: OR inside a group, AND between groups). The list is not paginated. You (the store owner) see archived products too; pass `isArchived=false` to hide them or `isArchived=true` to list only them. The public store never gets archived products: for anyone who is not the signed-in owner the list always excludes them and `GET /products/{id}` returns `null`.
+### List query parameters
 
-## Body (POST and PATCH)
+All query parameters on `GET {{BASE}}/products` are optional:
 
-```
+- `page` and `pageSize`: 1-based pagination. Default `pageSize` is 50; values above 100 clamp to 100. Paginated results sort by `id`.
+- `categoryId`: exact category id.
+- `searchValue`: case-insensitive substring match against the full `name` string.
+- `isFeatured`: `true` or `false`.
+- `isArchived`: `true` or `false`. As the store owner, you see archived products when this parameter is omitted. The public store never shows archived products.
+- `price`: positive number `N` matches `price >= N`; negative `-N` matches `price <= N`. Products with `price: null` are excluded whenever `price` is set.
+- `filterId`: URL-encoded JSON array of arrays of `valueId` strings, such as `[["valA","valB"],["valC"]]`. Values inside one inner array use OR; separate inner arrays use AND.
+- `forFeed=1`: includes `description` and up to 11 images per item (normally only the first image is returned).
+
+## Fields
+
+| Field | Type | Required | Rules and limits | On PATCH if omitted, empty, or null |
+| --- | --- | --- | --- | --- |
+| `name` | string | Yes | Max 255 characters. | Omitting or `""` returns `400`. |
+| `price` | number, string, or `null` | Yes | Rupees above `0` with at most 2 decimals (`499` or `"499.50"`), or `null` for price on request. No currency symbol or commas. | Omitting or `""` returns `400`. `null` sets price on request. |
+| `quantity` | integer | Yes | Whole JSON number, `0` or more (`0` means out of stock). | Omitting returns `400`. Ignored when `loadedQuantity` equals `quantity`. |
+| `loadedQuantity` | integer | No (PATCH only) | Whole JSON number, `0` or more. Send the `quantity` you read from `GET` when you do not mean to change stock. | Omitting writes `quantity` as given and can overwrite live sales. |
+| `maxQuantity` | integer | Yes | Whole JSON number, `1` or more (per-order limit). | Omitting returns `400`. |
+| `categoryId` | string | Yes | Must belong to this store. | Omitting returns `400`. |
+| `images` | array | Yes | At least 1 `{ url, order }`. `url` starts with `http://` or `https://`. `order` is a whole number. | Omitting or `[]` returns `400`. Replaces all images. Always send `order` on PATCH (an omitted `order` becomes `1` for every image). |
+| `filteritems` | array | No | Array of `{ "valueId": "<id>" }`. Every `valueId` must belong to this store. | **Always replaces the whole list.** Omitting or `[]` removes every filter from the product. |
+| `description` | string | No | GitHub Markdown text. | Omitting keeps the stored description unchanged. |
+| `isFeatured` | boolean | No | JSON boolean (`true` or `false`), not a string. | Omitting keeps the stored value unchanged. |
+| `isArchived` | boolean | No | JSON boolean (`true` or `false`). `true` hides the product from customers. | Omitting keeps the stored value unchanged. |
+
+Every `PATCH` runs inside one transaction. If any field is invalid, nothing changes.
+
+## Examples
+
+### Create a standard product
+
+```json
 {
-  "name": "Pixel 9",                 // required, max 255
-  "price": 59999,                    // required, > 0, at most 2 decimals, number or string
-  "quantity": 25,                    // required, whole number, 0 or more (0 = out of stock). On PATCH it overwrites live stock, see below
-  "maxQuantity": 5,                  // required, whole number, 1 or more (per-order limit)
-  "categoryId": "<category id>",     // required, must belong to this store
-  "images": [ { "url": "https://...", "order": 1 } ],   // required, at least 1
-  "isFeatured": false,               // optional
-  "isArchived": false,               // optional
-  "description": "Markdown text",    // optional (all markdown syntax supported, images, tables etc.)
-  "filteritems": [ { "filterId": "<filter id>", "valueId": "<value id>" } ]   // optional
+	"name": "Pixel 9",
+	"price": 59999,
+	"quantity": 25,
+	"maxQuantity": 5,
+	"categoryId": "<category id>",
+	"images": [
+		{ "url": "https://res.cloudinary.com/.../front.jpg", "order": 1 },
+		{ "url": "https://res.cloudinary.com/.../back.jpg", "order": 2 }
+	],
+	"description": "## Overview\n\nCompact flagship phone.",
+	"filteritems": [
+		{ "valueId": "<value id>" }
+	]
 }
 ```
 
-Only `valueId` is used from each filteritem. `images[].order` defaults to the position (1, 2, 3) on POST. On PATCH an omitted `order` becomes 1 for every image, so always send it. If you omit `isFeatured`, `isArchived` or `description` on PATCH they stay unchanged. `images` and `filteritems` are always replaced as a whole on PATCH: send the complete list or the product loses them. Everything in a PATCH is applied in one transaction: if any part is invalid nothing changes. Each image needs an `https` `url` (and a whole-number `order` if you send one), `images` must be an array and `filteritems` an array of `{ valueId }`, otherwise 400 and the product is untouched.
+### Create a price-on-request product
 
-**Stock:** customers' orders reduce `quantity` all the time, so a PATCH `quantity` replaces the live stock with your number. Agents: take the current value from the GET and send it back unchanged unless you really mean to change stock (to change stock, send the new `quantity`). The admin form also sends `loadedQuantity` (the stock it loaded) and the server ignores `quantity` when it equals `loadedQuantity`; you can do the same by sending `loadedQuantity` with the value you read from the GET.
+```json
+{
+	"name": "Custom Control Panel",
+	"price": null,
+	"quantity": 10,
+	"maxQuantity": 2,
+	"categoryId": "<category id>",
+	"images": [
+		{ "url": "https://res.cloudinary.com/.../panel.jpg", "order": 1 }
+	]
+}
+```
 
-## Create a product end to end
+### Edit description only without touching stock, featured state, images, or filters
 
-1. `GET {{BASE}}/categories`. If you need a new one, follow `{{BASE}}/skill/categories` and read its id.
-2. Upload each image: `POST {{BASE}}/upload-url`, upload the file (max 6 MB) to the returned uploadUrl, then `POST {{BASE}}/media` with `source: "upload"` (see `{{BASE}}/skill/media`); it returns `{ "url": "https://res.cloudinary.com/...", "id": "..." }`. Or reuse an existing https URL (`{{BASE}}/skill/media`).
-3. For attributes, `GET {{BASE}}/filters` and pick `valueId`s.
-4. `POST {{BASE}}/products` with the body above, using the returned urls as `images`.
-5. Verify with `GET {{BASE}}/products/{id}`. Get the new `id` from the POST response (in permission mode, from `result.body` of the request).
+Omit `isFeatured` and `isArchived` because `GET /products/{id}` does not return them. Send `loadedQuantity` equal to `quantity` so sales placed while you work are not overwritten.
 
-## Edit a product
+```json
+{
+	"name": "Pixel 9",
+	"price": "59999",
+	"quantity": 25,
+	"loadedQuantity": 25,
+	"maxQuantity": 5,
+	"categoryId": "<category.id from GET>",
+	"description": "## Overview\n\nUpdated description text.",
+	"images": [
+		{ "url": "https://res.cloudinary.com/.../front.jpg", "order": 1 },
+		{ "url": "https://res.cloudinary.com/.../back.jpg", "order": 2 }
+	],
+	"filteritems": [
+		{ "valueId": "<matched valueId from GET /filters>" }
+	]
+}
+```
 
-`GET {{BASE}}/products/{id}`, change fields, then PATCH with every required field. Re-send `images` (url and order from the GET). The GET does not return value ids, so to keep filteritems, match each returned `{filter.name, value, unit}` to `GET {{BASE}}/filters` and send the `valueId`s. To change stock only, PATCH the full body with a new `quantity`. Otherwise send back the `quantity` you read (and `loadedQuantity` equal to it) so a sale made in between is not overwritten.
+## Steps
 
-## Rules and caveats
+### Create a product
 
-- `quantity` may be 0 (stock zero: the store shows it as out of stock and cannot order it). It must be a whole number, 0 or more. `maxQuantity` must be a whole number, 1 or more. Anything else returns 400. Use `isArchived: true` to hide a product entirely.
-- `categoryId` must be a category of this store and every `valueId` must belong to a filter of this store. Otherwise 400 `Category not found in this store` / `Filter value not found in this store`, and nothing is changed. Use ids from GET calls.
-- Orders keep their own copy of name and price, so editing a product does not change past orders.
+1. Call `GET {{BASE}}/categories?page=1&pageSize=100` and pick `categoryId`.
+2. Upload each image through `{{BASE}}/skill/media`, or reuse an existing `https://` URL.
+3. For attributes, call `GET {{BASE}}/filters?page=1&pageSize=100` and collect `valueId` values.
+4. Send `POST {{BASE}}/products`.
+5. Verify with `GET {{BASE}}/products/{id}` using the returned `id` (or `result.body.id` in permission mode).
 
-## Failure and fix
+### Edit a product safely
 
-| Symptom | Fix |
+1. Call `GET {{BASE}}/products/{id}`.
+2. If the product has `filteritems`, call `GET {{BASE}}/filters?page=1&pageSize=100`. Match each `{ filter.name, value, unit }` to its `id`. Compare numeric `value` by number because `GET` returns numbers as strings (such as `"128"`).
+3. Build the `PATCH` body with all required fields, all `images` with explicit `order`, and all matched `filteritems`.
+4. Unless you intend to change stock, set `"loadedQuantity"` equal to the `"quantity"` from `GET`.
+5. Omit `isFeatured` and `isArchived` unless you intend to change them.
+6. Send `PATCH {{BASE}}/products/{id}` and verify with `GET {{BASE}}/products/{id}`.
+
+### Delete or archive a product
+
+1. Confirm with the user before deleting.
+2. Send `DELETE {{BASE}}/products/{id}`.
+3. If the server returns `409`, the product appears in an order and cannot be deleted. Ask the user, then archive it with `PATCH {{BASE}}/products/{id}` using the safe-edit steps plus `"isArchived": true`.
+
+Past orders keep their own copy of product name and price, so editing a product does not alter past orders.
+
+## Errors
+
+| Status | Message | Fix |
+| --- | --- | --- |
+| `400` | `Name is required` / `Category id is required` / `Quantity is required` / `Max Quantity is required` / `Images are required` | Send the missing required field. |
+| `400` | `Price is required (or null for Price on request)` | Send a positive rupee amount or explicit `null`. |
+| `400` | `Price must be a positive amount with at most 2 decimals` | Send a positive number or string such as `499` or `"499.50"`. Remove symbols and commas. |
+| `400` | `Quantity must be a whole number, 0 or more` / `loadedQuantity must be a whole number, 0 or more` | Send whole JSON numbers, `0` or more. |
+| `400` | `Max Quantity must be a whole number, 1 or more` | Send a whole JSON number, `1` or more. |
+| `400` | `Category not found in this store` / `Filter value not found in this store` | Use ids from this store's `GET /categories` and `GET /filters`. |
+| `400` | `Images must be an array` / `Image N: url must be a web link (http or https)` / `Image N: order must be a whole number` | Fix `images`; nothing changed. |
+| `400` | `Filter items must be an array` / `Filter item N: valueId is required` | Send `filteritems` as an array of `{ "valueId": "..." }`. |
+| `404` | `Not found` | Wrong product id or product belongs to another store. |
+| `409` | `This product is in an order. Archive it instead of deleting it.` | Send `PATCH` with the full body and `"isArchived": true`. |
+
+## Related skills
+
+| When you need to | Read |
 | --- | --- |
-| 400 `Images are required` / `Name is required` / `Category id is required` / `Quantity is required` | Send the missing field. |
-| 400 `Price must be a positive amount with at most 2 decimals` | Use `499` or `"499.50"`. No currency symbol or commas. |
-| 409 on DELETE (`This product is in an order. Archive it instead of deleting it.`) | The product appears in an order. Archive it instead: PATCH with the full body and `"isArchived": true`. |
-| 400 `Quantity must be a whole number, 0 or more` / `Max Quantity must be a whole number, 1 or more` | Send whole numbers (JSON numbers, not text). |
-| 400 `Category not found in this store` / `Filter value not found in this store` | Use ids from this store's `GET /categories` and `GET /filters`. |
-| 400 `Image N: url must be a web link (http or https)` / `order must be a whole number` / `Images must be an array` | Fix the image list; nothing was changed. |
-| Product vanished from filters after editing | `filteritems` was omitted on PATCH. Re-send it. |
+| Create or look up attribute `valueId` values | `{{BASE}}/skill/filters` |
+| Create or look up a `categoryId` | `{{BASE}}/skill/categories` |
+| Upload or pick product images | `{{BASE}}/skill/media` |
+| Change the storefront "Price on request" and quote button text | `{{BASE}}/skill/order-settings` |
+| Handle orders created for price-on-request products (`Quote` status) | `{{BASE}}/skill/orders` |

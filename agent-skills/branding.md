@@ -1,35 +1,70 @@
-# Store name, logo and favicon
+# Branding (name, logo, favicon)
 
-The name and logo show in the store's header, its footer (© year name), and the browser tab. The favicon, when set, replaces the logo as the browser-tab icon. To edit the navbar or footer HTML itself, read `{{BASE}}/skill/chrome`. Router: `{{BASE}}/skill/index`.
+Branding controls the store's `name`, `logo`, `logoOnly` header mode, and browser-tab `favicon`. The name and logo show in the header (`<store-logo />`), footer (`© year name`), and browser tab. Router: `{{BASE}}/skill/index`.
+
+## Before you write
+
+1. Call `GET {{BASE}}/branding` to read the current values.
+2. Upload new logo or favicon images through `{{BASE}}/skill/media`.
 
 ## Endpoints
 
 | Method and path | Body | Returns |
 | --- | --- | --- |
-| `GET {{BASE}}/branding` | | `{ branding: { name, logo, logoOnly, favicon } }` |
-| `PATCH {{BASE}}/branding` | `{ name?, logo?, logoOnly?, favicon? }` | `{ branding: { name, logo, logoOnly, favicon } }` |
+| `GET {{BASE}}/branding` | None | `{ branding: { name, logo, logoOnly, favicon } }` |
+| `PATCH {{BASE}}/branding` | Any subset `{ name?, logo?, logoOnly?, favicon? }` | `{ branding: { name, logo, logoOnly, favicon } }` |
 
-Send any subset. Omitted fields stay unchanged. Unknown keys return 400.
+Unknown keys return `400`. Errors use `{ "error": { "code", "message", "details" } }`.
 
-| Field | Rule |
-| --- | --- |
-| `name` | 2 to 60 characters. |
-| `logo` | An image link (`http://` or `https://`), or `""` for the default icon. Upload or pick one with `{{BASE}}/skill/media`. Next to the name the logo shows small (about 18 px), so use a square icon. |
-| `logoOnly` | `true`: the header shows only the logo, about 28 px high and up to 180 px wide, without the name. Use it when the logo already contains the store name, as a wordmark does. The name still shows in the footer and the browser tab. It has no effect while `logo` is `""`. |
-| `favicon` | An image link (`http://` or `https://`) ending in `.ico`, `.png`, `.svg`, `.webp`, `.jpg`, `.jpeg` or `.gif`, or a Cloudinary link; or `""` to use the logo as the tab icon. A square image of at least 48 px works best. |
+## Fields
 
+| Field | Type | Required | Rules and limits | On PATCH if omitted or `""` |
+| --- | --- | --- | --- | --- |
+| `name` | string | No | Trimmed, 2 to 60 characters. | Omitting leaves `name` unchanged. `""` returns `400`. |
+| `logo` | string | No | `http://` or `https://` URL (no spaces, max 2000 chars), or `""`. Next to the name, the logo renders at about 18 px, so use a square icon unless `logoOnly` is `true`. | Omitting leaves `logo` unchanged. `""` restores the default icon. |
+| `logoOnly` | boolean | No | `true` shows only the logo in the header (about 28 px tall, up to 180 px wide) without the name text. Use this for a wordmark logo. The name still appears in the footer and browser tab. Has no effect while `logo` is `""`. | Omitting leaves `logoOnly` unchanged. |
+| `favicon` | string | No | `http://` or `https://` URL (no spaces, max 2000 chars) ending in `.ico`, `.png`, `.svg`, `.webp`, `.jpg`, `.jpeg`, or `.gif`, or any `cloudinary.com` link; or `""`. A square image at least 48 px works best. | Omitting leaves `favicon` unchanged. `""` uses `logo` as the browser-tab icon. |
+
+## Examples
+
+### Set a wordmark logo and a separate browser-tab favicon
+
+```json
+{
+	"logo": "https://res.cloudinary.com/.../wordmark.png",
+	"logoOnly": true,
+	"favicon": "https://res.cloudinary.com/.../favicon.png"
+}
 ```
-PATCH {{BASE}}/branding
-{ "logo": "https://res.cloudinary.com/.../logo.png" }
+
+### Reset the favicon so the browser tab uses the logo
+
+```json
+{
+	"favicon": ""
+}
 ```
 
-The store shows the change within a few seconds.
+## Steps
 
-## Failure and fix
+1. Call `GET {{BASE}}/branding` to see what is currently set.
+2. Upload any new logo or favicon through `{{BASE}}/skill/media`.
+3. Send `PATCH {{BASE}}/branding` with only the fields you want to change.
+4. Verify with the `PATCH` response and on the live storefront `{{STORE_URL}}` (changes appear within a few seconds).
 
-| Symptom | Fix |
+## Errors
+
+| Status | Message | Fix |
+| --- | --- | --- |
+| `400` | `Use at least 2 characters` / `String must contain at most 60 character(s)` | Send a `name` between 2 and 60 characters. |
+| `400` | `The logo must be an image link (http or https)` | Send a full `http://` or `https://` URL with no spaces, or `""`. |
+| `400` | `The favicon must be an image link (http or https)` | Send a full `http://` or `https://` URL with no spaces, or `""`. |
+| `400` | `The favicon must be an .ico, .png, .svg, .webp, .jpg, .gif or Cloudinary image` | Send a URL ending in `.ico`, `.png`, `.svg`, `.webp`, `.jpg`, `.jpeg`, or `.gif`, or a Cloudinary link, or `""`. |
+| `400` | `Unrecognized key(s) in object` | Send only `name`, `logo`, `logoOnly`, and `favicon`. |
+
+## Related skills
+
+| When you need to | Read |
 | --- | --- |
-| 400 `Use at least 2 characters` | Send a longer name. |
-| 400 `The logo must be an image link (http or https)` | Send a full image URL or `""`. |
-| 400 `The favicon must be an image link (http or https)` or `... an .ico, .png, .svg or .webp image` | Send a full image URL with one of those endings, or `""`. |
-| 400 `Unrecognized key(s) in object` | Only `name`, `logo`, `logoOnly` and `favicon`. |
+| Upload or pick a logo or favicon image | `{{BASE}}/skill/media` |
+| Edit navbar or footer HTML around `<store-logo />` | `{{BASE}}/skill/chrome` |
