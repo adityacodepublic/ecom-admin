@@ -9,7 +9,9 @@ import type { AutoFormFieldProps } from "@autoform/react";
 
 import { AutoForm } from "@/components/ui/autoform";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BillboardImagesField } from "@/components/billboard-images-field";
 import { CURRENT_CATEGORY, sectionSettingsSchemas, type PageKind, type SectionType } from "@/lib/home-layout";
@@ -151,16 +153,17 @@ const RatioBoxes = ({
   );
 };
 
-/** Side-by-side Desktop + Mobile [ W ] : [ H ] boxes; shown only when "Use aspect ratio" is checked. */
+/** Side-by-side Desktop + Mobile [ W ] : [ H ] boxes + "Fill image" toggle; shown only when "Use aspect ratio" is checked. */
 const RatioPairField = () => {
   const useRatio = useWatch({ name: "useAspectRatio" });
   const { field: desktop, fieldState: desktopState } = useController({ name: "aspectRatio" });
   const { field: mobile, fieldState: mobileState } = useController({ name: "mobileAspectRatio" });
+  const { field: fill } = useController({ name: "fill" });
 
   if (useRatio === false) return null;
 
   return (
-    <div className="border-l-2 border-muted pl-4">
+    <div className="space-y-3 border-l-2 border-muted pl-4">
       <div className="grid max-w-md grid-cols-2 gap-6">
         <RatioBoxes
           idPrefix="aspectRatio"
@@ -180,6 +183,12 @@ const RatioPairField = () => {
           defaultH="1"
           error={mobileState.error?.message}
         />
+      </div>
+      <div className="flex items-center space-x-2">
+        <Checkbox id="fill" checked={!!fill.value} onCheckedChange={(checked) => fill.onChange(checked === true)} />
+        <Label htmlFor="fill" className="cursor-pointer">
+          Fill image
+        </Label>
       </div>
     </div>
   );
@@ -220,7 +229,7 @@ const FIELD_TEXT: Record<string, { label: string; description?: string }> = {
   useAspectRatio: { label: "Use aspect ratio" },
   aspectRatio: { label: "Desktop aspect ratio" },
   mobileAspectRatio: { label: "Mobile aspect ratio" },
-  naturalSize: { label: "Keep original image proportions" },
+  fill: { label: "Fill image" },
   fullWidth: { label: "Full width" },
   rounded: { label: "Rounded corners" },
   autoplay: { label: "Play automatically" },
@@ -240,6 +249,7 @@ const FIELD_TYPE: Record<string, string> = {
   markdown: "markdown",
   aspectRatio: "ratioPair",
   mobileAspectRatio: "hidden",
+  fill: "hidden",
 };
 
 /** Reports every form change to the parent. Lives inside AutoForm to reach its form context. */

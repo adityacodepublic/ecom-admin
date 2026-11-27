@@ -47,7 +47,7 @@ const newSettings = (type: SectionType): Record<string, unknown> => {
       useAspectRatio: true,
       aspectRatio: "2.4:1",
       mobileAspectRatio: "2:1",
-      naturalSize: false,
+      fill: false,
       fullWidth: false,
       rounded: true,
       autoplay: true,
@@ -174,6 +174,17 @@ export const PageLayoutEditor = ({ page, route, initialLayout, storeUrl, categor
   const editingType = editing ? layout[editing.index].type : null;
   const fixedInfo = editingType && isFixedType(editingType) ? fixedBlockInfo(editingType, storeId, previewItem && { id: previewItem.value, label: previewItem.label }) : null;
 
+  const liveUrl =
+    page === "home"
+      ? storeUrl
+      : page === "custom" && route
+        ? `${storeUrl}/${route}`
+        : page === "category" && previewId
+          ? `${storeUrl}/category/${previewId}`
+          : page === "product" && previewId
+            ? `${storeUrl}/product/${previewId}`
+            : null;
+
   return (
     <div className="space-y-4">
       <AlertModal isOpen={deleteIndex !== null} onClose={() => setDeleteIndex(null)} onConfirm={confirmDelete} loading={saving} />
@@ -268,26 +279,43 @@ export const PageLayoutEditor = ({ page, route, initialLayout, storeUrl, categor
         </div>
       </div>
 
-      {(page === "category" || page === "product") && (
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="text-muted-foreground">
-            This layout is used by every {page === "category" ? "category" : "product"} page. Preview with:
-          </span>
-          {previewOptions.length === 0 ? (
-            <span className="text-muted-foreground">(add a {page === "category" ? "category" : "product"} first)</span>
+      {(page === "category" || page === "product" || liveUrl) && (
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm">
+          {(page === "category" || page === "product") ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-muted-foreground">
+                This layout is used by every {page === "category" ? "category" : "product"} page. Preview with:
+              </span>
+              {previewOptions.length === 0 ? (
+                <span className="text-muted-foreground">(add a {page === "category" ? "category" : "product"} first)</span>
+              ) : (
+                <Select value={previewId} onValueChange={setPreviewId} disabled={!!editing}>
+                  <SelectTrigger className="w-auto min-w-48 max-w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {previewOptions.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
           ) : (
-            <Select value={previewId} onValueChange={setPreviewId} disabled={!!editing}>
-              <SelectTrigger className="w-auto min-w-48 max-w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {previewOptions.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>
-                    {o.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div />
+          )}
+          {liveUrl && (
+            <a
+              href={liveUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex max-w-full items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <span className="truncate font-mono">{liveUrl.replace(/^https?:\/\//, "")}</span>
+              <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+            </a>
           )}
         </div>
       )}

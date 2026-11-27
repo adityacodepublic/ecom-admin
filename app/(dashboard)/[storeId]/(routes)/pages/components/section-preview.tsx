@@ -14,7 +14,9 @@ const getViewportHeight = () => window.innerHeight;
  */
 export const SectionPreview = ({ storeUrl, page, itemId, section }: { storeUrl: string; page: PageKind; itemId?: string; section: PageSection }) => {
   const frame = useRef<HTMLIFrameElement>(null);
+  const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [height, setHeight] = useState(160);
+  const [showHint, setShowHint] = useState(false);
   // The admin window height: the store sizes some images in vh, and the small iframe's vh would be wrong.
   const viewportHeight = useSyncExternalStore(emptySubscribe, getViewportHeight, () => null);
   const src = useDebounced(
@@ -34,18 +36,44 @@ export const SectionPreview = ({ storeUrl, page, itemId, section }: { storeUrl: 
     return () => window.removeEventListener("message", onMessage);
   }, [storeUrl]);
 
+  useEffect(() => {
+    return () => {
+      if (hintTimer.current) clearTimeout(hintTimer.current);
+    };
+  }, []);
+
+  const flashHint = () => {
+    setShowHint(true);
+    if (hintTimer.current) clearTimeout(hintTimer.current);
+    hintTimer.current = setTimeout(() => setShowHint(false), 2200);
+  };
+
   return (
-    <iframe
-      ref={frame}
-      src={src || undefined}
-      title="Section preview"
-      loading="lazy"
-      // A preview only: links inside must not navigate the frame, and it never takes focus (an edit window would
-      // otherwise focus it first, and the first click on a select would then close that select at once).
-      tabIndex={-1}
-      className="pointer-events-none w-full rounded-md border bg-white"
-      style={{ height }}
-    />
+    <div
+      className="relative select-none"
+      onPointerDown={flashHint}
+      onDragStart={(e) => e.preventDefault()}
+    >
+      <iframe
+        ref={frame}
+        src={src || undefined}
+        title="Section preview"
+        loading="lazy"
+        // A preview only: links inside must not navigate the frame, and it never takes focus (an edit window would
+        // otherwise focus it first, and the first click on a select would then close that select at once).
+        tabIndex={-1}
+        className="pointer-events-none block w-full rounded-md border bg-white"
+        style={{ height }}
+      />
+      <span
+        aria-live="polite"
+        className={`pointer-events-none absolute right-2.5 top-2.5 rounded-full border bg-background/90 px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground shadow-sm backdrop-blur-sm transition-opacity duration-200 ${
+          showHint ? "opacity-100" : "opacity-0"
+        }`}
+      >
+        Preview only
+      </span>
+    </div>
   );
 };
 

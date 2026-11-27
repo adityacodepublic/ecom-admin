@@ -120,7 +120,7 @@ export const sectionSettingsSchemas = {
     useAspectRatio: z.boolean().default(true).describe("Use aspect ratio"),
     aspectRatio: aspectRatioSchema.default("2.4:1").describe("Desktop ratio (W:H)"),
     mobileAspectRatio: aspectRatioSchema.default("2:1").describe("Mobile ratio (W:H)"),
-    naturalSize: z.boolean().default(false).describe("Keep original image proportions"),
+    fill: z.boolean().default(false).describe("Fill image"),
     fullWidth: z.boolean().default(false).describe("Full width"),
     rounded: z.boolean().default(true).describe("Rounded corners"),
     autoplay: z.boolean().default(true).describe("Play automatically"),
