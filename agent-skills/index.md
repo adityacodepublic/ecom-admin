@@ -57,8 +57,7 @@ Product(name, price, quantity, maxQuantity, isFeatured, isArchived, description)
    -> images[{url, order}]            (at least 1)
    -> filteritems -> Value(value, unit) -> Filter(name)   (optional attributes)
 Order (read + status updates only) -> items reference Product, customer = Users
-Store JSON: settings (orders, contact, logo, navbarHtml, footerHtml), pageLayouts (home, category and product pages, and custom pages by route; billboard
-            banners are "carousel" blocks there, with their images inside)
+Store JSON: settings (orders, contact, logo), pageLayouts (home, navbarHtml, footerHtml, category and product pages, and custom pages by route; billboard banners are "carousel" blocks there, with their images inside)
 MediaImage: the image library (url, source "upload" | "url")
 ```
 

@@ -163,7 +163,7 @@ const RatioPairField = () => {
   if (useRatio === false) return null;
 
   return (
-    <div className="space-y-3 border-l-2 border-muted pl-4">
+    <div className="space-y-4 pb-1 mb-2 border-l-2 border-muted pl-4">
       <div className="grid max-w-md grid-cols-2 gap-6">
         <RatioBoxes
           idPrefix="aspectRatio"
