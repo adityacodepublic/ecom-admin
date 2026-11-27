@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { useController, useFormContext, useWatch } from "react-hook-form";
+import { useController, useFormContext } from "react-hook-form";
 import { z } from "zod";
 import { ZodProvider, fieldConfig } from "@autoform/zod";
 import type { AutoFormFieldProps } from "@autoform/react";
@@ -82,38 +82,37 @@ const ImagesField = ({ id, error }: AutoFormFieldProps) => {
   return <BillboardImagesField value={field.value ?? []} onChange={field.onChange} invalid={!!error} />;
 };
 
-const splitRatio = (raw: unknown, fallbackW: string, fallbackH: string): [string, string] => {
-  if (typeof raw !== "string") return [fallbackW, fallbackH];
+const splitRatio = (raw: unknown): [string, string] => {
+  if (typeof raw !== "string") return ["", ""];
   const m = /^(\d+(?:\.\d+)?)\s*[:/]\s*(\d+(?:\.\d+)?)$/.exec(raw.trim());
-  return m ? [m[1], m[2]] : [fallbackW, fallbackH];
+  return m ? [m[1], m[2]] : ["", ""];
 };
 
-/** One [ W ] : [ H ] ratio input pair with "Width" / "Height" captions below each box (always filled). */
+/** One [ W ] : [ H ] ratio input pair with "Width" / "Height" captions below each box. Blank = natural image shape. */
 const RatioBoxes = ({
   idPrefix,
   title,
   value,
   onChange,
-  defaultW,
-  defaultH,
   error,
 }: {
   idPrefix: string;
   title: string;
   value: unknown;
-  onChange: (next: string) => void;
-  defaultW: string;
-  defaultH: string;
+  onChange: (next: string | undefined) => void;
   error?: string;
 }) => {
-  const [initW, initH] = splitRatio(value, defaultW, defaultH);
+  const [initW, initH] = splitRatio(value);
   const [w, setW] = useState(initW);
   const [h, setH] = useState(initH);
 
   const update = (nextW: string, nextH: string) => {
     setW(nextW);
     setH(nextH);
-    onChange(`${nextW.trim()}:${nextH.trim()}`);
+    const tw = nextW.trim();
+    const th = nextH.trim();
+    if (!tw && !th) onChange(undefined);
+    else onChange(`${tw}:${th}`);
   };
 
   return (
@@ -126,6 +125,7 @@ const RatioBoxes = ({
             type="number"
             step="any"
             min={0.1}
+            placeholder="Auto"
             className={`h-9 text-center ${error ? "border-destructive" : ""}`}
             value={w}
             onChange={(e) => update(e.target.value, h)}
@@ -140,6 +140,7 @@ const RatioBoxes = ({
             type="number"
             step="any"
             min={0.1}
+            placeholder="Auto"
             className={`h-9 text-center ${error ? "border-destructive" : ""}`}
             value={h}
             onChange={(e) => update(w, e.target.value)}
@@ -153,43 +154,52 @@ const RatioBoxes = ({
   );
 };
 
-/** Side-by-side Desktop + Mobile [ W ] : [ H ] boxes + "Fill image" toggle; shown only when "Use aspect ratio" is checked. */
+/** Side-by-side Desktop + Mobile [ W ] : [ H ] boxes (blank = natural shape), plus "Fill image" when either ratio is set. */
 const RatioPairField = () => {
-  const useRatio = useWatch({ name: "useAspectRatio" });
-  const { field: desktop, fieldState: desktopState } = useController({ name: "aspectRatio" });
-  const { field: mobile, fieldState: mobileState } = useController({ name: "mobileAspectRatio" });
+  const { field, fieldState } = useController({ name: "aspectRatio" });
   const { field: fill } = useController({ name: "fill" });
+  const current = (field.value && typeof field.value === "object" ? field.value : {}) as { desktop?: string; mobile?: string };
+  const nestedError = fieldState.error as { desktop?: { message?: string }; mobile?: { message?: string } } | undefined;
 
-  if (useRatio === false) return null;
+  const setSide = (key: "desktop" | "mobile", val: string | undefined) => {
+    const next = { ...current, [key]: val };
+    if (!next.desktop) delete next.desktop;
+    if (!next.mobile) delete next.mobile;
+    field.onChange(Object.keys(next).length > 0 ? next : undefined);
+  };
+
+  const hasAnyRatio = Boolean(current.desktop || current.mobile);
 
   return (
-    <div className="space-y-4 pb-1 mb-2 border-l-2 border-muted pl-4">
+    <div className="space-y-4 pb-1 mb-2">
+      <div className="space-y-1">
+        <Label>Aspect ratio</Label>
+        <p className="text-sm text-muted-foreground">Leave blank to use each image&apos;s natural shape.</p>
+      </div>
       <div className="grid max-w-md grid-cols-2 gap-6">
         <RatioBoxes
-          idPrefix="aspectRatio"
+          idPrefix="aspectRatio-desktop"
           title="Desktop"
-          value={desktop.value}
-          onChange={desktop.onChange}
-          defaultW="2.4"
-          defaultH="1"
-          error={desktopState.error?.message}
+          value={current.desktop}
+          onChange={(v) => setSide("desktop", v)}
+          error={nestedError?.desktop?.message}
         />
         <RatioBoxes
-          idPrefix="mobileAspectRatio"
+          idPrefix="aspectRatio-mobile"
           title="Mobile"
-          value={mobile.value}
-          onChange={mobile.onChange}
-          defaultW="2"
-          defaultH="1"
-          error={mobileState.error?.message}
+          value={current.mobile}
+          onChange={(v) => setSide("mobile", v)}
+          error={nestedError?.mobile?.message}
         />
       </div>
-      <div className="flex items-center space-x-2">
-        <Checkbox id="fill" checked={!!fill.value} onCheckedChange={(checked) => fill.onChange(checked === true)} />
-        <Label htmlFor="fill" className="cursor-pointer">
-          Fill image
-        </Label>
-      </div>
+      {hasAnyRatio && (
+        <div className="flex items-center space-x-2">
+          <Checkbox id="fill" checked={!!fill.value} onCheckedChange={(checked) => fill.onChange(checked === true)} />
+          <Label htmlFor="fill" className="cursor-pointer">
+            Fill image
+          </Label>
+        </div>
+      )}
     </div>
   );
 };
@@ -226,9 +236,7 @@ const FIELD_TEXT: Record<string, { label: string; description?: string }> = {
   markdown: { label: "Text", description: "Headings, lists, links, images and tables. Shown on the store as formatted text." },
   images: { label: "Images", description: "In order. Each image can link to a store page or a website." },
   slides: { label: "Slides shown at once", description: "1 to 3." },
-  useAspectRatio: { label: "Use aspect ratio" },
-  aspectRatio: { label: "Desktop aspect ratio" },
-  mobileAspectRatio: { label: "Mobile aspect ratio" },
+  aspectRatio: { label: "Aspect ratio" },
   fill: { label: "Fill image" },
   fullWidth: { label: "Full width" },
   rounded: { label: "Rounded corners" },
@@ -248,7 +256,6 @@ const FIELD_TYPE: Record<string, string> = {
   categoryId: "category",
   markdown: "markdown",
   aspectRatio: "ratioPair",
-  mobileAspectRatio: "hidden",
   fill: "hidden",
 };
 

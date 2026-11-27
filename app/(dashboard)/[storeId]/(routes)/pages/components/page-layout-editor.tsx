@@ -44,9 +44,7 @@ const newSettings = (type: SectionType): Record<string, unknown> => {
     return {
       images: [],
       slides: 1,
-      useAspectRatio: true,
-      aspectRatio: "2.4:1",
-      mobileAspectRatio: "2:1",
+      aspectRatio: { desktop: "2.4:1", mobile: "2:1" },
       fill: false,
       fullWidth: false,
       rounded: true,
@@ -216,7 +214,7 @@ export const PageLayoutEditor = ({ page, route, initialLayout, storeUrl, categor
                 )}
               </div>
             )}
-            {fixedInfo && editingType !== "relatedProducts" ? (
+            {fixedInfo && editingType !== "relatedProducts" && editingType !== "categoryBanner" ? (
               <Button type="button" variant="outline" onClick={cancelEdit}>
                 Close
               </Button>

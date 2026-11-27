@@ -44,12 +44,12 @@ Fixed blocks show the store's own data: the categories, the category being shown
 
 | Block `type` | Pages | Kind | What it shows | Change its content with |
 | --- | --- | --- | --- | --- |
-| `carousel` ("Billboard") | all, custom pages too | content | Images in order, each with an optional click target. | Its settings: `images`, `title`, `slides`, `useAspectRatio`, `aspectRatio`, `mobileAspectRatio`, `fill`, `fullWidth`, `rounded`, `autoplay`. |
+| `carousel` ("Billboard") | all, custom pages too | content | Images in order, each with an optional click target. | Its settings: `images`, `title`, `slides`, `aspectRatio`, `fill`, `fullWidth`, `rounded`, `autoplay`. |
 | `productList` ("Product list") | all, custom pages too | content | Products chosen by category, featured flag and search words, as cards or as a grid of image tiles. | Its settings (see "Block settings"). For the products themselves, see `{{BASE}}/skill/products`. |
 | `markdown` ("Markdown") | all, custom pages too | content | Formatted text: headings, lists, links, images, tables and quotes, styled like a product description. | Its setting: `markdown`. |
 | `custom` ("Custom block") | all, custom pages too | content | Your own HTML, Tailwind CSS, and JavaScript inside a sandboxed iframe. | Its settings: `html`, `data`, `height`, `title`. |
 | `categories` ("Category icons") | home | fixed | Every category's name and Thumbnail. | Categories: `name`, `imageUrl` (the Thumbnail). `{{BASE}}/skill/categories` |
-| `categoryBanner` ("Category billboard") | category | fixed | The images of the category being shown. | That category's `banner`. `{{BASE}}/skill/categories` |
+| `categoryBanner` ("Category billboard") | category | fixed | The images of the category being shown. | Images: that category's `banner` (`{{BASE}}/skill/categories`). Display settings: `slides`, `aspectRatio`, `fill`, `fullWidth`, `rounded`, `autoplay`. |
 | `categoryProducts` ("Category filters and product grid") | category | fixed | The filters and the products of the category being shown. | Products (`categoryId`, `filteritems`) and filters. `{{BASE}}/skill/products`, `{{BASE}}/skill/filters` |
 | `productTop` ("Product details") | product | fixed | Image carousel, name, price, quantity and the buy buttons of the product being shown. | That product's `images`, `name`, `price`, `quantity`, `maxQuantity`. `{{BASE}}/skill/products` |
 | `productDescription` ("Product description") | product | fixed | The product's Markdown description. It shows nothing when the product has none. | That product's `description`. `{{BASE}}/skill/products` |
@@ -63,10 +63,11 @@ Array order is page order, top to bottom. `id` is optional, and the server adds 
 
 | Block | Settings (default) |
 | --- | --- |
-| `carousel` | `images` required: 1 to 20 `{ url, href, width?, height? }` in order (`width`/`height` optional natural px dimensions for 0-CLS when `useAspectRatio` is false). `url` is an `http(s)` image link. `href` is where a click goes: a store path such as `/category/<id>`, a full URL, or `""` for nowhere. `title` optional. `slides` shown at once, 1 to 3 (1). `useAspectRatio` (true): when true, applies `aspectRatio` (desktop `>=768px`, default `"2.4:1"`) and `mobileAspectRatio` (mobile `<768px`, default `"2:1"`); when false, each image displays at its own natural size with no crop. `fill` (false): when `useAspectRatio` is true, fills the ratio box with `object-cover` (otherwise images keep their original proportions centered inside the ratio box without cropping). `fullWidth` (false): stretches edge to edge across the full screen width with no side padding. `rounded` (true): applies rounded corners around the image in any mode. `autoplay` (true). |
+| `carousel` | `images` required: 1 to 20 `{ url, href, width?, height? }` in order (`width`/`height` optional natural px dimensions for 0-CLS when no ratio is set for a device). `url` is an `http(s)` image link. `href` is where a click goes: a store path such as `/category/<id>`, a full URL, or `""` for nowhere. `title` optional. `slides` shown at once, 1 to 3 (1). `aspectRatio` optional `{ desktop?, mobile? }` (default `{ desktop: "2.4:1", mobile: "2:1" }`): `"W:H"` ratio per device (`desktop` `>=768px`, `mobile` `<768px`). Omit `desktop`, `mobile`, or `aspectRatio` (`{}`) to use each image's natural shape on that device. `fill` (false): when a ratio is set, fills the ratio box with `object-cover` (otherwise images keep their original proportions centered inside the ratio box without cropping). `fullWidth` (false): stretches edge to edge across the full screen width with no side padding. `rounded` (true): applies rounded corners around the image in any mode. `autoplay` (true). |
 | `productList` | `title` required, non-empty. `categoryId` optional: a category id or `"current"`. `featuredOnly` (false). `search` optional: the same words as the store search box, and it understands "under 20000". `limit` 1 to 24 (8). `grid` (false): false shows product cards (image, name, price), true shows big image tiles. Only for `grid: true`: `columns` 2 or 3 (2), `showName` (true), `showPrice` (false). |
 | `markdown` | `markdown` required: GitHub Markdown, up to 100,000 characters. Tables, task lists and strikethrough work. Raw HTML is allowed but cleaned, so scripts, iframes and event handlers are removed. Images are `![alt](https://...)` links, such as those from `GET {{BASE}}/media`. Write any heading in the text itself, such as `## Returns`. |
 | `custom` | `html` required. `title` optional (admin only). `height` 80 to 2000 (400), initial height only. `data` optional (see "Custom block"). |
+| `categoryBanner` | Same display settings as `carousel` (all optional with the same defaults): `slides` (1), `aspectRatio` (`{ desktop: "2.4:1", mobile: "2:1" }`), `fill` (false), `fullWidth` (false), `rounded` (true), `autoplay` (true). Images come from each category's `banner`. |
 | `relatedProducts` | `title` (`"Related Items"`). |
 | other fixed blocks | None. Send `{}`. |
 
@@ -75,7 +76,7 @@ Array order is page order, top to bottom. `id` is optional, and the server adds 
 Shapes:
 
 ```
-{ "type": "carousel", "settings": { "title": "Offers", "images": [{ "url": "https://res.cloudinary.com/.../sale.jpg", "href": "/category/<id>" }], "slides": 1, "useAspectRatio": true, "aspectRatio": "2.4:1", "mobileAspectRatio": "2:1", "fill": false, "fullWidth": false, "rounded": true, "autoplay": true } }
+{ "type": "carousel", "settings": { "title": "Offers", "images": [{ "url": "https://res.cloudinary.com/.../sale.jpg", "href": "/category/<id>" }], "slides": 1, "aspectRatio": { "desktop": "2.4:1", "mobile": "2:1" }, "fill": false, "fullWidth": false, "rounded": true, "autoplay": true } }
 { "type": "productList", "settings": { "title": "New arrivals", "categoryId": "<id>", "featuredOnly": false, "search": "under 20000", "limit": 8, "grid": false } }
 { "type": "productList", "settings": { "title": "Top picks", "featuredOnly": true, "limit": 6, "grid": true, "columns": 3, "showName": true, "showPrice": true } }
 { "type": "productList", "settings": { "title": "More like this", "categoryId": "current", "limit": 4 } }

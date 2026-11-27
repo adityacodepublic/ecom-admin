@@ -111,19 +111,31 @@ export const dataQuerySchema = z.discriminatedUnion("source", [
 ]);
 export type DataQuery = z.infer<typeof dataQuerySchema>;
 
+export const DEFAULT_ASPECT_RATIO = { desktop: "2.4:1", mobile: "2:1" } as const;
+
+export const billboardAspectRatioSchema = z
+  .object({
+    desktop: aspectRatioSchema.optional(),
+    mobile: aspectRatioSchema.optional(),
+  })
+  .optional();
+export type BillboardAspectRatio = z.infer<typeof billboardAspectRatioSchema>;
+
+const carouselDisplaySettings = {
+  slides: z.coerce.number().int().min(1).max(3).default(1).describe("Slides shown at once (1-3)"),
+  aspectRatio: billboardAspectRatioSchema.default(DEFAULT_ASPECT_RATIO).describe("Aspect ratio"),
+  fill: z.boolean().default(false).describe("Fill image"),
+  fullWidth: z.boolean().default(false).describe("Full width"),
+  rounded: z.boolean().default(true).describe("Rounded corners"),
+  autoplay: z.boolean().default(true).describe("Play automatically"),
+};
+
 export const sectionSettingsSchemas = {
   // ---- blocks any page can use, as often as wanted; everything about them is set in the block
   carousel: z.object({
     title: z.string().optional().describe("Title (optional)"),
     images: billboardImagesSchema.min(1, "Add at least one image").describe("Images"),
-    slides: z.coerce.number().int().min(1).max(3).default(1).describe("Slides shown at once (1-3)"),
-    useAspectRatio: z.boolean().default(true).describe("Use aspect ratio"),
-    aspectRatio: aspectRatioSchema.default("2.4:1").describe("Desktop ratio (W:H)"),
-    mobileAspectRatio: aspectRatioSchema.default("2:1").describe("Mobile ratio (W:H)"),
-    fill: z.boolean().default(false).describe("Fill image"),
-    fullWidth: z.boolean().default(false).describe("Full width"),
-    rounded: z.boolean().default(true).describe("Rounded corners"),
-    autoplay: z.boolean().default(true).describe("Play automatically"),
+    ...carouselDisplaySettings,
   }),
   productList: z.object({
     title: z.string().min(1, "Title is required").describe("Title"),
@@ -155,7 +167,7 @@ export const sectionSettingsSchemas = {
   }),
   // ---- fixed blocks: they show the store's own data, which is edited elsewhere in the admin. Once per page.
   categories: z.object({}), // home: the category icons (each category's name and thumbnail)
-  categoryBanner: z.object({}), // category page: the billboard of the category being shown (set in the category's form)
+  categoryBanner: z.object(carouselDisplaySettings), // category page: the billboard of the category being shown (images set in the category's form; display settings here)
   categoryProducts: z.object({}), // category page: the filters and the grid of the category's products
   productTop: z.object({}), // product page: image carousel, name, price, quantity and the buy buttons
   productDescription: z.object({}), // product page: the product's Markdown description
@@ -304,7 +316,7 @@ export type SectionSettings<T extends SectionType> = z.infer<(typeof sectionSett
 export const defaultLayouts: { home: HomeLayout; category: CategorySection[]; product: ProductSection[] } = {
   home: [{ id: "categories", type: "categories", settings: {} }],
   category: [
-    { id: "banner", type: "categoryBanner", settings: {} },
+    { id: "banner", type: "categoryBanner", settings: sectionSettingsSchemas.categoryBanner.parse({}) },
     { id: "products", type: "categoryProducts", settings: {} },
   ],
   product: [
