@@ -44,11 +44,11 @@ Content blocks hold their own content and can appear any number of times on any 
 | `markdown` | Markdown | All, custom too | Content | Formatted text, tables, lists, links, images | Block `settings.markdown` |
 | `custom` | Custom component | All, custom too | Content | Sandboxed HTML, Tailwind CSS, and JavaScript | `{{BASE}}/skill/custom-block` |
 | `categories` | Category icons | `home` | Fixed | Every category's name and thumbnail | `{{BASE}}/skill/categories` (`name`, `imageUrl`) |
-| `categoryBanner` | Category billboard | `category` | Fixed | Current category's billboard images | Images: `{{BASE}}/skill/categories` (`banner`). Display settings: block `settings` below. |
+| `categoryBanner` | Category billboard | `category` | Fixed | Current category's billboard images (hidden if the category has no `banner` images) | Images: `{{BASE}}/skill/categories` (`banner`). Display settings: block `settings` below. |
 | `categoryProducts` | Category filters and product grid | `category` | Fixed | Current category's filters and products | `{{BASE}}/skill/products`, `{{BASE}}/skill/filters` |
 | `productTop` | Product details | `product` | Fixed | Product images, name, price, quantity, buy buttons | `{{BASE}}/skill/products` |
 | `productDescription` | Product description | `product` | Fixed | Product's Markdown description (hidden if empty) | `{{BASE}}/skill/products` (`description`) |
-| `relatedProducts` | Related products | `product` | Fixed | Up to 8 in-stock items from the same category (scanned from the first 20 by id) | Block `settings.title` only (default `"Related Items"`) |
+| `relatedProducts` | Related products | `product` | Fixed | Up to 8 in-stock items from the same category (scanned from the first 20 by id; hidden if none match) | Block `settings.title` only (default `"Related Items"`) |
 
 Array order is top-to-bottom page order. `id` is optional on `PUT` (the server generates one), and unknown keys inside `settings` are stripped.
 
@@ -201,7 +201,7 @@ After `POST {{BASE}}/page-layouts` with `{ "route": "summer-sale" }` succeeds, s
 ### Edit an existing page layout
 
 1. Call `GET {{BASE}}/page-layouts/{page}`. If `null` on a built-in page, start from its default layout.
-2. Modify, add, or reorder blocks in the array while keeping untouched blocks intact.
+2. Modify, add, or reorder only the blocks the user asked about. Copy every other block and every unchanged setting exactly as `GET` returned it. Do not copy settings from one block to another.
 3. Optional: preview new or changed blocks with `/preview/section` (include `"id"`).
 4. Send `PUT {{BASE}}/page-layouts/{page}` with the full array.
 5. Verify with the `PUT` response (or `GET {{BASE}}/page-layouts/{page}`) and on the storefront.

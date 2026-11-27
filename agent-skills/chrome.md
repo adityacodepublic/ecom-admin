@@ -9,6 +9,7 @@ Boundary: chrome has no iframe and allows no JavaScript. For interactive or scri
 1. Always call `GET {{BASE}}/chrome` first.
 2. Warning: `PATCH {{BASE}}/chrome` requires **both** `navbarHtml` and `footerHtml`. Sending `""` **resets** that part to the built-in default template and erases any custom HTML. To keep a part unchanged, send back the exact string returned by `GET {{BASE}}/chrome`.
 3. Warning: the store layout always reserves 64 px (`pt-16`) at the top for a **fixed** navbar. Keep your `<header>` fixed at the top (`fixed top-0 w-full z-20`) and at most 64 px tall, or it will overlap page content. `/preview/chrome` forces the navbar to static positioning, so it hides height or overlap bugs; verify on the live storefront after saving.
+4. Warning: `defaults.navbarHtml` and `defaults.footerHtml` start with an HTML comment that lists the readymade tags. The server drops comments with their content, so place new elements inside `<header>` or `<footer>`, never inside `<!-- ... -->`.
 
 ## Endpoints
 
@@ -86,9 +87,20 @@ If you have a browser or screenshot tool, preview your HTML before saving:
 - Navbar: `{{STORE_URL}}/preview/chrome?part=navbar&html=<url-encoded HTML>`
 - Footer: `{{STORE_URL}}/preview/chrome?part=footer&html=<url-encoded HTML>`
 
-Omit `html` to preview the built-in default. Remember that navbar preview uses static positioning, so also verify the live storefront after saving.
+Omit `html` to preview the built-in default.
 
 ## Examples
+
+### Add a navbar link
+
+When `GET` returns `navbarHtml: ""`, start from `defaults.navbarHtml` without its leading comment. Add the link inside the inner `<div>`.
+
+```json
+{
+	"navbarHtml": "<header class=\"border-b z-20 fixed w-full glass top-0\"><div class=\"mx-auto max-w-7xl\"><div class=\"h-[3.1rem] lg:h-[3.25rem] relative px-3 lg:px-8 flex items-center gap-2 sm:gap-3\"><store-logo /><store-search /><a href=\"/summer-sale\" class=\"text-sm font-medium whitespace-nowrap\">Sale</a><div class=\"flex items-center gap-4\"><store-cart /><store-account /></div></div></div></header>",
+	"footerHtml": "<exact footerHtml string from GET /chrome>"
+}
+```
 
 ### Change only the footer while keeping the current navbar unchanged
 

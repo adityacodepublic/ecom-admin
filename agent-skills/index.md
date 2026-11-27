@@ -131,6 +131,7 @@ Never guess ids. Run these reads before writing:
   - Product `price` and order-list `minTotal` and `maxTotal` filters use rupees (`499` or `"499.50"`).
   - Order response fields (`totalPaise`, `revenuePaise`, `amountPaise`) use integer paise (`49900` is 499.00 rupees).
 - **PATCH rules vary by route**: check each skill's Fields table before sending a `PATCH`. Some fields stay unchanged when omitted, while others (such as product `images` and `filteritems`, or filter `value`) replace the whole list.
+- **Text over a field limit**: count characters before sending. If the user's text is too long, propose a shorter version and ask. If you cannot ask, send the closest version that fits and tell the user what you changed. Never drop the field.
 - **Error shapes**: through this agent link, errors are either `{ "error": "<text>" }` or `{ "error": { "code", "message", "details" } }`. Do not retry a `500` error blindly. Check the skill's error table first.
 - **Unreachable paths**: routes outside the allowed list (such as `stores`, `analytics`, `domain`, `orders/{id}/quote`, `customer`, `webhook`) return `403`, `404`, or `405`.
 - **Confirm destructive actions**: never delete records, clear lists, or overwrite custom layouts or HTML unless the user asked.

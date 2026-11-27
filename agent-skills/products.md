@@ -91,7 +91,7 @@ Every `PATCH` runs inside one transaction. If any field is invalid, nothing chan
 
 ### Edit description only without touching stock, featured state, images, or filters
 
-Omit `isFeatured` and `isArchived` because `GET /products/{id}` does not return them. Send `loadedQuantity` equal to `quantity` so sales placed while you work are not overwritten.
+Send `loadedQuantity` equal to `quantity` so sales placed while you work are not overwritten.
 
 ```json
 {
@@ -126,7 +126,7 @@ Omit `isFeatured` and `isArchived` because `GET /products/{id}` does not return 
 
 1. Call `GET {{BASE}}/products/{id}`.
 2. If the product has `filteritems`, call `GET {{BASE}}/filters?page=1&pageSize=100`. Match each `{ filter.name, value, unit }` to its `id`. Compare numeric `value` by number because `GET` returns numbers as strings (such as `"128"`).
-3. Build the `PATCH` body with all required fields, all `images` with explicit `order`, and all matched `filteritems`.
+3. Build the `PATCH` body from the `GET` response. Copy every field you are not changing exactly, send all `images` with explicit `order`, and send all matched `filteritems`.
 4. Unless you intend to change stock, set `"loadedQuantity"` equal to the `"quantity"` from `GET`.
 5. Omit `isFeatured` and `isArchived` unless you intend to change them.
 6. Send `PATCH {{BASE}}/products/{id}` and verify with `GET {{BASE}}/products/{id}`.

@@ -64,8 +64,6 @@ Unknown top-level keys return `400`. Nested objects (`cancellation`, `returns`, 
 
 ### Change order statuses while preserving customer cancellation
 
-Send `cancellation.allowedAt` together with `statuses` so cancellation stays active at the intended stages:
-
 ```json
 {
 	"statuses": ["Received", "Packed", "Dispatched", "Delivered"],
@@ -90,7 +88,7 @@ Send `cancellation.allowedAt` together with `statuses` so cancellation stays act
 | `400` | `"Cancelled" is reserved, the system provides it` / `"Quote" is reserved, the system provides it` / `"Rejected" is reserved, the system provides it` | Remove the reserved word from the list. |
 | `400` | `... is longer than 30 characters` | Shorten the status label to 30 characters or fewer. |
 | `400` | `A reason is at most 60 characters` | Shorten each reason to 60 characters or fewer. |
-| `400` | `At most 24 characters` | Shorten `quote.button` or `quote.priceText` to 24 characters or fewer. |
+| `400` | `At most 24 characters` | Shorten `quote.button` or `quote.priceText` to 24 characters or fewer. If the text came from the user, follow the over-limit rule in `{{BASE}}/skill/index`. |
 | `400` | `Unrecognized key(s) in object` | Check `details` and send only documented keys. |
 
 ## Related skills

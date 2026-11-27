@@ -17,13 +17,13 @@ Custom components are saved inside a page's block array via `PUT {{BASE}}/page-l
 
 | Method and path | Query | Returns |
 | --- | --- | --- |
-| `GET {{BASE}}/page-layouts/data` | `?data=<url-encoded JSON>&categoryId=<opt>&productId=<opt>` | Live `STORE_DATA` object resolved by the storefront, or `400` / `413` / `502`. Runs at once in both modes. |
+| `GET {{BASE}}/page-layouts/data` | `?data=<url-encoded JSON>&categoryId=<opt>&productId=<opt>` | Live `STORE_DATA` object resolved by the storefront, or `400` / `413` / `502`. |
 
 `data` query parameter max length is 20,000 characters. Note: `/page-layouts/data` returns `[]` for a `categoryId` that does not belong to this store, whereas `PUT /page-layouts/{page}` rejects it with `400`.
 
 ## Fields
 
-Required block shape (every field below goes inside `"settings"`, never at the top level):
+Required block shape:
 
 ```json
 {
@@ -66,6 +66,7 @@ The store page behind the iframe is white. The frame applies these defaults befo
 - **Tailwind CSS v4 compilation**: any Tailwind v4 class name written literally in `html` (including inside `<script>` template strings) is compiled automatically. Do not build class names at runtime (`"text-" + size` will not compile). Store-only utility classes (such as `dshadow`) do not exist in the iframe. Breakpoints (`sm`, `md`, `lg`, `xl`) follow the iframe width.
 - **Custom CSS and fonts**: `<style>` tags override Tailwind and frame defaults. Remote `<link rel="stylesheet">` tags and Google Fonts work directly. Custom `@font-face` files from other hosts need `Access-Control-Allow-Origin: *`, or the browser falls back to Inter.
 - **Forbidden height units (`400`)**: the server rejects `vh`, `dvh`, `svh`, and `lvh` units (such as `h-[50vh]`) and the classes `h-screen`, `h-dvh`, `h-svh`, and `h-lvh` (including `min-` and `max-` variants) because viewport-height sizing causes an infinite resize loop. The check scans the entire `html` string, including prose and JS strings. Use `px`, `rem`, or `%` instead.
+- **HTML entities in scripts**: `textContent` shows entities such as `&middot;` as literal text. In JavaScript strings, use escapes such as `'\u00B7'` and `'\u20B9'`, or set `innerHTML`.
 
 ## Data queries (`data` and `STORE_DATA`)
 
@@ -85,7 +86,7 @@ Each key in `data` becomes an array on global `STORE_DATA` (also `window.STORE_D
 - **Query product items carry one image and `description: null`**: `products` queries read the list endpoint, so `images` contains only the first image (800 px Cloudinary URL) and `description` is always `null`. Only `STORE_DATA.product` on the `product` page includes all images and `description`. On other pages, link cards to `p.url` (their product page), or tell the user about this limit.
 - **Stock and archiving**: archived products are never returned. Out-of-stock products are included (`inStock: false`, `quantity: 0`). Result order is not guaranteed.
 - **Prices**: `price` is a number in rupees or `null` for quote-only products. `priceText` is the formatted rupee string or the store's `quote.priceText` label.
-- **Automatic context**: `STORE_DATA.store` (`{ name, home }`) is always present. On `category`, `STORE_DATA.category` is `{ id, name, image, url }` (400 px image). On `product`, `STORE_DATA.product` is the current product item.
+- **Automatic context**: `STORE_DATA.store` is `{ name, home }` and is always present. It has no phone, WhatsApp, email, or address. Read `GET {{BASE}}/contact` and write them into `html` directly. On `category`, `STORE_DATA.category` is `{ id, name, image, url }` (400 px image). On `product`, `STORE_DATA.product` is the current product item.
 - **200,000-byte cap**: if resolved data exceeds 200,000 bytes, `STORE_DATA.error` explains the overrun and all query arrays are omitted. Always guard arrays in JavaScript with `(STORE_DATA.deals || [])`.
 - On a `product` page, a `"products"` query with `"categoryId": "current"` includes the current product, so filter out `STORE_DATA.product.id` in your script (a `productList` block excludes it automatically).
 
