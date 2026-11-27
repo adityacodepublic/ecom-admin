@@ -95,7 +95,6 @@ export const sectionSettingsSchemas = {
     mobileHeight: z.coerce.number().int().min(120).max(700).optional().describe("Mobile height (px, optional)"),
     fullWidth: z.boolean().default(false).describe("Full width (edge to edge)"),
     rounded: z.boolean().default(true).describe("Rounded corners"),
-    contain: z.boolean().optional(),
     autoplay: z.boolean().default(true).describe("Play automatically"),
   }),
   productList: z.object({

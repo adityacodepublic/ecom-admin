@@ -183,7 +183,6 @@ const FIELD_TYPE: Record<string, string> = {
   markdown: "markdown",
   height: "heightPair",
   mobileHeight: "hidden",
-  contain: "hidden",
 };
 
 /** Reports every form change to the parent. Lives inside AutoForm to reach its form context. */
