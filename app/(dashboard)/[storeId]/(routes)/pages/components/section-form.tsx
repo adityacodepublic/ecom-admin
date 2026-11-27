@@ -2,16 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { useController, useFormContext } from "react-hook-form";
+import { useController, useFormContext, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { ZodProvider, fieldConfig } from "@autoform/zod";
 import type { AutoFormFieldProps } from "@autoform/react";
 
 import { AutoForm } from "@/components/ui/autoform";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BillboardImagesField } from "@/components/billboard-images-field";
 import { CURRENT_CATEGORY, sectionSettingsSchemas, type PageKind, type SectionType } from "@/lib/home-layout";
@@ -153,79 +151,36 @@ const RatioBoxes = ({
   );
 };
 
-/**
- * Aspect ratio toggle + (when enabled) side-by-side Desktop/Mobile ratio boxes and "Keep original image proportions".
- * When unchecked, hides the ratio boxes so the billboard simply uses each image's natural size.
- */
-const AspectRatioControlsField = () => {
-  const { field: useRatio } = useController({ name: "useAspectRatio" });
+/** Side-by-side Desktop + Mobile [ W ] : [ H ] boxes; shown only when "Use aspect ratio" is checked. */
+const RatioPairField = () => {
+  const useRatio = useWatch({ name: "useAspectRatio" });
   const { field: desktop, fieldState: desktopState } = useController({ name: "aspectRatio" });
   const { field: mobile, fieldState: mobileState } = useController({ name: "mobileAspectRatio" });
-  const { field: natural } = useController({ name: "naturalSize" });
-  const enabled = useRatio.value !== false;
+
+  if (useRatio === false) return null;
 
   return (
-    <div className="space-y-3">
-      <div className="space-y-1">
-        <div className="flex items-center space-x-2">
-          <Checkbox
-            id="useAspectRatio"
-            checked={enabled}
-            onCheckedChange={(checked) => {
-              const on = checked === true;
-              useRatio.onChange(on);
-              if (on) {
-                if (!desktop.value) desktop.onChange("2.4:1");
-                if (!mobile.value) mobile.onChange("2:1");
-              }
-            }}
-          />
-          <Label htmlFor="useAspectRatio" className="cursor-pointer">
-            Use aspect ratio
-          </Label>
-        </div>
-        {!enabled && (
-          <p className="text-sm text-muted-foreground">Off — each image displays at its own natural size.</p>
-        )}
+    <div className="border-l-2 border-muted pl-4">
+      <div className="grid max-w-md grid-cols-2 gap-6">
+        <RatioBoxes
+          idPrefix="aspectRatio"
+          title="Desktop"
+          value={desktop.value}
+          onChange={desktop.onChange}
+          defaultW="2.4"
+          defaultH="1"
+          error={desktopState.error?.message}
+        />
+        <RatioBoxes
+          idPrefix="mobileAspectRatio"
+          title="Mobile"
+          value={mobile.value}
+          onChange={mobile.onChange}
+          defaultW="2"
+          defaultH="1"
+          error={mobileState.error?.message}
+        />
       </div>
-
-      {enabled && (
-        <div className="space-y-3 border-l-2 border-muted pl-4">
-          <div className="grid max-w-md grid-cols-2 gap-6">
-            <RatioBoxes
-              idPrefix="aspectRatio"
-              title="Desktop"
-              value={desktop.value}
-              onChange={desktop.onChange}
-              defaultW="2.4"
-              defaultH="1"
-              error={desktopState.error?.message}
-            />
-            <RatioBoxes
-              idPrefix="mobileAspectRatio"
-              title="Mobile"
-              value={mobile.value}
-              onChange={mobile.onChange}
-              defaultW="2"
-              defaultH="1"
-              error={mobileState.error?.message}
-            />
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="naturalSize"
-                checked={!!natural.value}
-                onCheckedChange={(checked) => natural.onChange(checked === true)}
-              />
-              <Label htmlFor="naturalSize" className="cursor-pointer">
-                Keep original image proportions
-              </Label>
-            </div>
-            <p className="text-sm text-muted-foreground">Fits the full image inside the ratio box without cropping.</p>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
@@ -283,10 +238,8 @@ const FIELD_TYPE: Record<string, string> = {
   images: "billboardImages",
   categoryId: "category",
   markdown: "markdown",
-  useAspectRatio: "aspectRatioControls",
-  aspectRatio: "hidden",
+  aspectRatio: "ratioPair",
   mobileAspectRatio: "hidden",
-  naturalSize: "hidden",
 };
 
 /** Reports every form change to the parent. Lives inside AutoForm to reach its form context. */
@@ -308,7 +261,7 @@ export const SectionForm = ({ page, type, settings, categories, saving, onChange
       billboardImages: ImagesField,
       markdown: MarkdownField,
       category: optionsField(withCurrent, true),
-      aspectRatioControls: AspectRatioControlsField,
+      ratioPair: RatioPairField,
       hidden: HiddenField,
       code: CodeField,
       dataQueries: dataQueriesField(withCurrent, page),

@@ -13,6 +13,7 @@ export const FieldWrapper: React.FC<FieldWrapperProps> = ({
   parsedField,
 }) => {
   if (parsedField.fieldConfig?.fieldType === "hidden") return null;
+  if (parsedField.fieldConfig?.fieldType === "ratioPair") return <>{children}</>;
   const isDisabled = DISABLED_LABELS.includes(parsedField.type);
   const hideHelperText = DISABLE_HELPER_TEXT.includes(parsedField.type);
 
