@@ -97,7 +97,7 @@ Array order is top-to-bottom page order. `id` is optional on `PUT` (the server g
 
 Both `productList.search` and `custom` product queries (`{{BASE}}/skill/custom-block`) use the store search parser:
 
-- **Price bounds are inclusive**: `under N`, `below N`, and `less than N` mean `<= N`. `above N`, `more than N`, and `greater than N` mean `>= N`. Optional `₹`, `Rs.`, and commas work (`"under ₹20,000"` and `"under 20000"` both match a 20,000 rupee item).
+- **Price bounds are inclusive**: `under N`, `below N`, and `less than N` mean `<= N`. `above N`, `more than N`, and `greater than N` mean `>= N`. Optional `₹`, `Rs.`, and commas work (`"under ₹20,000"` and `"under 20000"` both match a 20,000 rupee item), but prefer plain ASCII digits (`"under 20000"`) so Windows shells do not corrupt `₹` into `?`.
 - **No shorthand suffixes**: do not write `k` (such as `"under 2k"`, which parses as `<= 2`).
 - **Avoid `over` and `between`**: the parser drops those words and leaves the number as name text. Use `"above 20000"` instead of `"over 20000"`.
 - **Quote items excluded**: any price phrase drops products with `price: null`.
