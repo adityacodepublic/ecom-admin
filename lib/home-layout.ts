@@ -26,8 +26,6 @@ export const billboardImageSchema = z.object({
   height: z.coerce.number().int().positive().max(20_000).optional(),
 });
 export type BillboardImage = z.infer<typeof billboardImageSchema>;
-export const BILLBOARD_SIZE_MODES = ["cover", "natural", "fixed"] as const;
-export type BillboardSizeMode = (typeof BILLBOARD_SIZE_MODES)[number];
 export const BILLBOARD_IMAGES_MAX = 20;
 /** The images of a billboard, in order. */
 export const billboardImagesSchema = z.array(billboardImageSchema).max(BILLBOARD_IMAGES_MAX, `${BILLBOARD_IMAGES_MAX} images at most`);
@@ -92,9 +90,10 @@ export const sectionSettingsSchemas = {
     title: z.string().optional().describe("Title (optional)"),
     images: billboardImagesSchema.min(1, "Add at least one image").describe("Images"),
     slides: z.coerce.number().int().min(1).max(3).default(1).describe("Slides shown at once (1-3)"),
-    sizeMode: z.enum(BILLBOARD_SIZE_MODES).default("cover").describe("Size mode"),
-    height: z.coerce.number().int().min(160).max(900).default(400).describe("Fixed height (px)"),
+    naturalSize: z.boolean().default(false).describe("Use image size (no crop)"),
+    height: z.coerce.number().int().min(160).max(900).optional().describe("Custom height (px, optional)"),
     fullWidth: z.boolean().default(false).describe("Full width (edge to edge)"),
+    rounded: z.boolean().default(true).describe("Rounded corners"),
     contain: z.boolean().default(false).describe("Show the whole image (no crop)"),
     autoplay: z.boolean().default(true).describe("Play automatically"),
   }),

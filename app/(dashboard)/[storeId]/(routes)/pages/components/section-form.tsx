@@ -9,6 +9,7 @@ import type { AutoFormFieldProps } from "@autoform/react";
 
 import { AutoForm } from "@/components/ui/autoform";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BillboardImagesField } from "@/components/billboard-images-field";
 import { CURRENT_CATEGORY, sectionSettingsSchemas, type PageKind, type SectionType } from "@/lib/home-layout";
@@ -79,6 +80,23 @@ const ImagesField = ({ id, error }: AutoFormFieldProps) => {
   return <BillboardImagesField value={field.value ?? []} onChange={field.onChange} invalid={!!error} />;
 };
 
+/** Optional pixel height input: empty clears to undefined (auto), otherwise passes a number. */
+const OptionalHeightField = ({ id, error }: AutoFormFieldProps) => {
+  const { field } = useController({ name: id });
+  return (
+    <Input
+      id={id}
+      type="number"
+      min={160}
+      max={900}
+      placeholder="Auto (2:1 / 2.4:1)"
+      className={error ? "border-destructive" : ""}
+      value={field.value ?? ""}
+      onChange={(e) => field.onChange(e.target.value === "" ? undefined : Number(e.target.value))}
+    />
+  );
+};
+
 /** The settings schema of a type, with the id fields shown as pickers. */
 const formSchema = (type: SectionType) => {
   if (type === "custom") {
@@ -109,13 +127,17 @@ const FIELD_TEXT: Record<string, { label: string; description?: string }> = {
   markdown: { label: "Text", description: "Headings, lists, links, images and tables. Shown on the store as formatted text." },
   images: { label: "Images", description: "In order. Each image can link to a store page or a website." },
   slides: { label: "Slides shown at once", description: "1 to 3." },
-  sizeMode: {
-    label: "Size mode",
-    description: "Cover fills a standard banner box; Image size keeps each image's natural proportions with rounded corners; Fixed height uses the pixel height below.",
+  naturalSize: {
+    label: "Use image size (no crop)",
+    description: "Keep each image's own aspect ratio (capped at custom height or 76% screen height) instead of fitting into a 2:1 / 2.4:1 banner.",
   },
-  height: { label: "Fixed height (px)", description: "160 to 900. Used when Size mode is Fixed height." },
-  fullWidth: { label: "Full width (edge to edge)", description: "Stretch across the full screen width with no side padding or rounded corners." },
-  contain: { label: "Show the whole image (no crop)", description: "Applies to Cover and Fixed height modes." },
+  height: {
+    label: "Custom height (px)",
+    description: "Optional (160 to 900). Leave empty for the default responsive banner; sets a fixed height (or max height when Use image size is on).",
+  },
+  fullWidth: { label: "Full width (edge to edge)", description: "Stretch across the full screen width with no side padding." },
+  rounded: { label: "Rounded corners", description: "Apply rounded corners around the image in any mode." },
+  contain: { label: "Show the whole image (no crop)", description: "Letterbox inside the banner when Use image size is off." },
   autoplay: { label: "Play automatically" },
   categoryId: { label: "Category" },
   featuredOnly: { label: "Featured products only" },
@@ -126,13 +148,8 @@ const FIELD_TEXT: Record<string, { label: string; description?: string }> = {
   showName: { label: "Grid: show the product name" },
   showPrice: { label: "Grid: show the price" },
 };
-const SIZE_MODE_OPTIONS: Option[] = [
-  { value: "cover", label: "Cover (standard banner)" },
-  { value: "natural", label: "Image size (natural aspect ratio)" },
-  { value: "fixed", label: "Fixed height (custom px)" },
-];
 /** Fields shown with their own editor. */
-const FIELD_TYPE: Record<string, string> = { images: "billboardImages", categoryId: "category", markdown: "markdown", sizeMode: "sizeMode" };
+const FIELD_TYPE: Record<string, string> = { images: "billboardImages", categoryId: "category", markdown: "markdown", height: "optionalHeight" };
 
 /** Reports every form change to the parent. Lives inside AutoForm to reach its form context. */
 const ChangeListener = ({ onChange }: { onChange: SectionFormProps["onChange"] }) => {
@@ -153,7 +170,7 @@ export const SectionForm = ({ page, type, settings, categories, saving, onChange
       billboardImages: ImagesField,
       markdown: MarkdownField,
       category: optionsField(withCurrent, true),
-      sizeMode: optionsField(SIZE_MODE_OPTIONS, false),
+      optionalHeight: OptionalHeightField,
       code: CodeField,
       dataQueries: dataQueriesField(withCurrent, page),
     };
