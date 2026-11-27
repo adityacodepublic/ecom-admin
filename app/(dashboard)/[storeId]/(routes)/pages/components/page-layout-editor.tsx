@@ -40,7 +40,7 @@ const STARTER_HTML =
 
 /** The settings a new block starts with (zod fills the defaults). A new Billboard starts without images. */
 const newSettings = (type: SectionType): Record<string, unknown> => {
-  if (type === "carousel") return { images: [], slides: 1, contain: false, autoplay: true };
+  if (type === "carousel") return { images: [], slides: 1, naturalSize: false, fullWidth: false, rounded: true, autoplay: true };
   if (type === "markdown") return { markdown:"## New section\n\nWrite your text here." };
   return sectionSettingsSchemas[type].parse({ title: type === "relatedProducts" ? undefined : "New block", html: STARTER_HTML });
 };

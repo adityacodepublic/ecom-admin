@@ -91,10 +91,11 @@ export const sectionSettingsSchemas = {
     images: billboardImagesSchema.min(1, "Add at least one image").describe("Images"),
     slides: z.coerce.number().int().min(1).max(3).default(1).describe("Slides shown at once (1-3)"),
     naturalSize: z.boolean().default(false).describe("Use image size (no crop)"),
-    height: z.coerce.number().int().min(160).max(900).optional().describe("Custom height (px, optional)"),
+    height: z.coerce.number().int().min(160).max(900).optional().describe("Desktop height (px, optional)"),
+    mobileHeight: z.coerce.number().int().min(120).max(700).optional().describe("Mobile height (px, optional)"),
     fullWidth: z.boolean().default(false).describe("Full width (edge to edge)"),
     rounded: z.boolean().default(true).describe("Rounded corners"),
-    contain: z.boolean().default(false).describe("Show the whole image (no crop)"),
+    contain: z.boolean().optional(),
     autoplay: z.boolean().default(true).describe("Play automatically"),
   }),
   productList: z.object({

@@ -12,6 +12,7 @@ export const FieldWrapper: React.FC<FieldWrapperProps> = ({
   children,
   parsedField,
 }) => {
+  if (parsedField.fieldConfig?.fieldType === "hidden") return null;
   const isDisabled = DISABLED_LABELS.includes(parsedField.type);
   const hideHelperText = DISABLE_HELPER_TEXT.includes(parsedField.type);
 

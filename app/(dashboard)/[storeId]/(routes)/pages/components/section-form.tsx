@@ -10,6 +10,7 @@ import type { AutoFormFieldProps } from "@autoform/react";
 import { AutoForm } from "@/components/ui/autoform";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BillboardImagesField } from "@/components/billboard-images-field";
 import { CURRENT_CATEGORY, sectionSettingsSchemas, type PageKind, type SectionType } from "@/lib/home-layout";
@@ -80,22 +81,49 @@ const ImagesField = ({ id, error }: AutoFormFieldProps) => {
   return <BillboardImagesField value={field.value ?? []} onChange={field.onChange} invalid={!!error} />;
 };
 
-/** Optional pixel height input: empty clears to undefined (auto), otherwise passes a number. */
-const OptionalHeightField = ({ id, error }: AutoFormFieldProps) => {
-  const { field } = useController({ name: id });
+/** Side-by-side optional Desktop + Mobile height inputs; empty clears to undefined (falls back to default aspect ratio). */
+const HeightPairField = ({ error }: AutoFormFieldProps) => {
+  const { field: desktop } = useController({ name: "height" });
+  const { field: mobile, fieldState: mobileState } = useController({ name: "mobileHeight" });
+  const mobileError = mobileState.error?.message;
   return (
-    <Input
-      id={id}
-      type="number"
-      min={160}
-      max={900}
-      placeholder="Auto (2:1 / 2.4:1)"
-      className={error ? "border-destructive" : ""}
-      value={field.value ?? ""}
-      onChange={(e) => field.onChange(e.target.value === "" ? undefined : Number(e.target.value))}
-    />
+    <div className="grid grid-cols-2 gap-3">
+      <div className="grid gap-1.5">
+        <Label htmlFor="height" className="text-xs text-muted-foreground">
+          Desktop (px)
+        </Label>
+        <Input
+          id="height"
+          type="number"
+          min={160}
+          max={900}
+          placeholder="Auto (2.4:1)"
+          className={error ? "border-destructive" : ""}
+          value={desktop.value ?? ""}
+          onChange={(e) => desktop.onChange(e.target.value === "" ? undefined : Number(e.target.value))}
+        />
+      </div>
+      <div className="grid gap-1.5">
+        <Label htmlFor="mobileHeight" className="text-xs text-muted-foreground">
+          Mobile (px)
+        </Label>
+        <Input
+          id="mobileHeight"
+          type="number"
+          min={120}
+          max={700}
+          placeholder="Auto (2:1)"
+          className={mobileError ? "border-destructive" : ""}
+          value={mobile.value ?? ""}
+          onChange={(e) => mobile.onChange(e.target.value === "" ? undefined : Number(e.target.value))}
+        />
+        {mobileError && <p className="text-sm text-destructive">{mobileError}</p>}
+      </div>
+    </div>
   );
 };
+
+const HiddenField = () => null;
 
 /** The settings schema of a type, with the id fields shown as pickers. */
 const formSchema = (type: SectionType) => {
@@ -132,12 +160,12 @@ const FIELD_TEXT: Record<string, { label: string; description?: string }> = {
     description: "Keep each image's own aspect ratio (capped at custom height or 76% screen height) instead of fitting into a 2:1 / 2.4:1 banner.",
   },
   height: {
-    label: "Custom height (px)",
-    description: "Optional (160 to 900). Leave empty for the default responsive banner; sets a fixed height (or max height when Use image size is on).",
+    label: "Custom height (optional)",
+    description: "Desktop: 160–900 px; Mobile: 120–700 px. Leave either empty to keep its default aspect ratio (or use as max height when Use image size is on).",
   },
+  mobileHeight: { label: "Mobile height (px)" },
   fullWidth: { label: "Full width (edge to edge)", description: "Stretch across the full screen width with no side padding." },
   rounded: { label: "Rounded corners", description: "Apply rounded corners around the image in any mode." },
-  contain: { label: "Show the whole image (no crop)", description: "Letterbox inside the banner when Use image size is off." },
   autoplay: { label: "Play automatically" },
   categoryId: { label: "Category" },
   featuredOnly: { label: "Featured products only" },
@@ -149,7 +177,14 @@ const FIELD_TEXT: Record<string, { label: string; description?: string }> = {
   showPrice: { label: "Grid: show the price" },
 };
 /** Fields shown with their own editor. */
-const FIELD_TYPE: Record<string, string> = { images: "billboardImages", categoryId: "category", markdown: "markdown", height: "optionalHeight" };
+const FIELD_TYPE: Record<string, string> = {
+  images: "billboardImages",
+  categoryId: "category",
+  markdown: "markdown",
+  height: "heightPair",
+  mobileHeight: "hidden",
+  contain: "hidden",
+};
 
 /** Reports every form change to the parent. Lives inside AutoForm to reach its form context. */
 const ChangeListener = ({ onChange }: { onChange: SectionFormProps["onChange"] }) => {
@@ -170,7 +205,8 @@ export const SectionForm = ({ page, type, settings, categories, saving, onChange
       billboardImages: ImagesField,
       markdown: MarkdownField,
       category: optionsField(withCurrent, true),
-      optionalHeight: OptionalHeightField,
+      heightPair: HeightPairField,
+      hidden: HiddenField,
       code: CodeField,
       dataQueries: dataQueriesField(withCurrent, page),
     };

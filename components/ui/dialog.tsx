@@ -42,7 +42,7 @@ const DialogContent = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
 >(({ className, children, ...props }, ref) => (
   <DialogPortal>
-    <DialogOverlay {...keepGesturesInside} />
+    <DialogOverlay onContextMenu={(e) => e.stopPropagation()} />
     <DialogPrimitive.Content
       ref={ref}
       {...keepGesturesInside}
