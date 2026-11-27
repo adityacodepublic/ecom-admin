@@ -109,7 +109,13 @@ const FIELD_TEXT: Record<string, { label: string; description?: string }> = {
   markdown: { label: "Text", description: "Headings, lists, links, images and tables. Shown on the store as formatted text." },
   images: { label: "Images", description: "In order. Each image can link to a store page or a website." },
   slides: { label: "Slides shown at once", description: "1 to 3." },
-  contain: { label: "Show the whole image (no crop)" },
+  sizeMode: {
+    label: "Size mode",
+    description: "Cover fills a standard banner box; Image size keeps each image's natural proportions with rounded corners; Fixed height uses the pixel height below.",
+  },
+  height: { label: "Fixed height (px)", description: "160 to 900. Used when Size mode is Fixed height." },
+  fullWidth: { label: "Full width (edge to edge)", description: "Stretch across the full screen width with no side padding or rounded corners." },
+  contain: { label: "Show the whole image (no crop)", description: "Applies to Cover and Fixed height modes." },
   autoplay: { label: "Play automatically" },
   categoryId: { label: "Category" },
   featuredOnly: { label: "Featured products only" },
@@ -120,8 +126,13 @@ const FIELD_TEXT: Record<string, { label: string; description?: string }> = {
   showName: { label: "Grid: show the product name" },
   showPrice: { label: "Grid: show the price" },
 };
+const SIZE_MODE_OPTIONS: Option[] = [
+  { value: "cover", label: "Cover (standard banner)" },
+  { value: "natural", label: "Image size (natural aspect ratio)" },
+  { value: "fixed", label: "Fixed height (custom px)" },
+];
 /** Fields shown with their own editor. */
-const FIELD_TYPE: Record<string, string> = { images: "billboardImages", categoryId: "category", markdown: "markdown" };
+const FIELD_TYPE: Record<string, string> = { images: "billboardImages", categoryId: "category", markdown: "markdown", sizeMode: "sizeMode" };
 
 /** Reports every form change to the parent. Lives inside AutoForm to reach its form context. */
 const ChangeListener = ({ onChange }: { onChange: SectionFormProps["onChange"] }) => {
@@ -142,6 +153,7 @@ export const SectionForm = ({ page, type, settings, categories, saving, onChange
       billboardImages: ImagesField,
       markdown: MarkdownField,
       category: optionsField(withCurrent, true),
+      sizeMode: optionsField(SIZE_MODE_OPTIONS, false),
       code: CodeField,
       dataQueries: dataQueriesField(withCurrent, page),
     };

@@ -9,7 +9,24 @@ import BillboardImageUpload from "@/components/ui/billboard-image-upload";
 import { thumbUrl } from "@/lib/media";
 import type { BillboardImage } from "@/lib/home-layout";
 
-type Ordered = { url: string; order: number; href?: string };
+type Ordered = { url: string; order: number; href?: string; width?: number; height?: number };
+
+/** Reads an image's natural pixel dimensions in the browser (for 0-CLS natural billboard sizing); returns {} on timeout/error. */
+function probeDimensions(url: string): Promise<{ width?: number; height?: number }> {
+  return new Promise((resolve) => {
+    const img = new window.Image();
+    const timer = setTimeout(() => resolve({}), 2000);
+    img.onload = () => {
+      clearTimeout(timer);
+      resolve(img.naturalWidth > 0 && img.naturalHeight > 0 ? { width: img.naturalWidth, height: img.naturalHeight } : {});
+    };
+    img.onerror = () => {
+      clearTimeout(timer);
+      resolve({});
+    };
+    img.src = url;
+  });
+}
 
 interface BillboardImagesFieldProps {
   value: BillboardImage[];
@@ -28,11 +45,18 @@ export const BillboardImagesField = ({ value, onChange, disabled, invalid }: Bil
   const images = value ?? [];
 
   const show = () => {
-    setDraft(images.map((image, i) => ({ url: image.url, href: image.href, order: i + 1 })));
+    setDraft(images.map((image, i) => ({ url: image.url, href: image.href, width: image.width, height: image.height, order: i + 1 })));
     setOpen(true);
   };
-  const done = () => {
-    onChange([...draft].sort((a, b) => a.order - b.order).map((image) => ({ url: image.url, href: (image.href ?? "").trim() })));
+  const done = async () => {
+    const sorted = [...draft].sort((a, b) => a.order - b.order);
+    const enriched = await Promise.all(
+      sorted.map(async (image) => {
+        const dims = image.width && image.height ? { width: image.width, height: image.height } : await probeDimensions(image.url);
+        return { url: image.url, href: (image.href ?? "").trim(), ...dims };
+      }),
+    );
+    onChange(enriched);
     setOpen(false);
   };
 

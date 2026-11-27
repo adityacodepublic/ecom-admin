@@ -44,7 +44,7 @@ Fixed blocks show the store's own data: the categories, the category being shown
 
 | Block `type` | Pages | Kind | What it shows | Change its content with |
 | --- | --- | --- | --- | --- |
-| `carousel` ("Billboard") | all, custom pages too | content | Images in order, each with an optional click target. | Its settings: `images`, `title`, `slides`, `contain`, `autoplay`. |
+| `carousel` ("Billboard") | all, custom pages too | content | Images in order, each with an optional click target. | Its settings: `images`, `title`, `slides`, `sizeMode`, `height`, `fullWidth`, `contain`, `autoplay`. |
 | `productList` ("Product list") | all, custom pages too | content | Products chosen by category, featured flag and search words, as cards or as a grid of image tiles. | Its settings (see "Block settings"). For the products themselves, see `{{BASE}}/skill/products`. |
 | `markdown` ("Markdown") | all, custom pages too | content | Formatted text: headings, lists, links, images, tables and quotes, styled like a product description. | Its setting: `markdown`. |
 | `custom` ("Custom block") | all, custom pages too | content | Your own HTML, Tailwind CSS, and JavaScript inside a sandboxed iframe. | Its settings: `html`, `data`, `height`, `title`. |
@@ -63,7 +63,7 @@ Array order is page order, top to bottom. `id` is optional, and the server adds 
 
 | Block | Settings (default) |
 | --- | --- |
-| `carousel` | `images` required: 1 to 20 `{ url, href }` in order. `url` is an `http(s)` image link. `href` is where a click goes: a store path such as `/category/<id>`, a full URL, or `""` for nowhere. `title` optional. `slides` shown at once, 1 to 3 (1). `contain` shows the whole image with no crop (false). `autoplay` (true). |
+| `carousel` | `images` required: 1 to 20 `{ url, href, width?, height? }` in order (`width`/`height` optional natural px dimensions for 0-CLS in `natural` mode). `url` is an `http(s)` image link. `href` is where a click goes: a store path such as `/category/<id>`, a full URL, or `""` for nowhere. `title` optional. `slides` shown at once, 1 to 3 (1). `sizeMode`: `"cover"` (standard responsive banner, default), `"natural"` (keeps each image's natural aspect ratio with rounded corners, capped at `76vh`), or `"fixed"` (uses `height`). `height`: 160 to 900 px (400), used when `sizeMode` is `"fixed"`. `fullWidth` (false): stretches edge to edge across the full screen width with no side padding or rounded corners. `contain` shows the whole image with no crop in `cover`/`fixed` modes (false). `autoplay` (true). |
 | `productList` | `title` required, non-empty. `categoryId` optional: a category id or `"current"`. `featuredOnly` (false). `search` optional: the same words as the store search box, and it understands "under 20000". `limit` 1 to 24 (8). `grid` (false): false shows product cards (image, name, price), true shows big image tiles. Only for `grid: true`: `columns` 2 or 3 (2), `showName` (true), `showPrice` (false). |
 | `markdown` | `markdown` required: GitHub Markdown, up to 100,000 characters. Tables, task lists and strikethrough work. Raw HTML is allowed but cleaned, so scripts, iframes and event handlers are removed. Images are `![alt](https://...)` links, such as those from `GET {{BASE}}/media`. Write any heading in the text itself, such as `## Returns`. |
 | `custom` | `html` required. `title` optional (admin only). `height` 80 to 2000 (400), initial height only. `data` optional (see "Custom block"). |
@@ -75,7 +75,7 @@ Array order is page order, top to bottom. `id` is optional, and the server adds 
 Shapes:
 
 ```
-{ "type": "carousel", "settings": { "title": "Offers", "images": [{ "url": "https://res.cloudinary.com/.../sale.jpg", "href": "/category/<id>" }], "slides": 1, "contain": false, "autoplay": true } }
+{ "type": "carousel", "settings": { "title": "Offers", "images": [{ "url": "https://res.cloudinary.com/.../sale.jpg", "href": "/category/<id>" }], "slides": 1, "sizeMode": "cover", "fullWidth": false, "contain": false, "autoplay": true } }
 { "type": "productList", "settings": { "title": "New arrivals", "categoryId": "<id>", "featuredOnly": false, "search": "under 20000", "limit": 8, "grid": false } }
 { "type": "productList", "settings": { "title": "Top picks", "featuredOnly": true, "limit": 6, "grid": true, "columns": 3, "showName": true, "showPrice": true } }
 { "type": "productList", "settings": { "title": "More like this", "categoryId": "current", "limit": 4 } }
