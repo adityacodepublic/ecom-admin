@@ -9,7 +9,9 @@ import type { AutoFormFieldProps } from "@autoform/react";
 
 import { AutoForm } from "@/components/ui/autoform";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BillboardImagesField } from "@/components/billboard-images-field";
 import { CURRENT_CATEGORY, sectionSettingsSchemas, type PageKind, type SectionType } from "@/lib/home-layout";
@@ -80,13 +82,13 @@ const ImagesField = ({ id, error }: AutoFormFieldProps) => {
   return <BillboardImagesField value={field.value ?? []} onChange={field.onChange} invalid={!!error} />;
 };
 
-const splitRatio = (raw: unknown): [string, string] => {
-  if (typeof raw !== "string") return ["", ""];
+const splitRatio = (raw: unknown, fallbackW: string, fallbackH: string): [string, string] => {
+  if (typeof raw !== "string") return [fallbackW, fallbackH];
   const m = /^(\d+(?:\.\d+)?)\s*[:/]\s*(\d+(?:\.\d+)?)$/.exec(raw.trim());
-  return m ? [m[1], m[2]] : ["", ""];
+  return m ? [m[1], m[2]] : [fallbackW, fallbackH];
 };
 
-/** One [ W ] : [ H ] ratio input pair with "Width" / "Height" captions below each box. */
+/** One [ W ] : [ H ] ratio input pair with "Width" / "Height" captions below each box (always filled). */
 const RatioBoxes = ({
   idPrefix,
   title,
@@ -99,23 +101,19 @@ const RatioBoxes = ({
   idPrefix: string;
   title: string;
   value: unknown;
-  onChange: (next: string | undefined) => void;
+  onChange: (next: string) => void;
   defaultW: string;
   defaultH: string;
   error?: string;
 }) => {
-  const [initW, initH] = splitRatio(value);
+  const [initW, initH] = splitRatio(value, defaultW, defaultH);
   const [w, setW] = useState(initW);
   const [h, setH] = useState(initH);
 
   const update = (nextW: string, nextH: string) => {
     setW(nextW);
     setH(nextH);
-    const tw = nextW.trim();
-    const th = nextH.trim();
-    if (!tw && !th) onChange(undefined);
-    else if (tw && th) onChange(`${tw}:${th}`);
-    else onChange(`${tw}:${th}`); // lets Zod flag half-filled ratio on submit
+    onChange(`${nextW.trim()}:${nextH.trim()}`);
   };
 
   return (
@@ -128,7 +126,6 @@ const RatioBoxes = ({
             type="number"
             step="any"
             min={0.1}
-            placeholder={defaultW}
             className={`h-9 text-center ${error ? "border-destructive" : ""}`}
             value={w}
             onChange={(e) => update(e.target.value, h)}
@@ -143,7 +140,6 @@ const RatioBoxes = ({
             type="number"
             step="any"
             min={0.1}
-            placeholder={defaultH}
             className={`h-9 text-center ${error ? "border-destructive" : ""}`}
             value={h}
             onChange={(e) => update(w, e.target.value)}
@@ -157,30 +153,79 @@ const RatioBoxes = ({
   );
 };
 
-/** Side-by-side optional Desktop + Mobile aspect ratio inputs; empty falls back to 2.4:1 (desktop) / 2:1 (mobile). */
-const RatioPairField = ({ error }: AutoFormFieldProps) => {
-  const { field: desktop } = useController({ name: "aspectRatio" });
+/**
+ * Aspect ratio toggle + (when enabled) side-by-side Desktop/Mobile ratio boxes and "Keep original image proportions".
+ * When unchecked, hides the ratio boxes so the billboard simply uses each image's natural size.
+ */
+const AspectRatioControlsField = () => {
+  const { field: useRatio } = useController({ name: "useAspectRatio" });
+  const { field: desktop, fieldState: desktopState } = useController({ name: "aspectRatio" });
   const { field: mobile, fieldState: mobileState } = useController({ name: "mobileAspectRatio" });
+  const { field: natural } = useController({ name: "naturalSize" });
+  const enabled = useRatio.value !== false;
+
   return (
-    <div className="grid max-w-md grid-cols-2 gap-6">
-      <RatioBoxes
-        idPrefix="aspectRatio"
-        title="Desktop"
-        value={desktop.value}
-        onChange={desktop.onChange}
-        defaultW="2.4"
-        defaultH="1"
-        error={typeof error === "string" ? error : undefined}
-      />
-      <RatioBoxes
-        idPrefix="mobileAspectRatio"
-        title="Mobile"
-        value={mobile.value}
-        onChange={mobile.onChange}
-        defaultW="2"
-        defaultH="1"
-        error={mobileState.error?.message}
-      />
+    <div className="space-y-3">
+      <div className="space-y-1">
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="useAspectRatio"
+            checked={enabled}
+            onCheckedChange={(checked) => {
+              const on = checked === true;
+              useRatio.onChange(on);
+              if (on) {
+                if (!desktop.value) desktop.onChange("2.4:1");
+                if (!mobile.value) mobile.onChange("2:1");
+              }
+            }}
+          />
+          <Label htmlFor="useAspectRatio" className="cursor-pointer">
+            Use aspect ratio
+          </Label>
+        </div>
+        {!enabled && (
+          <p className="text-sm text-muted-foreground">Off — each image displays at its own natural size.</p>
+        )}
+      </div>
+
+      {enabled && (
+        <div className="space-y-3 border-l-2 border-muted pl-4">
+          <div className="grid max-w-md grid-cols-2 gap-6">
+            <RatioBoxes
+              idPrefix="aspectRatio"
+              title="Desktop"
+              value={desktop.value}
+              onChange={desktop.onChange}
+              defaultW="2.4"
+              defaultH="1"
+              error={desktopState.error?.message}
+            />
+            <RatioBoxes
+              idPrefix="mobileAspectRatio"
+              title="Mobile"
+              value={mobile.value}
+              onChange={mobile.onChange}
+              defaultW="2"
+              defaultH="1"
+              error={mobileState.error?.message}
+            />
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="naturalSize"
+                checked={!!natural.value}
+                onCheckedChange={(checked) => natural.onChange(checked === true)}
+              />
+              <Label htmlFor="naturalSize" className="cursor-pointer">
+                Keep original image proportions
+              </Label>
+            </div>
+            <p className="text-sm text-muted-foreground">Fits the full image inside the ratio box without cropping.</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -217,15 +262,10 @@ const FIELD_TEXT: Record<string, { label: string; description?: string }> = {
   markdown: { label: "Text", description: "Headings, lists, links, images and tables. Shown on the store as formatted text." },
   images: { label: "Images", description: "In order. Each image can link to a store page or a website." },
   slides: { label: "Slides shown at once", description: "1 to 3." },
-  naturalSize: {
-    label: "Keep original image proportions",
-    description: "Shows the full image without cropping. Ignores the aspect ratio below.",
-  },
-  aspectRatio: {
-    label: "Aspect ratio",
-    description: "Optional. Leave blank for default (2.4:1 desktop, 2:1 mobile).",
-  },
+  useAspectRatio: { label: "Use aspect ratio" },
+  aspectRatio: { label: "Desktop aspect ratio" },
   mobileAspectRatio: { label: "Mobile aspect ratio" },
+  naturalSize: { label: "Keep original image proportions" },
   fullWidth: { label: "Full width" },
   rounded: { label: "Rounded corners" },
   autoplay: { label: "Play automatically" },
@@ -243,8 +283,10 @@ const FIELD_TYPE: Record<string, string> = {
   images: "billboardImages",
   categoryId: "category",
   markdown: "markdown",
-  aspectRatio: "ratioPair",
+  useAspectRatio: "aspectRatioControls",
+  aspectRatio: "hidden",
   mobileAspectRatio: "hidden",
+  naturalSize: "hidden",
 };
 
 /** Reports every form change to the parent. Lives inside AutoForm to reach its form context. */
@@ -266,7 +308,7 @@ export const SectionForm = ({ page, type, settings, categories, saving, onChange
       billboardImages: ImagesField,
       markdown: MarkdownField,
       category: optionsField(withCurrent, true),
-      ratioPair: RatioPairField,
+      aspectRatioControls: AspectRatioControlsField,
       hidden: HiddenField,
       code: CodeField,
       dataQueries: dataQueriesField(withCurrent, page),
