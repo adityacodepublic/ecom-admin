@@ -162,7 +162,7 @@ const RatioPairField = ({ error }: AutoFormFieldProps) => {
   const { field: desktop } = useController({ name: "aspectRatio" });
   const { field: mobile, fieldState: mobileState } = useController({ name: "mobileAspectRatio" });
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <div className="grid max-w-md grid-cols-2 gap-6">
       <RatioBoxes
         idPrefix="aspectRatio"
         title="Desktop"
@@ -218,16 +218,16 @@ const FIELD_TEXT: Record<string, { label: string; description?: string }> = {
   images: { label: "Images", description: "In order. Each image can link to a store page or a website." },
   slides: { label: "Slides shown at once", description: "1 to 3." },
   naturalSize: {
-    label: "Use image size (no crop)",
-    description: "Keep each image's own aspect ratio (capped at 76% screen height) instead of cropping into the banner ratio.",
+    label: "Keep original image proportions",
+    description: "Shows the full image without cropping. Ignores the aspect ratio below.",
   },
   aspectRatio: {
-    label: "Aspect ratio (optional)",
-    description: "Scales smoothly across desktop, tablet, and mobile. Leave either empty for the default (2.4:1 desktop, 2:1 mobile). Examples: 16:9, 3:1, 4:3, 1:1.",
+    label: "Aspect ratio",
+    description: "Optional. Leave blank for default (2.4:1 desktop, 2:1 mobile).",
   },
   mobileAspectRatio: { label: "Mobile aspect ratio" },
-  fullWidth: { label: "Full width (edge to edge)", description: "Stretch across the full screen width with no side padding." },
-  rounded: { label: "Rounded corners", description: "Apply rounded corners around the image in any mode." },
+  fullWidth: { label: "Full width" },
+  rounded: { label: "Rounded corners" },
   autoplay: { label: "Play automatically" },
   categoryId: { label: "Category" },
   featuredOnly: { label: "Featured products only" },
