@@ -9,7 +9,6 @@ import type { AutoFormFieldProps } from "@autoform/react";
 
 import { AutoForm } from "@/components/ui/autoform";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -154,10 +153,9 @@ const RatioBoxes = ({
   );
 };
 
-/** Side-by-side Desktop + Mobile [ W ] : [ H ] boxes (blank = natural shape), plus "Fill image" when either ratio is set. */
+/** Side-by-side Desktop + Mobile [ W ] : [ H ] boxes (blank = natural shape). */
 const RatioPairField = () => {
   const { field, fieldState } = useController({ name: "aspectRatio" });
-  const { field: fill } = useController({ name: "fill" });
   const current = (field.value && typeof field.value === "object" ? field.value : {}) as { desktop?: string; mobile?: string };
   const nestedError = fieldState.error as { desktop?: { message?: string }; mobile?: { message?: string } } | undefined;
 
@@ -168,10 +166,8 @@ const RatioPairField = () => {
     field.onChange(Object.keys(next).length > 0 ? next : undefined);
   };
 
-  const hasAnyRatio = Boolean(current.desktop || current.mobile);
-
   return (
-    <div className="space-y-4 pb-1 mb-2">
+    <div className="space-y-3">
       <div className="space-y-1">
         <Label>Aspect ratio</Label>
         <p className="text-sm text-muted-foreground">Leave blank to use each image&apos;s natural shape.</p>
@@ -192,19 +188,9 @@ const RatioPairField = () => {
           error={nestedError?.mobile?.message}
         />
       </div>
-      {hasAnyRatio && (
-        <div className="flex items-center space-x-2">
-          <Checkbox id="fill" checked={!!fill.value} onCheckedChange={(checked) => fill.onChange(checked === true)} />
-          <Label htmlFor="fill" className="cursor-pointer">
-            Fill image
-          </Label>
-        </div>
-      )}
     </div>
   );
 };
-
-const HiddenField = () => null;
 
 /** The settings schema of a type, with the id fields shown as pickers. */
 const formSchema = (type: SectionType) => {
@@ -256,7 +242,6 @@ const FIELD_TYPE: Record<string, string> = {
   categoryId: "category",
   markdown: "markdown",
   aspectRatio: "ratioPair",
-  fill: "hidden",
 };
 
 /** Reports every form change to the parent. Lives inside AutoForm to reach its form context. */
@@ -279,7 +264,6 @@ export const SectionForm = ({ page, type, settings, categories, saving, onChange
       markdown: MarkdownField,
       category: optionsField(withCurrent, true),
       ratioPair: RatioPairField,
-      hidden: HiddenField,
       code: CodeField,
       dataQueries: dataQueriesField(withCurrent, page),
     };
