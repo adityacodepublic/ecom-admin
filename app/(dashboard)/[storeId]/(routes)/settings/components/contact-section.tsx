@@ -15,6 +15,7 @@ const ContactModal = ({ storeId, initial, onClose }: { storeId: string; initial:
   const [phone, setPhone] = useState(initial.phone);
   const [whatsapp, setWhatsapp] = useState(initial.whatsapp);
   const [email, setEmail] = useState(initial.email);
+  const [address, setAddress] = useState(initial.address);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -25,7 +26,7 @@ const ContactModal = ({ storeId, initial, onClose }: { storeId: string; initial:
     if (waError) return;
     setError("");
     setLoading(true);
-    const err = await patchSettings(`/api/${storeId}/contact`, { phone: phone.trim(), whatsapp: wa, email: email.trim() });
+    const err = await patchSettings(`/api/${storeId}/contact`, { phone: phone.trim(), whatsapp: wa, email: email.trim(), address: address.trim() });
     setLoading(false);
     if (err) return setError(err);
     toast.success("Contact details saved.");
@@ -48,14 +49,18 @@ const ContactModal = ({ storeId, initial, onClose }: { storeId: string; initial:
         <Label htmlFor="email">Email</Label>
         <Input id="email" type="email" maxLength={100} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="shop@example.com" disabled={loading} />
       </div>
+      <div className="grid gap-1.5">
+        <Label htmlFor="address">Business address</Label>
+        <Input id="address" maxLength={300} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Shop 12, MG Road, Bengaluru, Karnataka 560001" disabled={loading} />
+      </div>
     </SettingsModal>
   );
 };
 
-/** The store's contact details (shown to customers as Call / WhatsApp). One row, edited in a modal. */
+/** The store's contact details (shown to customers as Call / WhatsApp, plus business address for SEO). One row, edited in a modal. */
 export const ContactSection = ({ storeId, initial }: { storeId: string; initial: StoreContact }) => {
   const { open, show, hide } = useOpen();
-  const summary = [initial.phone, initial.whatsapp && `WhatsApp ${initial.whatsapp}`, initial.email].filter(Boolean).join(" · ") || "Not set";
+  const summary = [initial.phone, initial.whatsapp && `WhatsApp ${initial.whatsapp}`, initial.email, initial.address].filter(Boolean).join(" · ") || "Not set";
   return (
     <>
       <SettingRow title="Contact details" summary={summary} action={<EditButton onClick={show} label="Edit contact details" />} />

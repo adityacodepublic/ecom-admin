@@ -6,7 +6,6 @@ import { toast } from "react-hot-toast";
 import { ImagePlus, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { MediaPicker } from "@/components/media/media-picker";
@@ -27,8 +26,6 @@ const FaviconPreview = ({ url, fallback }: { url: string; fallback: string }) =>
   // eslint-disable-next-line @next/next/no-img-element
   return <img src={src} alt="" className="h-10 w-10 shrink-0 rounded-md border bg-white object-contain p-1" />;
 };
-
-const FAVICON_GENERATOR_URL = "https://realfavicongenerator.net";
 
 const LogoModal = ({
   storeId,
@@ -90,20 +87,14 @@ const LogoModal = ({
       </div>
       <div className="grid gap-3 border-t pt-5">
         <div className="grid gap-0.5">
-          <Label htmlFor="favicon-url">Favicon</Label>
-          <p className="text-sm text-muted-foreground">
-            The small icon in the browser tab. Leave it empty to use the logo. Need one? Make a favicon from a PNG, JPG or SVG with the free{" "}
-            <a href={FAVICON_GENERATOR_URL} target="_blank" rel="noopener noreferrer" className="font-medium text-foreground underline underline-offset-2">
-              RealFaviconGenerator
-            </a>
-            , then upload it here or paste its link.
-          </p>
+          <Label>Favicon</Label>
+          <p className="text-sm text-muted-foreground">The small icon in the browser tab. Leave it empty to use the logo.</p>
         </div>
         <div className="flex items-center gap-4">
           <FaviconPreview url={favicon} fallback={logo} />
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="secondary" size="sm" disabled={loading} onClick={() => setFaviconPickerOpen(true)}>
-              <ImagePlus className="mr-2 h-4 w-4" /> Upload or choose
+              <ImagePlus className="mr-2 h-4 w-4" /> Choose image
             </Button>
             {favicon && (
               <Button type="button" variant="outline" size="sm" disabled={loading} onClick={() => setFavicon("")}>
@@ -112,15 +103,6 @@ const LogoModal = ({
             )}
           </div>
         </div>
-        <Input
-          id="favicon-url"
-          type="url"
-          inputMode="url"
-          placeholder="https://… .ico, .png, .svg or .webp"
-          value={favicon}
-          disabled={loading}
-          onChange={(e) => setFavicon(e.target.value)}
-        />
       </div>
       <MediaPicker open={pickerOpen} onOpenChange={setPickerOpen} multiple={false} existingUrls={[]} onSelect={(items) => items[0] && setLogo(items[0].url)} />
       <MediaPicker open={faviconPickerOpen} onOpenChange={setFaviconPickerOpen} multiple={false} existingUrls={[]} onSelect={(items) => items[0] && setFavicon(items[0].url)} />

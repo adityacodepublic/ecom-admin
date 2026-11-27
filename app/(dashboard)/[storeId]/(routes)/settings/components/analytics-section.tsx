@@ -256,7 +256,7 @@ const AnalyticsModal = ({
             <p className="text-xs text-muted-foreground">Paste the whole tag or only the code in content=&quot;...&quot;. Leave empty to remove.</p>
           )}
         </div>
-        <div className="grid gap-1.5 border-t pt-3">
+        <div className="mt-5 grid gap-2 border-t pt-5">
           <Label>Google Merchant Center product feed</Label>
           <p className="text-xs text-muted-foreground">
             To list your products on Google Shopping, add this link in{" "}

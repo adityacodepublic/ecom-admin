@@ -7,11 +7,13 @@ import { readSettings, settingsPart, updateSettingsPart } from "@/lib/store-sett
  * Used by the order pages (Call / WhatsApp buttons) and anything else that needs it (footer, emails).
  */
 const field = z.string().trim().max(100);
+const addressField = z.string().trim().max(300);
 
 export const contactSchema = z.object({
   phone: field.default(""),
   whatsapp: field.default(""), // a phone number with country code, e.g. 919876543210 (used for wa.me links)
   email: z.union([z.string().trim().email().max(100), z.literal("")]).default(""),
+  address: addressField.default(""),
 });
 export type StoreContact = z.infer<typeof contactSchema>;
 
@@ -21,6 +23,7 @@ export const contactPatchSchema = z
     phone: field.optional(),
     whatsapp: field.optional(),
     email: z.union([z.string().trim().email().max(100), z.literal("")]).optional(),
+    address: addressField.optional(),
   })
   .strict();
 export type StoreContactPatch = z.infer<typeof contactPatchSchema>;
