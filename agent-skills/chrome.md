@@ -41,7 +41,7 @@ Each tag works **only** in its own part. Placing a footer tag inside `navbarHtml
 | --- | --- |
 | `<store-logo />` | Store logo and name (from `{{BASE}}/skill/branding`), linked to home. |
 | `<store-search />` | Live product search bar. |
-| `<store-cart />` | Cart button with live item count. |
+| `<store-cart />` | Cart button with live item count. Hidden when `"cart"` is off on both sides in `productButtons` (`{{BASE}}/skill/order-settings`). |
 | `<store-account />` | Sign-in button or customer account menu. |
 
 ### Footer-only tags
@@ -61,7 +61,7 @@ Write variables as `{{name}}`. The server replaces them before HTML parsing (so 
 | `{{store.name}}` | Store name (`{{BASE}}/skill/branding`). |
 | `{{store.year}}` | Current 4-digit year. |
 | `{{store.homeHref}}` | Home page path. |
-| `{{store.cartHref}}` | Cart page path. |
+| `{{store.cartHref}}` | Cart page path. If `"cart"` is off on both sides in `productButtons` (`{{BASE}}/skill/order-settings`), remove this link from `footerHtml`. |
 | `{{store.ordersHref}}` | Customer orders page path. |
 | `{{contact.phone}}` | Store phone, or empty if unset (`{{BASE}}/skill/contact`). |
 | `{{contact.whatsapp}}` | Store WhatsApp digits with country code (ready for `https://wa.me/{{contact.whatsapp}}`), or empty if unset. |

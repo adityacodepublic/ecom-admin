@@ -31,7 +31,7 @@ Read only the skill files your task needs.
 | Store name, logo, wordmark mode (`logoOnly`), and browser-tab favicon | `{{BASE}}/skill/branding` |
 | Store phone, WhatsApp, email, and business street address | `{{BASE}}/skill/contact` |
 | Read orders, move statuses, handle returns, add notes, restore stock | `{{BASE}}/skill/orders` |
-| Order status list, cancellation rules, return rules, checkout payment step, quote ("Price on request") labels | `{{BASE}}/skill/order-settings` |
+| Order status list, cancellation rules, return rules, checkout payment step, quote ("Price on request") labels, product page buttons | `{{BASE}}/skill/order-settings` |
 | Upload images (max 6 MB), list the image library, delete unused images | `{{BASE}}/skill/media` |
 | Look up customer profiles and list a customer's orders | `{{BASE}}/skill/users` |
 
@@ -101,7 +101,7 @@ The pending queue holds up to 2 MB across all waiting requests. If a write retur
 | Navbar and footer HTML (`navbarHtml`, `footerHtml`) | `Store.settings` | `/chrome` | `chrome` |
 | Store `name`, `logo`, `logoOnly`, `favicon` | `Store.name`, `Store.settings` | `/branding` | `branding` |
 | Store `phone`, `whatsapp`, `email`, `address` | `Store.settings.contact` | `/contact` | `contact` |
-| Order statuses, cancellation, returns, checkout, quote labels | `Store.settings.orders` | `/order-settings` | `order-settings` |
+| Order statuses, cancellation, returns, checkout, quote labels, product page buttons | `Store.settings.orders` | `/order-settings` | `order-settings` |
 | Orders and returns | `Order` table | `/orders` | `orders` |
 | Image library | `MediaImage` table | `/media` | `media` |
 | Customer profiles | `Users` table | `/users` | `users` |
@@ -115,7 +115,7 @@ Never guess ids. Run these reads before writing:
 1. `GET {{BASE}}/categories?page=1&pageSize=100`
 2. `GET {{BASE}}/filters?page=1&pageSize=100`
 3. `GET {{BASE}}/products?page=1&pageSize=100`
-4. `GET {{BASE}}/order-settings` (for order statuses and quote labels)
+4. `GET {{BASE}}/order-settings` (for order statuses, quote labels, and product page buttons)
 5. The skill file for your task.
 
 ## Global rules
