@@ -4,7 +4,7 @@ import { requireStoreOwnerPage } from "@/lib/api/admin-auth";
 import prismadb from "@/lib/prismadb";
 
 import { parseContact } from "@/lib/contact";
-import { parseClarityApiToken, parseClarityProjectId, parseFavicon, parseGoogleSiteVerification, parseLogo, parseLogoOnly } from "@/lib/store-settings";
+import { parseClarityApiToken, parseClarityProjectId, parseFavicon, parseGoogleAnalyticsId, parseGoogleSiteVerification, parseLogo, parseLogoOnly } from "@/lib/store-settings";
 import { AnalyticsSection } from "./components/analytics-section";
 import { LogoSection } from "./components/logo-section";
 import { parseOrderSettings } from "@/lib/orders/settings";
@@ -52,6 +52,7 @@ const SettingsPage = async ({
             clarityProjectId={parseClarityProjectId(store.settings)}
             hasApiToken={!!parseClarityApiToken(store.settings)}
             googleSiteVerification={parseGoogleSiteVerification(store.settings)}
+            googleAnalyticsId={parseGoogleAnalyticsId(store.settings)}
             customDomain={store.customDomain ?? ""}
             customDomainVerified={store.customDomainVerified}
           />

@@ -3,9 +3,9 @@ import { NextResponse } from "next/server";
 import { parseContact } from "@/lib/contact";
 import prismadb from "@/lib/prismadb";
 import { isValidSlug } from "@/lib/slug";
-import { parseClarityProjectId, parseFavicon, parseFooterHtml, parseGoogleSiteVerification, parseLogo, parseLogoOnly, parseNavbarHtml } from "@/lib/store-settings";
+import { parseClarityProjectId, parseFavicon, parseFooterHtml, parseGoogleAnalyticsId, parseGoogleSiteVerification, parseLogo, parseLogoOnly, parseNavbarHtml } from "@/lib/store-settings";
 
-// Public: the store app turns the slug in its URL into the store (id, name, logo, favicon, Clarity project id, Search Console
+// Public: the store app turns the slug in its URL into the store (id, name, logo, favicon, Clarity project id, GA4 measurement id, Search Console
 // verification token, navbar and footer HTML, contact details, custom page routes, custom domain) with this.
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -37,6 +37,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
       logoOnly: parseLogoOnly(store.settings),
       favicon: parseFavicon(store.settings),
       clarityProjectId: parseClarityProjectId(store.settings),
+      googleAnalyticsId: parseGoogleAnalyticsId(store.settings),
       googleSiteVerification: parseGoogleSiteVerification(store.settings),
       navbarHtml: parseNavbarHtml(store.settings),
       footerHtml: parseFooterHtml(store.settings),

@@ -3,11 +3,12 @@ import { z } from "zod";
 
 import { validateChromeHtml } from "@/lib/chrome-templates";
 import { CLARITY_API_TOKEN,CLARITY_API_TOKEN_ERROR, CLARITY_PROJECT_ID, CLARITY_PROJECT_ID_ERROR } from "@/lib/clarity-format";
+import { GA_MEASUREMENT_ID, GA_MEASUREMENT_ID_ERROR } from "@/lib/ga-format";
 import { GOOGLE_VERIFICATION_MAX_INPUT, extractGoogleVerificationToken } from "@/lib/google-verification-format";
 import prismadb from "@/lib/prismadb";
 
 /**
- * Store.settings (JSON, null = all defaults): { orders, contact, logo, logoOnly, favicon, clarityProjectId, clarityApiToken, clarityInsights, googleSiteVerification }.
+ * Store.settings (JSON, null = all defaults): { orders, contact, logo, logoOnly, favicon, clarityProjectId, clarityApiToken, clarityInsights, googleSiteVerification, googleAnalyticsId }.
  *   orders   order settings (lib/orders/settings.ts)
  *   contact  how customers reach the store (lib/contact.ts)
  *   logo     the store's logo/icon url, shown in the store's header and browser tab ("" = the default icon)
@@ -18,6 +19,7 @@ import prismadb from "@/lib/prismadb";
  *   navbarHtml, footerHtml  the owner's own navbar / footer HTML (lib/chrome-templates.ts; "" = the default)
  *   clarityInsights   the last visitor numbers fetched with that token, and when to ask Clarity again (lib/clarity-insights.ts)
  *   googleSiteVerification  the owner's Google Search Console HTML-tag token (lib/google-verification-format.ts; "" = none)
+ *   googleAnalyticsId  the owner's own Google Analytics 4 measurement id, "G-..." (lib/ga-format.ts; "" = no GA4 on this store's pages)
  * Each part is parsed by its own module; this file only reads and writes the parts.
  */
 export type SettingsPart =
@@ -30,6 +32,7 @@ export type SettingsPart =
   | "clarityApiToken"
   | "clarityInsights"
   | "googleSiteVerification"
+  | "googleAnalyticsId"
   | "navbarHtml"
   | "footerHtml"
   | "revalidation"
@@ -169,6 +172,23 @@ export const googleSiteVerificationSchema = z
 
 export const parseGoogleSiteVerification = (raw: unknown): string => {
   const r = googleSiteVerificationSchema.safeParse(settingsPart(raw, "googleSiteVerification") ?? "");
+  return r.success ? r.data : "";
+};
+
+// ---- Google Analytics 4 (the owner's own property)
+
+/** A GA4 measurement id, for example "G-ABC123DEF4". "" = not connected. The store writes it into a script, so only G-, letters and digits. */
+export const googleAnalyticsIdSchema = z.union([
+  z.literal(""),
+  z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(GA_MEASUREMENT_ID, GA_MEASUREMENT_ID_ERROR),
+]);
+
+export const parseGoogleAnalyticsId = (raw: unknown): string => {
+  const r = googleAnalyticsIdSchema.safeParse(settingsPart(raw, "googleAnalyticsId") ?? "");
   return r.success ? r.data : "";
 };
 

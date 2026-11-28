@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CLARITY_API_TOKEN, CLARITY_API_TOKEN_ERROR, CLARITY_PROJECT_ID, CLARITY_PROJECT_ID_ERROR } from "@/lib/clarity-format";
+import { GA_MEASUREMENT_ID, GA_MEASUREMENT_ID_ERROR, normalizeGaMeasurementId } from "@/lib/ga-format";
 import { GOOGLE_VERIFICATION_MAX_INPUT, extractGoogleVerificationToken } from "@/lib/google-verification-format";
 import { storeUrl } from "@/lib/store-url";
 
@@ -19,6 +20,7 @@ import { EditButton, SettingRow, SettingsModal, patchSettings, useOpen } from ".
 const Bold = ({ children }: { children: React.ReactNode }) => <span className="font-medium text-foreground/80">{children}</span>;
 
 const CLARITY = "https://clarity.microsoft.com";
+const GOOGLE_ANALYTICS = "https://analytics.google.com";
 const SEARCH_CONSOLE = "https://search.google.com/search-console";
 const MERCHANT_CENTER = "https://merchants.google.com";
 
@@ -70,6 +72,7 @@ const AnalyticsModal = ({
   initial,
   hasApiToken,
   initialGoogleVerification,
+  initialGoogleAnalytics,
   onClose,
 }: {
   storeId: string;
@@ -77,6 +80,7 @@ const AnalyticsModal = ({
   initial: string;
   hasApiToken: boolean;
   initialGoogleVerification: string;
+  initialGoogleAnalytics: string;
   onClose: () => void;
 }) => {
   const propertyUrl = `${baseUrl}/`; // a Search Console URL-prefix property ends with "/"
@@ -86,6 +90,7 @@ const AnalyticsModal = ({
   const [token, setToken] = useState(""); // write-only: a saved token is never sent back to the browser
   const [removeToken, setRemoveToken] = useState(false);
   const [gsvInput, setGsvInput] = useState(initialGoogleVerification);
+  const [gaInput, setGaInput] = useState(initialGoogleAnalytics);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -96,18 +101,25 @@ const AnalyticsModal = ({
   const removing = hasApiToken && removeToken && !newToken;
   const tokenError = newToken && !CLARITY_API_TOKEN.test(newToken) ? `${CLARITY_API_TOKEN_ERROR}.` : "";
   const gsv = extractGoogleVerificationToken(gsvInput);
+  const gaId = normalizeGaMeasurementId(gaInput);
+  const gaError = gaId && !GA_MEASUREMENT_ID.test(gaId) ? `${GA_MEASUREMENT_ID_ERROR}.` : "";
 
   const onSave = async () => {
-    if (idError || tokenError || !gsv.ok) return;
+    if (idError || tokenError || !gsv.ok || gaError) return;
     setError("");
     setLoading(true);
-    const body: { clarityProjectId: string; clarityApiToken?: string; googleSiteVerification: string } = { clarityProjectId: id, googleSiteVerification: gsv.token };
+    const body: { clarityProjectId: string; clarityApiToken?: string; googleSiteVerification: string; googleAnalyticsId: string } = {
+      clarityProjectId: id,
+      googleSiteVerification: gsv.token,
+      googleAnalyticsId: gaId,
+    };
     if (newToken) body.clarityApiToken = newToken;
     else if (removeToken) body.clarityApiToken = "";
     const err = await patchSettings(`/api/${storeId}/analytics`, body);
     setLoading(false);
     if (err) return setError(err);
     if (id !== initial) toast.success(id ? "Clarity connected." : "Clarity turned off.");
+    else if (gaId !== initialGoogleAnalytics) toast.success(gaId ? "Google Analytics connected." : "Google Analytics turned off.");
     else if (gsv.token !== initialGoogleVerification) toast.success(gsv.token ? "Search Console tag saved." : "Search Console tag removed.");
     else toast.success("Visitor analytics saved.");
     router.refresh();
@@ -122,7 +134,7 @@ const AnalyticsModal = ({
       onSave={onSave}
       loading={loading}
       error={error}
-      saveDisabled={!!idError || !!tokenError || !gsv.ok}
+      saveDisabled={!!idError || !!tokenError || !gsv.ok || !!gaError}
     >
       <p className="text-sm text-muted-foreground">
         Clarity is free. It records how visitors use your store: heatmaps, session recordings, funnels and where visitors come from.
@@ -146,7 +158,7 @@ const AnalyticsModal = ({
         <div className="grid gap-1.5">
           <Label htmlFor="clarity-id">Clarity project ID</Label>
           <Input id="clarity-id" maxLength={20} value={value} onChange={(e) => setValue(e.target.value)} placeholder="zg7vtqkayo" disabled={loading} />
-          {idError ? <p className="text-sm text-destructive">{idError}</p> : <p className="text-xs text-muted-foreground">Leave it empty to turn analytics off.</p>}
+          {idError ? <p className="text-sm text-destructive">{idError}</p> : <p className="text-xs text-muted-foreground">Leave it empty to turn Clarity off.</p>}
         </div>
       </Step>
 
@@ -210,7 +222,45 @@ const AnalyticsModal = ({
         </div>
       </Step>
 
-      <Step n={3} title="Verify your store in Google Search Console" optional>
+      <Step n={3} title="Connect Google Analytics 4" optional>
+        <p className="text-sm text-muted-foreground">
+          Google Analytics is free. It counts visitors, where they come from and what they do, next to your other Google reports.
+        </p>
+        <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
+          <li>
+            In{" "}
+            <a href={GOOGLE_ANALYTICS} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
+              Google Analytics
+            </a>
+            , open <Bold>Admin</Bold> &gt; <Bold>Data streams</Bold> and add a <Bold>Web</Bold> stream with your store link.
+            <CopyRow value={baseUrl} label="store link" openHref={GOOGLE_ANALYTICS} openLabel="Open Google Analytics" />
+          </li>
+          <li>
+            Keep <Bold>Enhanced measurement</Bold> on, with <Bold>Page changes based on browser history events</Bold> checked: that is how pages
+            opened inside your store are counted.
+          </li>
+          <li>
+            Copy the <Bold>Measurement ID</Bold> (it starts with <span className="font-mono">G-</span>) and paste it below.
+          </li>
+        </ol>
+        <div className="grid gap-1.5">
+          <Label htmlFor="ga-id">Measurement ID</Label>
+          <Input
+            id="ga-id"
+            autoComplete="off"
+            spellCheck={false}
+            maxLength={30}
+            value={gaInput}
+            onChange={(e) => setGaInput(e.target.value)}
+            placeholder="G-ABC123DEF4"
+            disabled={loading}
+            className="font-mono"
+          />
+          {gaError ? <p className="text-sm text-destructive">{gaError}</p> : <p className="text-xs text-muted-foreground">Leave it empty to turn Google Analytics off.</p>}
+        </div>
+      </Step>
+
+      <Step n={4} title="Verify your store in Google Search Console" optional>
         <p className="text-sm text-muted-foreground">
           Search Console is free. It shows how your store appears in Google Search, which searches bring visitors, and any indexing problems.
         </p>
@@ -275,13 +325,17 @@ const AnalyticsModal = ({
   );
 };
 
-/** The owner's Microsoft Clarity project id (heatmaps, recordings, funnels live in the owner's own Clarity) and Google Search Console verification. One row, edited in a modal. */
+/**
+ * The owner's Microsoft Clarity project id (heatmaps, recordings, funnels live in the owner's own Clarity), Google Analytics 4
+ * measurement id and Google Search Console verification. One row, edited in a modal.
+ */
 export const AnalyticsSection = ({
   storeId,
   slug,
   clarityProjectId,
   hasApiToken,
   googleSiteVerification,
+  googleAnalyticsId,
   customDomain,
   customDomainVerified,
 }: {
@@ -290,18 +344,26 @@ export const AnalyticsSection = ({
   clarityProjectId: string;
   hasApiToken: boolean;
   googleSiteVerification: string;
+  googleAnalyticsId: string;
   customDomain: string;
   customDomainVerified: boolean;
 }) => {
   const { open, show, hide } = useOpen();
-  const clarity = clarityProjectId ? (hasApiToken ? "Connected, dashboard numbers on" : "Connected") : "Not connected";
+  const summary =
+    [
+      clarityProjectId && (hasApiToken ? "Clarity connected, dashboard numbers on" : "Clarity connected"),
+      googleAnalyticsId && "Google Analytics connected",
+      googleSiteVerification && "Search Console tag added",
+    ]
+      .filter(Boolean)
+      .join(" · ") || "Not connected";
   // The store's public address: its own domain once verified, otherwise the platform link.
   const baseUrl = customDomainVerified && customDomain ? `https://${customDomain}` : storeUrl(slug);
   return (
     <>
       <SettingRow
         title="Visitor analytics"
-        summary={googleSiteVerification ? `${clarity} · Search Console tag added` : clarity}
+        summary={summary}
         action={<EditButton onClick={show} label="Edit visitor analytics" />}
       />
       {open && (
@@ -311,6 +373,7 @@ export const AnalyticsSection = ({
           initial={clarityProjectId}
           hasApiToken={hasApiToken}
           initialGoogleVerification={googleSiteVerification}
+          initialGoogleAnalytics={googleAnalyticsId}
           onClose={hide}
         />
       )}
