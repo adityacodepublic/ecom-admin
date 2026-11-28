@@ -6,5 +6,5 @@ import { cn } from "@/lib/utils";
  * components/loading/.
  */
 export const Skeleton = ({ className, style }: { className?: string; style?: React.CSSProperties }) => (
-  <div aria-hidden className={cn("animate-pulse rounded-md bg-muted", className)} style={style} />
+  <div aria-hidden className={cn("animate-pulse rounded-md bg-zinc-200/65 dark:bg-muted", className)} style={style} />
 );
