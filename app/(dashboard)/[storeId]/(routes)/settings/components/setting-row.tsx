@@ -4,6 +4,7 @@ import { ReactNode, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
+import { cn } from "@/lib/utils";
 
 /** A bordered list of settings, one row each. */
 export const SettingsList = ({ children }: { children: ReactNode }) => <div className="divide-y rounded-lg border">{children}</div>;
@@ -34,6 +35,7 @@ export const SettingsModal = ({
   loading,
   error,
   saveDisabled,
+  className,
   children,
 }: {
   title: string;
@@ -43,9 +45,11 @@ export const SettingsModal = ({
   loading: boolean;
   error?: string;
   saveDisabled?: boolean;
+  /** Extra classes for the dialog, e.g. a wider max width. */
+  className?: string;
   children: ReactNode;
 }) => (
-  <Modal title={title} description="" isOpen={isOpen} onClose={onClose} className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+  <Modal title={title} description="" isOpen={isOpen} onClose={onClose} className={cn("max-h-[90vh] overflow-y-auto sm:max-w-lg", className)}>
     <div className="space-y-5">
       <div className="flex flex-col gap-7">{children}</div>
       {error && <p className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}

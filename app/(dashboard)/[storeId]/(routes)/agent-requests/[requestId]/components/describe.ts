@@ -43,6 +43,8 @@ const LABELS: Record<string, string> = {
   payment: "Payment method",
   expectedDelivery: "Expected delivery",
   privateNote: "Private note",
+  productButtons: "Product page buttons",
+  quote: "Words for products without a price",
 };
 
 const clip = (s: string, n = 120) => (s.length > n ? `${s.slice(0, n)}…` : s);

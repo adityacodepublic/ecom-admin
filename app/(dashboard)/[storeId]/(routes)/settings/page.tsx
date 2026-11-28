@@ -59,7 +59,7 @@ const SettingsPage = async ({
         <h3 className="pt-4 text-lg font-semibold tracking-tight">Domain</h3>
         <CustomDomainCard storeId={store.id} initialDomain={store.customDomain} />
         <h3 className="pt-4 text-lg font-semibold tracking-tight">Orders</h3>
-        <OrderSettingsCard storeId={store.id} initial={orderSettings} />
+        <OrderSettingsCard storeId={store.id} initial={orderSettings} contact={{ phone: contact.phone, whatsapp: contact.whatsapp }} />
         <h3 className="pt-4 text-lg font-semibold tracking-tight">Agent</h3>
         <AgentAccessCard storeId={store.id} />
         <h3 className="pt-4 text-lg font-semibold tracking-tight">Ownership</h3>

@@ -9,6 +9,7 @@ import { OrderDetails, OrderItemSnapshot, detailsToJson, orderDetailsSchema } fr
 import { OrderError } from "./errors";
 import { CANCELLED, COD, PaymentStatus, QUOTE, isQuote, normalizePaymentStatus } from "./status";
 import { parseOrderSettings } from "./settings";
+import { takesOrders, type ProductButtons } from "./product-buttons";
 import { TX_OPTIONS, newEvent } from "./update";
 import { notifyOrder } from "./notify";
 import { addressInputSchema, fillProfile, isProfileComplete, profileCreateSchema } from "./customer";
@@ -113,6 +114,8 @@ export async function createOrder(storeId: string, customerId: string, input: Ch
   ]);
   if (!store) throw new OrderError("STORE_NOT_FOUND", "Store not found");
   const settings = parseOrderSettings(store.settings);
+  // No Add to cart or Buy now anywhere: the store takes no orders on the site (customers use WhatsApp or Call).
+  if (!takesOrders(settings.productButtons.withPrice) && !takesOrders(settings.productButtons.withoutPrice)) ordersOff();
 
   let payment = "";
   // A quote request has no payment step: the method is set when the customer accepts the price.
@@ -138,7 +141,7 @@ export async function createOrder(storeId: string, customerId: string, input: Ch
 
   for (let attempt = 1; ; attempt++) {
     try {
-      const { result, duplicate, soldOut } = await prismadb.$transaction((tx) => placeOrder(tx, storeId, customerId, payment, settings.statuses[0], input, profile!, address), TX_OPTIONS);
+      const { result, duplicate, soldOut } = await prismadb.$transaction((tx) => placeOrder(tx, storeId, customerId, payment, settings.statuses[0], settings.productButtons, input, profile!, address), TX_OPTIONS);
       if (duplicate) duplicateOrders.count++;
       else {
         // Stock was taken. The storefront needs to hear about it only when a product just sold out (10 -> 8 changes nothing it caches).
@@ -199,6 +202,7 @@ async function placeOrder(
   customerId: string,
   payment: string,
   startStatus: string,
+  buttons: ProductButtons,
   input: CheckoutInput,
   profile: Profile,
   savedAddress: Address | null,
@@ -223,6 +227,8 @@ async function placeOrder(
   //    its stock now; a quote only checks the products (its stock is taken when the customer accepts the price).
   const products = await tx.product.findMany({ where: { id: { in: input.items.map((i) => i.productId) }, storeId }, select: productCheckSelect });
   const quote = products.some((p) => p.price === null);
+  // Every item in the cart must belong to a side that takes orders on the site.
+  if (products.some((p) => !takesOrders(p.price === null ? buttons.withoutPrice : buttons.withPrice))) ordersOff();
   const { taken, soldOut } = quote ? { taken: checkProducts(input.items, products), soldOut: [] } : await takeStock(tx, storeId, input.items);
   if (!quote && Array.from(taken.values()).some((p) => p.price === null)) quoteMismatch(); // switched to "Price on request" just now
 
@@ -334,6 +340,10 @@ function checkLimit(item: Wanted, p: ProductRow) {
 }
 
 /** The seller switched a product's "Price on request" between our two reads: the customer must look again. */
+function ordersOff(): never {
+  throw new OrderError("ORDERS_OFF", "This store does not take these orders on the site. Contact the store on WhatsApp or by phone.");
+}
+
 function quoteMismatch(): never {
   throw new OrderError("PRICE_CHANGED", "Prices changed since you opened the cart. Please check your cart again.");
 }

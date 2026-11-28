@@ -748,6 +748,28 @@ async function main() {
   }
   check('quote: "Quote" is reserved: not allowed in the status list', reserved);
 
+  // ------------------------------------------------------------ 10e. product page buttons (Settings > Orders)
+  const PB = await makeStore("PB");
+  const pc = `zz_ord_pc_${Date.now()}`;
+  createdUsers.push(pc);
+  const pen = await PB.product("Pen", "5.00", 20, 10);
+  const customPen = await prismadb.product.create({ data: { storeId: PB.store.id, categoryId: pen.categoryId, name: "Custom pen", price: null, quantity: 5, maxQuantity: 5 } });
+  const pbCart = (productId: string, quantity: number, quote: boolean) => ({ items: [{ productId, quantity }], address: newAddress, contact: contact("pc"), quote, ...(quote ? {} : { paymentMethod: "COD" }) });
+
+  check("buttons: a side with no buttons -> VALIDATION", (await qErr(updateOrderSettings(PB.store.id, { productButtons: { withPrice: { main: [], secondary: [] } } }))) === "VALIDATION");
+  check("buttons: a button in main and secondary -> VALIDATION", (await qErr(updateOrderSettings(PB.store.id, { productButtons: { withPrice: { main: ["whatsapp"] } } }))) === "VALIDATION");
+  const onlyChat = await updateOrderSettings(PB.store.id, { productButtons: { withPrice: { main: [], secondary: ["whatsapp"] } } });
+  check("buttons: saved; the other side and the statuses are unchanged", onlyChat?.productButtons.withoutPrice.main.join() === "cart,buy" && onlyChat?.statuses[0] === "Placed", onlyChat?.productButtons);
+  const pricedOff = await checkout(PB.store.id, pc, pbCart(pen.id, 1, false));
+  check("buttons: priced products without Add to cart or Buy now -> ORDERS_OFF, no stock taken", pricedOff.status === 409 && pricedOff.body?.error?.code === "ORDERS_OFF" && (await stockOf(pen.id)) === 20, pricedOff.body);
+  const mixedOff = await checkout(PB.store.id, pc, { items: [{ productId: pen.id, quantity: 1 }, { productId: customPen.id, quantity: 1 }], address: newAddress, contact: contact("pc"), quote: true });
+  check("buttons: mixed cart with priced side off -> ORDERS_OFF", mixedOff.status === 409 && mixedOff.body?.error?.code === "ORDERS_OFF", mixedOff.body);
+  const quoteStillOn = await checkout(PB.store.id, pc, pbCart(customPen.id, 1, true));
+  check("buttons: products without a price still send quote requests", quoteStillOn.status === 201, quoteStillOn.body);
+  await updateOrderSettings(PB.store.id, { productButtons: { withoutPrice: { main: ["call"], secondary: [] } } });
+  const allOff = await checkout(PB.store.id, pc, pbCart(customPen.id, 2, true));
+  check("buttons: no Add to cart or Buy now anywhere -> ORDERS_OFF", allOff.status === 409 && allOff.body?.error?.code === "ORDERS_OFF", allOff.body);
+
   // ------------------------------------------------------------ 11. every order in the database matches the details schema
   const all = await prismadb.order.findMany({ select: { id: true, details: true } });
   const broken = all.filter((o) => !orderDetailsSchema.safeParse(o.details).success).map((o) => o.id);

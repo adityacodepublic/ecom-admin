@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { parseContact, type StoreContact } from "@/lib/contact";
 import { readSettings, readSettingsTx, settingsPart, updateSettingsPart } from "@/lib/store-settings";
+import { DEFAULT_PRODUCT_BUTTONS, mergeProductButtons, productButtonsPatchSchema, productButtonsSchema, type ProductButtons } from "./product-buttons";
 import { DEFAULT_ORDER_STATUSES, DEFAULT_RETURN_REASONS, DEFAULT_RETURN_STATUSES, REJECTED, RETURN_WINDOW_DEFAULT, cleanStatusList } from "./status";
 
 /**
@@ -18,6 +19,7 @@ import { DEFAULT_ORDER_STATUSES, DEFAULT_RETURN_REASONS, DEFAULT_RETURN_STATUSES
  *   returns              customer returns: on/off, the window in days, the reasons, the return statuses
  *   quote                the words the store shows for price-on-request products: the checkout button of a quote
  *                        ("Request a quote") and the text in place of the price ("Price on request")
+ *   productButtons       the product page buttons (lib/orders/product-buttons.ts)
  */
 const statusList = z.array(z.string()).transform((a, ctx) => {
   const r = cleanStatusList(a);
@@ -82,6 +84,8 @@ export const orderSettingsSchema = z.object({
   cancellation: cancellationSchema.default({}),
   returns: returnsSchema.default({}),
   quote: quoteLabelsSchema.default({}),
+  // Bad stored buttons fall back to the default buttons only, not every order setting.
+  productButtons: productButtonsSchema.default({}).catch(DEFAULT_PRODUCT_BUTTONS),
 });
 export type OrderSettings = z.infer<typeof orderSettingsSchema>;
 
@@ -95,6 +99,7 @@ export const orderSettingsPatchSchema = z
     cancellation: cancellationSchema.partial().optional(),
     returns: returnsSchema.partial().optional(),
     quote: quoteLabelsSchema.partial().optional(),
+    productButtons: productButtonsPatchSchema.optional(),
   })
   .strict();
 export type OrderSettingsPatch = z.infer<typeof orderSettingsPatchSchema>;
@@ -127,6 +132,7 @@ export type PublicOrderSettings = {
   cancellation: { enabled: boolean; askReason: boolean; reasons: string[] };
   returns: { enabled: boolean; windowDays: number; reasons: string[]; statuses: string[] };
   quote: QuoteLabels;
+  productButtons: ProductButtons;
 };
 
 export const publicOrderSettings = (s: OrderSettings, c: StoreContact): PublicOrderSettings => ({
@@ -136,6 +142,7 @@ export const publicOrderSettings = (s: OrderSettings, c: StoreContact): PublicOr
   cancellation: { enabled: s.cancellation.enabled, askReason: s.cancellation.askReason, reasons: s.cancellation.reasons },
   returns: { enabled: s.returns.enabled, windowDays: s.returns.windowDays, reasons: s.returns.reasons, statuses: s.returns.statuses },
   quote: { button: s.quote.button, priceText: s.quote.priceText },
+  productButtons: s.productButtons,
 });
 
 /** Full settings of a store, or null when the store does not exist. For admin server pages. */
@@ -149,7 +156,7 @@ export async function getOrderSettingsTx(tx: Prisma.TransactionClient, storeId: 
   return parseOrderSettings(await readSettingsTx(tx, storeId));
 }
 
-/** Merges a patch into the store's settings (owner check is the caller's job). */
+/** Merges a patch into the store's settings (owner check is the caller's job). Throws OrderError. */
 export async function updateOrderSettings(storeId: string, patch: OrderSettingsPatch): Promise<OrderSettings | null> {
   return updateSettingsPart(storeId, "orders", (stored) => {
     const current = parseOrderSettings({ orders: stored });
@@ -160,6 +167,7 @@ export async function updateOrderSettings(storeId: string, patch: OrderSettingsP
         cancellation: { ...current.cancellation, ...patch.cancellation },
         returns: { ...current.returns, ...patch.returns },
         quote: { ...current.quote, ...patch.quote },
+        productButtons: mergeProductButtons(current.productButtons, patch.productButtons),
       }),
     );
   });

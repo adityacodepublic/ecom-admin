@@ -9,12 +9,12 @@ import { Label } from "@/components/ui/label";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Switch } from "@/components/ui/switch";
 import { TagInput } from "@/components/ui/tag-input";
-import { QUOTE_BUTTON_PRESETS, QUOTE_LABEL_MAX, QUOTE_PRICE_PRESETS, type OrderSettings } from "@/lib/orders/settings";
-import { cn } from "@/lib/utils";
+import { type OrderSettings } from "@/lib/orders/settings";
 import { REJECTED, cleanStatusList } from "@/lib/orders/status";
 
 import { PushSetting } from "@/components/push/push-setting";
 
+import { ProductButtonsRow } from "./product-buttons-section";
 import { EditButton, SettingRow, SettingsList, SettingsModal, patchSettings, useOpen } from "./setting-row";
 
 const toText = (list: string[]) => list.join(", ");
@@ -151,75 +151,23 @@ const ReturnsModal = ({ storeId, initial, onClose }: ModalProps) => {
   );
 };
 
-// ---------------------------------------------------------------- quote words
-
-/** One label: a few common choices as chips, or the owner's own words in the box. */
-const LabelPicker = ({ id, label, help, presets, value, onChange, disabled }: { id: string; label: string; help: string; presets: string[]; value: string; onChange: (v: string) => void; disabled: boolean }) => (
-  <div className="grid gap-1.5">
-    <Label htmlFor={id}>{label}</Label>
-    <div className="flex flex-wrap gap-1.5">
-      {presets.map((p) => (
-        <button
-          key={p}
-          type="button"
-          disabled={disabled}
-          onClick={() => onChange(p)}
-          className={cn(
-            "rounded-full border px-2.5 py-0.5 text-xs transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-            value === p && "border-primary bg-primary text-primary-foreground hover:bg-primary/90",
-          )}
-        >
-          {p}
-        </button>
-      ))}
-    </div>
-    <Input id={id} maxLength={QUOTE_LABEL_MAX} value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled} />
-    <p className="text-xs text-muted-foreground">{help}</p>
-  </div>
-);
-
-/** The words the store shows for price-on-request products: the checkout button of a quote, and the text in place of the price. */
-const QuoteWordsModal = ({ storeId, initial, onClose }: ModalProps) => {
-  const { save, loading, error } = useSave(storeId, onClose);
-  const [button, setButton] = useState(initial.quote.button);
-  const [priceText, setPriceText] = useState(initial.quote.priceText);
-  return (
-    <SettingsModal title="Quotes & enquiries" isOpen onClose={onClose} onSave={() => save({ quote: { button, priceText } })} loading={loading} error={error}>
-      <p className="text-sm -mt-1 text-muted-foreground">
-        For Price on request items, customers can request a quote right from the product page or add items in their cart to submit at checkout. Instead of paying upfront; they send a request, and you set the price on the order.
-      </p>
-      <LabelPicker
-        id="quote-price"
-        label="Text shown in place of the price"
-        help="On the product page, product cards and the cart."
-        presets={QUOTE_PRICE_PRESETS}
-        value={priceText}
-        onChange={setPriceText}
-        disabled={loading}
-      />
-      <LabelPicker
-        id="quote-button"
-        label="Checkout button text"
-        help="The button that sends the request, in product page and when the cart has a price-on-request product."
-        presets={QUOTE_BUTTON_PRESETS}
-        value={button}
-        onChange={setButton}
-        disabled={loading}
-      />
-    </SettingsModal>
-  );
-};
-
 // ---------------------------------------------------------------- the section
 
 /** The Orders settings: one row per setting. Each opens its own small form with its own Save; the payment switch saves at once. */
-export const OrderSettingsCard = ({ storeId, initial }: { storeId: string; initial: OrderSettings }) => {
+export const OrderSettingsCard = ({
+  storeId,
+  initial,
+  contact,
+}: {
+  storeId: string;
+  initial: OrderSettings;
+  contact: { phone: string; whatsapp: string };
+}) => {
   const router = useRouter();
   const [paymentStep, setPaymentStep] = useState(initial.checkoutPaymentStep);
   const statuses = useOpen();
   const cancel = useOpen();
   const returns = useOpen();
-  const quote = useOpen();
 
   const onPaymentStep = async (value: boolean) => {
     setPaymentStep(value);
@@ -250,16 +198,11 @@ export const OrderSettingsCard = ({ storeId, initial }: { storeId: string; initi
           action={<EditButton onClick={cancel.show} label="Edit cancellation" />}
         />
         <SettingRow title="Returns" summary={r.enabled ? `On · ${r.windowDays} days` : "Off"} action={<EditButton onClick={returns.show} label="Edit returns" />} />
-        <SettingRow
-          title="Quotes & enquiries"
-          summary={`"${initial.quote.priceText}" · button "${initial.quote.button}"`}
-          action={<EditButton onClick={quote.show} label="Edit quotes and enquiries" />}
-        />
+        <ProductButtonsRow storeId={storeId} initial={initial} contact={contact} />
       </SettingsList>
       {statuses.open && <StatusesModal storeId={storeId} initial={initial} onClose={statuses.hide} />}
       {cancel.open && <CancellationModal storeId={storeId} initial={initial} onClose={cancel.hide} />}
       {returns.open && <ReturnsModal storeId={storeId} initial={initial} onClose={returns.hide} />}
-      {quote.open && <QuoteWordsModal storeId={storeId} initial={initial} onClose={quote.hide} />}
     </>
   );
 };
