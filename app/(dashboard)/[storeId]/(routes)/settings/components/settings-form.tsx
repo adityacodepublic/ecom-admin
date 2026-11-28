@@ -2,19 +2,16 @@
 
 import axios from "axios"
 import { toast } from "react-hot-toast"
-import { Trash } from "lucide-react"
 import { Store } from "@prisma/client"
 import { useParams, useRouter } from "next/navigation"
 import { useState } from "react"
 
 import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Heading } from "@/components/ui/heading"
 import { storeUrl } from "@/lib/store-url"
 import { ChangeSlugModal } from "./change-slug-modal"
-import { DeleteStoreModal } from "./delete-store-modal"
 import { StoreUrlCard } from "./store-url-card"
 import { EditButton, SettingRow, SettingsList, SettingsModal, useOpen } from "./setting-row"
 
@@ -31,7 +28,6 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
   const params = useParams();
   const router = useRouter();
 
-  const [open, setOpen] = useState(false);
   const [slugOpen, setSlugOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -55,21 +51,6 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
     }
   };
 
-  const onDelete = async () => {
-    try {
-      setLoading(true);
-      await axios.delete(`/api/stores/${params.storeId}`);
-      router.refresh();
-      router.push('/');
-      toast.success('Store deleted.');
-    } catch (error: any) {
-      toast.error('The store was not deleted. Remove its products, categories, filters, customers and orders first.');
-    } finally {
-      setLoading(false);
-      setOpen(false);
-    }
-  }
-
   return (
     <>
     <ChangeSlugModal
@@ -78,25 +59,8 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
       isOpen={slugOpen}
       onClose={() => setSlugOpen(false)}
     />
-    <DeleteStoreModal
-      storeName={initialData.name}
-      storeUrl={storeUrl(initialData.slug)}
-      isOpen={open}
-      onClose={() => setOpen(false)}
-      onConfirm={onDelete}
-      loading={loading}
-    />
-     <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between">
         <Heading title="Store settings" />
-        <Button
-          disabled={loading}
-          variant="destructive"
-          size="sm"
-          onClick={() => setOpen(true)}
-        >
-          <Trash className="mr-2 h-4 w-4" />
-          Delete store
-        </Button>
       </div>
       <Separator />
       <SettingsList>

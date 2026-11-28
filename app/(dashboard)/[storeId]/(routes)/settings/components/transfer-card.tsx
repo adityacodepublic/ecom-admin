@@ -1,13 +1,17 @@
 "use client";
 
-import { Copy } from "lucide-react";
+import axios from "axios";
+import { Copy, Trash } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
+import { storeUrl } from "@/lib/store-url";
 
+import { DeleteStoreModal } from "./delete-store-modal";
 import { SettingRow, SettingsList, SettingsModal, useOpen } from "./setting-row";
 
 type Pending = { email: string; createdAt: string; expired: boolean } | null;
@@ -140,13 +144,31 @@ const ManageModal = ({ storeId, pending, onClose, onCancelled }: { storeId: stri
 
 // ---------------------------------------------------------------- the row
 
-/** Handing this one store to another account, as one settings row. */
-export const TransferCard = ({ storeId }: { storeId: string }) => {
+/** Ownership actions (transfer and delete) in one settings list. */
+export const TransferCard = ({ storeId, storeName, storeSlug }: { storeId: string; storeName: string; storeSlug: string }) => {
+  const router = useRouter();
   const [pending, setPending] = useState<Pending | undefined>(undefined); // undefined = loading
   const [failed, setFailed] = useState(false);
   const start = useOpen();
   const manage = useOpen();
   const [created, setCreated] = useState<{ url: string; email: string } | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const onDelete = async () => {
+    try {
+      setDeleting(true);
+      await axios.delete(`/api/stores/${storeId}`);
+      router.refresh();
+      router.push("/");
+      toast.success("Store deleted.");
+    } catch {
+      toast.error("The store was not deleted. Remove its products, categories, filters, customers and orders first.");
+    } finally {
+      setDeleting(false);
+      setDeleteOpen(false);
+    }
+  };
 
   const applyPending = useCallback((data: any, error: string | null) => {
     if (error || !data) {
@@ -199,7 +221,25 @@ export const TransferCard = ({ storeId }: { storeId: string }) => {
             )
           }
         />
+        <SettingRow
+          title="Delete store"
+          summary="Permanently delete this store and its settings"
+          action={
+            <Button type="button" variant="destructive" size="sm" disabled={deleting} onClick={() => setDeleteOpen(true)}>
+              <Trash className="mr-2 h-4 w-4" />
+              Delete store
+            </Button>
+          }
+        />
       </SettingsList>
+      <DeleteStoreModal
+        storeName={storeName}
+        storeUrl={storeUrl(storeSlug)}
+        isOpen={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={onDelete}
+        loading={deleting}
+      />
       {start.open && (
         <StartModal
           storeId={storeId}

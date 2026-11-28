@@ -64,7 +64,7 @@ const SettingsPage = async ({
         <h3 className="pt-4 text-lg font-semibold tracking-tight">Agent</h3>
         <AgentAccessCard storeId={store.id} />
         <h3 className="pt-4 text-lg font-semibold tracking-tight">Ownership</h3>
-        <TransferCard storeId={store.id} />
+        <TransferCard storeId={store.id} storeName={store.name} storeSlug={store.slug} />
       </div>
     </div>
   );

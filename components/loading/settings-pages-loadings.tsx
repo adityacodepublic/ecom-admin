@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 import { HeadingLoading, PageFrame, SeparatorLoading } from "./page-loadings";
 
-/** The settings page: the heading with its delete button, then each group of settings as one block under its title. */
+/** The settings page: the heading, then each group of settings as one block under its title. */
 export const SettingsLoading = () => {
   const title = (
     <div className="pt-4">
@@ -11,15 +11,17 @@ export const SettingsLoading = () => {
   );
   return (
     <PageFrame fluid>
-      <HeadingLoading titleW="w-48" action={<Skeleton className="h-9 w-[88px]" />} />
+      <HeadingLoading titleW="w-48" />
       <SeparatorLoading />
       <Skeleton className="h-[324px] rounded-lg" />
+      {title}
+      <Skeleton className="h-[65px] rounded-lg" />
       {title}
       <Skeleton className="h-[429px] rounded-lg md:h-[389px]" />
       {title}
       <Skeleton className="h-[65px] rounded-lg" />
       {title}
-      <Skeleton className="h-[65px] rounded-lg" />
+      <Skeleton className="h-[130px] rounded-lg" />
     </PageFrame>
   );
 };
