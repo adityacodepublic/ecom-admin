@@ -89,10 +89,10 @@ async function restoreStock(tx: Prisma.TransactionClient, orderId: string, store
   for (const productId of Array.from(perProduct.keys()).sort()) {
     const n = perProduct.get(productId)!;
     if (n <= 0) continue;
-    // A deleted product is simply skipped (0 rows).
+    // A deleted product or one with untracked stock (quantity IS NULL) is skipped (0 rows).
     const [row] = await tx.$queryRaw<{ quantity: number; categoryId: string }[]>`
       UPDATE "Product" SET quantity = quantity + ${n}, "updatedAt" = now()
-      WHERE id = ${productId} AND "storeId" = ${storeId}
+      WHERE id = ${productId} AND "storeId" = ${storeId} AND quantity IS NOT NULL
       RETURNING quantity, "categoryId"`;
     if (row && row.quantity > 0 && row.quantity - n <= 0) backInStock.push({ id: productId, categoryId: row.categoryId }); // it was out of stock before
   }

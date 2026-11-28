@@ -81,7 +81,7 @@ async function makeStore(name: string, settings?: object) {
   return { store, product };
 }
 
-const stockOf = async (id: string) => (await prismadb.product.findUniqueOrThrow({ where: { id } })).quantity;
+const stockOf = async (id: string) => (await prismadb.product.findUniqueOrThrow({ where: { id } })).quantity ?? 0;
 const contact = (n: string) => ({ fname: `Test ${n}`, email: `${n}@example.com`, phone: "+91 98765 43210" });
 const newAddress = { new: { street: "12 MG Road", city: "Pune", state: "Maharashtra", pincode: "411001", instructions: "Ring bell" } };
 

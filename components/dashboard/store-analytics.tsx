@@ -54,7 +54,7 @@ export const StoreAnalyticsCards = async ({ storeId, data }: { storeId: string; 
   const orders = (filters: Record<string, string>) => `/${storeId}/orders?${new URLSearchParams({ ...filters, from: a.from })}`;
   const { stock, buyers } = a;
   const max = Math.max(1, ...a.categories.map((c) => c.paise));
-  const stockRows = (title: string, g: { count: number; items: { id: string; name: string; quantity: number }[] }) => [
+  const stockRows = (title: string, g: { count: number; items: { id: string; name: string; quantity: number | null }[] }) => [
     { key: title, label: <span className="font-medium">{title}</span>, value: String(g.count) },
     ...g.items.map((p) => ({
       key: `${title}-${p.id}`,

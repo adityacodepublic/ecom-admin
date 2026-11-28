@@ -30,7 +30,8 @@ type Shown = Prisma.ProductGetPayload<{ select: typeof shownSelect }>;
 
 function diffShown(a: Shown, b: Shown) {
   // In stock <-> out of stock: the card's badge flips, and the cached page must not offer an out-of-stock product.
-  const crossedZero = a.quantity <= 0 !== b.quantity <= 0;
+  const out = (q: number | null) => q !== null && q <= 0;
+  const crossedZero = out(a.quantity) !== out(b.quantity);
   const categoryChanged = a.categoryId !== b.categoryId;
   const listingChanged =
     crossedZero ||
@@ -42,6 +43,7 @@ function diffShown(a: Shown, b: Shown) {
     (a.images[0]?.url ?? "") !== (b.images[0]?.url ?? "");
   const detailChanged =
     (a.description ?? "") !== (b.description ?? "") ||
+    (a.quantity === null) !== (b.quantity === null) ||
     a.maxQuantity !== b.maxQuantity ||
     a.images.map((i) => i.url).join("|") !== b.images.map((i) => i.url).join("|") ||
     a.filteritems.map((i) => i.valueId).sort().join("|") !== b.filteritems.map((i) => i.valueId).sort().join("|");
@@ -212,26 +214,24 @@ export async function PATCH(
       return new NextResponse(checkedPrice.error, { status: 400 });
     }
 
-    if (quantity === undefined || quantity === null || quantity === "") {
-      return new NextResponse("Quantity is required", { status: 400 });
+    if (quantity === undefined || quantity === "") {
+      return new NextResponse("Quantity is required (or null to skip stock tracking)", { status: 400 });
     }
 
-    if (!isStockQuantity(quantity)) {
+    if (quantity !== null && !isStockQuantity(quantity)) {
       return new NextResponse("Quantity must be a whole number, 0 or more", { status: 400 });
     }
 
-    // The admin form sends the stock it loaded. Only an actual edit (quantity differs) writes stock, so saving
-    // a name change cannot overwrite sales that happened since the page opened. Absent = API client: write as given.
+    // The admin form sends the stock it loaded (number or null). Only an actual edit (quantity differs) writes stock,
+    // so saving a name change cannot overwrite sales that happened since the page opened. Absent = API client: write as given.
     if (loadedQuantity !== undefined && loadedQuantity !== null && !isStockQuantity(loadedQuantity)) {
       return new NextResponse("loadedQuantity must be a whole number, 0 or more", { status: 400 });
     }
-    const writeQuantity = loadedQuantity === undefined || loadedQuantity === null || quantity !== loadedQuantity;
+    const writeQuantity = loadedQuantity === undefined || quantity !== loadedQuantity;
 
-    if (maxQuantity === undefined || maxQuantity === null || maxQuantity === "") {
-      return new NextResponse("Max Quantity is required", { status: 400 });
-    }
+    const normalizedMaxQuantity = maxQuantity === undefined || maxQuantity === null || maxQuantity === "" ? null : maxQuantity;
 
-    if (!isMaxQuantity(maxQuantity)) {
+    if (normalizedMaxQuantity !== null && !isMaxQuantity(normalizedMaxQuantity)) {
       return new NextResponse("Max Quantity must be a whole number, 1 or more", { status: 400 });
     }
 
@@ -271,7 +271,7 @@ export async function PATCH(
           categoryId,
           description,
           ...(writeQuantity ? { quantity } : {}),
-          maxQuantity,
+          maxQuantity: normalizedMaxQuantity,
           isFeatured,
           isArchived,
           images: {

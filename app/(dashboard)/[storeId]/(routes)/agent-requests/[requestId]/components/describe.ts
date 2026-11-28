@@ -110,8 +110,8 @@ export function summarize(r: RequestLike, lookups: Lookups = {}): Summary {
   if (feature === "products") {
     add("Name", body.name);
     add("Price (₹)", body.price === null ? "On request (a quote)" : body.price);
-    add("Quantity in stock", body.quantity);
-    add("Max per order", body.maxQuantity);
+    add("Quantity in stock", body.quantity === null ? "Not tracked" : body.quantity);
+    add("Max per order", body.maxQuantity === null ? "No limit" : body.maxQuantity);
     if (body.categoryId !== undefined) add("Category", lookups.categoryName ?? `id ${String(body.categoryId)}`);
     add("Featured", body.isFeatured);
     add("Archived", body.isArchived);

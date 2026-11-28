@@ -37,7 +37,7 @@ export const checkoutSchema = z
         z
           .object({
             productId: z.string().trim().min(1).max(100),
-            quantity: z.number().int().min(1).max(1000),
+            quantity: z.number().int().min(1).max(2_147_483_647),
           })
           .strict(),
       )
@@ -316,7 +316,7 @@ async function placeOrder(
 // ---------------------------------------------------------------- stock
 
 type Wanted = { productId: string; quantity: number };
-type ProductRow = { id: string; name: string; price: Prisma.Decimal | null; maxQuantity: number };
+type ProductRow = { id: string; name: string; price: Prisma.Decimal | null; maxQuantity: number | null };
 /** A product whose stock just reached 0, with its category (the storefront refreshes both). */
 export type SoldOut = { id: string; categoryId: string };
 
@@ -326,15 +326,16 @@ type CheckedProduct = Prisma.ProductGetPayload<{ select: typeof productCheckSele
 const byId = (a: Wanted, b: Wanted) => (a.productId < b.productId ? -1 : a.productId > b.productId ? 1 : 0);
 
 /** The refusals of a checkout, in one place: not sold here (or archived), or not enough stock. */
-function refuse(item: Wanted, p: { name: string; quantity: number; isArchived: boolean } | undefined): never {
+function refuse(item: Wanted, p: { name: string; quantity: number | null; isArchived: boolean } | undefined): never {
   if (!p || p.isArchived) {
     throw new OrderError("PRODUCT_UNAVAILABLE", p ? `${p.name} is no longer sold` : "A product in the cart is not sold in this store", { productId: item.productId });
   }
-  throw new OrderError("OUT_OF_STOCK", `Only ${Math.max(p.quantity, 0)} of ${p.name} left`, { productId: item.productId, available: Math.max(p.quantity, 0) });
+  const available = Math.max(p.quantity ?? 0, 0);
+  throw new OrderError("OUT_OF_STOCK", `Only ${available} of ${p.name} left`, { productId: item.productId, available });
 }
-/** ... and over the per-order limit. */
+/** ... and over the per-order limit (null = no limit). */
 function checkLimit(item: Wanted, p: ProductRow) {
-  if (item.quantity > p.maxQuantity) {
+  if (p.maxQuantity !== null && item.quantity > p.maxQuantity) {
     throw new OrderError("QUANTITY_LIMIT", `At most ${p.maxQuantity} of ${p.name} per order`, { productId: item.productId, maxQuantity: p.maxQuantity });
   }
 }
@@ -353,7 +354,7 @@ function checkProducts(items: Wanted[], products: CheckedProduct[]): Map<string,
   const found = new Map(products.map((p) => [p.id, p]));
   for (const item of [...items].sort(byId)) {
     const p = found.get(item.productId);
-    if (!p || p.isArchived || p.quantity < item.quantity) refuse(item, p);
+    if (!p || p.isArchived || (p.quantity !== null && p.quantity < item.quantity)) refuse(item, p);
     checkLimit(item, p);
   }
   return found;
@@ -361,24 +362,27 @@ function checkProducts(items: Wanted[], products: CheckedProduct[]): Map<string,
 
 /**
  * Takes the stock of ALL products in ONE statement. The rows are locked first in id order (no deadlocks), then the
- * WHERE is the guard: only this store, not archived, enough left. A missing row means a refusal (OrderError): the
- * caller's transaction rolls back, so the products we did change get their stock back. Used by checkout and by a
- * customer accepting a quote (lib/orders/quote.ts). Also returns the ids that just ran out (stock reached 0).
+ * WHERE is the guard: only this store, not archived, enough left (or stock not tracked: quantity IS NULL). A missing
+ * row means a refusal (OrderError): the caller's transaction rolls back, so the products we did change get their stock
+ * back. Used by checkout and by a customer accepting a quote (lib/orders/quote.ts). Also returns the ids that just ran
+ * out (tracked stock reached 0).
  */
 export async function takeStock(tx: Prisma.TransactionClient, storeId: string, items: Wanted[]): Promise<{ taken: Map<string, ProductRow>; soldOut: SoldOut[] }> {
   const wanted = [...items].sort(byId);
   const ids = wanted.map((i) => i.productId);
   const qtys = wanted.map((i) => i.quantity);
-  const rows = await tx.$queryRaw<(ProductRow & { left: number; categoryId: string })[]>`
+  const rows = await tx.$queryRaw<(ProductRow & { left: number | null; categoryId: string })[]>`
     WITH want AS (SELECT * FROM unnest(${ids}::text[], ${qtys}::int[]) AS w(id, qty)),
     locked AS (SELECT p.id FROM "Product" p WHERE p.id = ANY(${ids}::text[]) AND p."storeId" = ${storeId} ORDER BY p.id FOR UPDATE)
-    UPDATE "Product" p SET quantity = p.quantity - want.qty, "updatedAt" = now()
+    UPDATE "Product" p
+    SET quantity = CASE WHEN p.quantity IS NULL THEN NULL ELSE p.quantity - want.qty END,
+        "updatedAt" = now()
     FROM want, locked
-    WHERE p.id = want.id AND p.id = locked.id AND p."isArchived" = false AND p.quantity >= want.qty
+    WHERE p.id = want.id AND p.id = locked.id AND p."isArchived" = false AND (p.quantity IS NULL OR p.quantity >= want.qty)
     RETURNING p.id, p.name, p.price, p."maxQuantity", p.quantity AS "left", p."categoryId"`;
   const taken = new Map(rows.map((r) => [r.id, r]));
   // Refuse with the first problem in id order (unavailable / out of stock / quantity limit).
-  let missing: Map<string, { name: string; quantity: number; isArchived: boolean }> | null = null;
+  let missing: Map<string, { name: string; quantity: number | null; isArchived: boolean }> | null = null;
   for (const item of wanted) {
     const p = taken.get(item.productId);
     if (!p) {
@@ -389,6 +393,6 @@ export async function takeStock(tx: Prisma.TransactionClient, storeId: string, i
     }
     checkLimit(item, p);
   }
-  // The guard (quantity >= want) means every row had stock before, so "nothing left now" is exactly "just sold out".
-  return { taken, soldOut: rows.filter((r) => r.left <= 0).map((r) => ({ id: r.id, categoryId: r.categoryId })) };
+  // Tracked rows had quantity >= want before, so left <= 0 is exactly "just sold out". Untracked rows stay null.
+  return { taken, soldOut: rows.filter((r) => r.left !== null && r.left <= 0).map((r) => ({ id: r.id, categoryId: r.categoryId })) };
 }

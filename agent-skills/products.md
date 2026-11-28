@@ -40,9 +40,9 @@ All query parameters on `GET {{BASE}}/products` are optional:
 | --- | --- | --- | --- | --- |
 | `name` | string | Yes | Max 255 characters. | Omitting or `""` returns `400`. |
 | `price` | number, string, or `null` | Yes | Rupees above `0` with at most 2 decimals (`499` or `"499.50"`), or `null` for price on request. No currency symbol or commas. | Omitting or `""` returns `400`. `null` sets price on request. |
-| `quantity` | integer | Yes | Whole JSON number, `0` or more (`0` means out of stock). | Omitting returns `400`. Ignored when `loadedQuantity` equals `quantity`. |
-| `loadedQuantity` | integer | No (PATCH only) | Whole JSON number, `0` or more. Send the `quantity` you read from `GET` when you do not mean to change stock. | Omitting writes `quantity` as given and can overwrite live sales. |
-| `maxQuantity` | integer | Yes | Whole JSON number, `1` or more (per-order limit). | Omitting returns `400`. |
+| `quantity` | integer or `null` | Yes | Whole JSON number, `0` or more (`0` means out of stock), or `null` to skip stock tracking (always available, never deducted on orders). | Omitting or `""` returns `400`. `null` turns off stock tracking. Ignored when `loadedQuantity` equals `quantity`. |
+| `loadedQuantity` | integer or `null` | No (PATCH only) | Whole JSON number, `0` or more, or `null`. Send the `quantity` you read from `GET` when you do not mean to change stock. | Omitting writes `quantity` as given and can overwrite live sales. |
+| `maxQuantity` | integer or `null` | No | Whole JSON number, `1` or more (per-order limit), or `null` for no per-order limit. | Omitting, `""`, or `null` clears the per-order limit. |
 | `categoryId` | string | Yes | Must belong to this store. | Omitting returns `400`. |
 | `images` | array | Yes | At least 1 `{ url, order }`. `url` starts with `http://` or `https://`. `order` is a whole number. | Omitting or `[]` returns `400`. Replaces all images. Always send `order` on PATCH (an omitted `order` becomes `1` for every image). |
 | `filteritems` | array | No | Array of `{ "valueId": "<id>" }`. Every `valueId` must belong to this store. | **Always replaces the whole list.** Omitting or `[]` removes every filter from the product. |
@@ -143,7 +143,8 @@ Past orders keep their own copy of product name and price, so editing a product 
 
 | Status | Message | Fix |
 | --- | --- | --- |
-| `400` | `Name is required` / `Category id is required` / `Quantity is required` / `Max Quantity is required` / `Images are required` | Send the missing required field. |
+| `400` | `Name is required` / `Category id is required` / `Images are required` | Send the missing required field. |
+| `400` | `Quantity is required (or null to skip stock tracking)` | Send a whole number (`0` or more) or explicit `null`. |
 | `400` | `Price is required (or null for Price on request)` | Send a positive rupee amount or explicit `null`. |
 | `400` | `Price must be a positive amount with at most 2 decimals` | Send a positive number or string such as `499` or `"499.50"`. Remove symbols and commas. |
 | `400` | `Quantity must be a whole number, 0 or more` / `loadedQuantity must be a whole number, 0 or more` | Send whole JSON numbers, `0` or more. |

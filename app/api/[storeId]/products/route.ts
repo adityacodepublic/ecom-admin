@@ -61,19 +61,17 @@ export async function POST(
       return new NextResponse(checkedPrice.error, { status: 400 });
     }
 
-    if (quantity === undefined || quantity === null || quantity === "") {
-      return new NextResponse("Quantity is required", { status: 400 });
+    if (quantity === undefined || quantity === "") {
+      return new NextResponse("Quantity is required (or null to skip stock tracking)", { status: 400 });
     }
 
-    if (!isStockQuantity(quantity)) {
+    if (quantity !== null && !isStockQuantity(quantity)) {
       return new NextResponse("Quantity must be a whole number, 0 or more", { status: 400 });
     }
 
-    if (maxQuantity === undefined || maxQuantity === null || maxQuantity === "") {
-      return new NextResponse("Max Quantity is required", { status: 400 });
-    }
+    const normalizedMaxQuantity = maxQuantity === undefined || maxQuantity === null || maxQuantity === "" ? null : maxQuantity;
 
-    if (!isMaxQuantity(maxQuantity)) {
+    if (normalizedMaxQuantity !== null && !isMaxQuantity(normalizedMaxQuantity)) {
       return new NextResponse("Max Quantity must be a whole number, 1 or more", { status: 400 });
     }
 
@@ -99,7 +97,7 @@ export async function POST(
         description,
         storeId: resolvedParams.storeId,
         quantity,
-        maxQuantity,
+        maxQuantity: normalizedMaxQuantity,
         images: {
           createMany: {
             data: checkedImages.data.map((image, index) => ({

@@ -41,14 +41,26 @@ const MarkdownEditor = dynamic(() => import("@/components/ui/markdown-editor"), 
   loading: () => <div className="h-40 rounded-md border" />,
 });
 
+const optionalPositiveInt = z.preprocess(
+  (v) => (v === "" || v === null || v === undefined ? undefined : Number(v)),
+  z.number({ invalid_type_error: "Enter a whole number, 1 or more" }).int("Enter a whole number, 1 or more").min(1, "Enter a whole number, 1 or more").optional(),
+);
+
+const optionalNonNegativeInt = z.preprocess(
+  (v) => (v === "" || v === null || v === undefined ? undefined : Number(v)),
+  z.number().optional(),
+);
+
 const formSchema = z.object({
   name: z.string().min(1).max(255),
   images: z.object({ url: z.string(), order: z.number() }).array(),
   price: z.coerce.number().optional(),
   // "Price on request": no price; customers ask for a quote and the price is set on their order.
   priceOnRequest: z.boolean().default(false),
-  quantity: z.coerce.number().int().min(0),
-  maxQuantity: z.coerce.number().int().min(1),
+  quantity: optionalNonNegativeInt,
+  // "Don't track stock": quantity is saved as null (always available, never deducted on orders).
+  untrackedStock: z.boolean().default(false),
+  maxQuantity: optionalPositiveInt,
   categoryId: z.string().min(1),
   filteritems: z
     .array(
@@ -64,6 +76,9 @@ const formSchema = z.object({
 }).superRefine((v, ctx) => {
   if (!v.priceOnRequest && !(typeof v.price === "number" && v.price >= 1)) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["price"], message: "Enter a price of at least ₹1, or turn on Price on request" });
+  }
+  if (!v.untrackedStock && !(typeof v.quantity === "number" && Number.isInteger(v.quantity) && v.quantity >= 0)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["quantity"], message: "Enter a whole number (0 or more), or turn on Don't track stock" });
   }
 });
 
@@ -143,6 +158,9 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         description: initialData.description ?? "",
         price: initialData.price === null ? undefined : parseFloat(String(initialData.price)),
         priceOnRequest: initialData.price === null,
+        quantity: initialData.quantity === null ? undefined : initialData.quantity,
+        untrackedStock: initialData.quantity === null,
+        maxQuantity: initialData.maxQuantity === null ? undefined : initialData.maxQuantity,
         filteritems: prefillFilterItems,
         images: initialData.images
           .sort((a, b) => a.order - b.order)
@@ -157,7 +175,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         price: 0,
         priceOnRequest: false,
         quantity: 0,
-        maxQuantity: 0,
+        untrackedStock: false,
+        maxQuantity: undefined,
         categoryId: "",
         filteritems: [],
         isFeatured: false,
@@ -171,6 +190,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   });
 
   const onRequest = form.watch("priceOnRequest");
+  const untrackedStock = form.watch("untrackedStock");
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -185,10 +205,12 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   const onSubmit = async (data: ProductFormValues) => {
     try {
       setLoading(true);
-      const { priceOnRequest, ...rest } = data;
+      const { priceOnRequest, untrackedStock: skipStock, ...rest } = data;
       const submitData = {
         ...rest,
         price: priceOnRequest ? null : data.price, // null = "Price on request"
+        quantity: skipStock ? null : data.quantity, // null = stock not tracked
+        maxQuantity: data.maxQuantity ?? null, // null = no per-order limit
         filteritems: data.filteritems || [],
       };
       if (initialData) {
@@ -351,14 +373,44 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Quantity</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      disabled={loading}
-                      placeholder="0 - 1000"
-                      {...field}
-                    />
-                  </FormControl>
+                  {untrackedStock ? (
+                    <p className="flex h-9 items-center text-sm text-muted-foreground">Stock is not tracked. Always available to order.</p>
+                  ) : (
+                    <FormControl>
+                      <Input
+                        type="number"
+                        disabled={loading}
+                        placeholder="0 - 1000"
+                        {...field}
+                        value={field.value ?? ""}
+                      />
+                    </FormControl>
+                  )}
+                  <FormField
+                    control={form.control}
+                    name="untrackedStock"
+                    render={({ field: toggle }) => (
+                      <div className="flex w-fit items-center gap-2 text-sm">
+                        <Checkbox
+                          id="untracked-stock"
+                          disabled={loading}
+                          checked={toggle.value}
+                          onCheckedChange={(v) => {
+                            toggle.onChange(v === true);
+                            form.clearErrors("quantity");
+                          }}
+                        />
+                        <label htmlFor="untracked-stock" className="cursor-pointer">
+                          Don&apos;t track stock
+                        </label>
+                      </div>
+                    )}
+                  />
+                  <FormDescription>
+                    {untrackedStock
+                      ? "Stock never runs out and is not deducted on orders."
+                      : "Turn on Don't track stock for made-to-order or bulk items."}
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -368,15 +420,17 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               name="maxQuantity"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Maximum Quantity</FormLabel>
+                  <FormLabel>Maximum Quantity (optional)</FormLabel>
                   <FormControl>
                     <Input
                       type="number"
                       disabled={loading}
-                      placeholder="Maximum Quantity a customer can buy"
+                      placeholder="No limit"
                       {...field}
+                      value={field.value ?? ""}
                     />
                   </FormControl>
+                  <FormDescription>Leave blank for no per-order limit.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

@@ -59,8 +59,8 @@ model Product {
   price       Decimal?     @db.Decimal(12, 2) // rupees, exact (2 decimals). In code: integer paise (lib/money.ts). null = "Price on request" (a quote)
   isFeatured  Boolean      @default(false)
   isArchived  Boolean      @default(false)
-  quantity    Int
-  maxQuantity Int
+  quantity    Int? // null = stock not tracked (made to order)
+  maxQuantity Int? // null = no per-order limit
   description String? @db.Text // Markdown shown on the store product page
   images      Image[] // Relation to Image model
   filteritems filterItem[] // Relation to Filter model

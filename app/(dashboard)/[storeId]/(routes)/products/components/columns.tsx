@@ -14,7 +14,7 @@ export type ProductColumn = {
   category: string;
   isFeatured: boolean;
   isArchived: boolean;
-  quantity: number;
+  quantity: number | null;
   filterValues: Record<string, string>; // the product's value of each store filter (e.g. "8 GB"), by filter id
 };
 
@@ -34,7 +34,7 @@ export function productColumns(storeFilters: StoreFilter[]): ColumnDef<ProductCo
     { accessorKey: "name", header: "Name", size: 300 },
     { accessorKey: "category", ...byOption<ProductColumn>("Category") },
     { accessorKey: "priceRupees", cell: ({ row }) => row.original.price, ...byRange<ProductColumn>("Price", "₹") },
-    { accessorKey: "quantity", ...byRange<ProductColumn>("Stock") },
+    { accessorKey: "quantity", cell: ({ row }) => (row.original.quantity === null ? "—" : row.original.quantity), ...byRange<ProductColumn>("Stock") },
     { accessorKey: "isFeatured", cell: yesNoCell("isFeatured"), ...byOption<ProductColumn>("Featured", yesNo) },
     { accessorKey: "isArchived", cell: yesNoCell("isArchived"), ...byOption<ProductColumn>("Archived", yesNo) },
     ...storeFilters.map((f): ColumnDef<ProductColumn> => ({

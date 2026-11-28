@@ -10,7 +10,7 @@ import { OrderError } from "@/lib/orders/errors";
  * Quantities are absolute, not "+1", so a repeated request gives the same result.
  */
 export const CART_MAX_LINES = 100;
-const CART_MAX_QUANTITY = 10_000;
+const CART_MAX_QUANTITY = 2_147_483_647;
 
 export const cartChangesSchema = z
   .object({
@@ -44,8 +44,12 @@ const PRODUCT_SELECT = {
   filteritems: { select: { value: { select: { value: true, unit: true, filter: { select: { name: true } } } } } },
 } satisfies Prisma.ProductSelect;
 
-/** How many one shopper may buy now (the same rule as the store's quantity check). */
-const allowedOf = (p: { quantity: number; maxQuantity: number }) => Math.max(0, Math.min(p.quantity, p.maxQuantity || p.quantity));
+/** How many one shopper may buy now (null = no limit, 0 = out of stock). */
+const allowedOf = (p: { quantity: number | null; maxQuantity: number | null }): number | null => {
+  if (p.quantity !== null && p.quantity <= 0) return 0;
+  if (p.quantity !== null && p.maxQuantity !== null) return Math.min(p.quantity, p.maxQuantity);
+  return p.quantity ?? p.maxQuantity ?? null;
+};
 
 /**
  * The saved cart, oldest line first. Deleted or archived products are removed for good. Out-of-stock ones stay,
@@ -71,11 +75,11 @@ export async function getCart(storeId: string, customerId: string) {
       continue;
     }
     const allowed = allowedOf(product);
-    if (allowed <= 0) {
+    if (allowed !== null && allowed <= 0) {
       items.push({ ...product, orderQuantity: row.quantity });
       continue;
     }
-    const quantity = Math.min(row.quantity, allowed);
+    const quantity = allowed === null ? row.quantity : Math.min(row.quantity, allowed);
     if (quantity !== row.quantity) lowered.push({ id: row.id, quantity });
     items.push({ ...product, orderQuantity: quantity });
   }
